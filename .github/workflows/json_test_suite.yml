@@ -1,0 +1,29 @@
+name: JSON Schema Test Suite
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Clone test suite
+        run: git clone https://github.com/json-schema-org/JSON-Schema-Test-Suite.git
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -v .
+
+      - name: Run tests
+        run: scripts/json_tests.py JSON-Schema-Test-Suite/tests/latest
+
