@@ -16,10 +16,15 @@ jobs:
       - name: Clone test suite
         run: git clone https://github.com/json-schema-org/JSON-Schema-Test-Suite.git
 
-      - name: Set up Python
+      - name: Set up python
         uses: actions/setup-python@v3
         with:
           python-version: '3.10'
+
+      - name: Set up rust
+        uses: actions/setup-rust@v2
+        with:
+          rust-version: '1.57.0'
 
       - name: Install dependencies
         run: pip install -v .
