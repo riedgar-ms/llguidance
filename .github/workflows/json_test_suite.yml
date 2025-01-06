@@ -5,26 +5,22 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch: # Allows manual triggering of the workflow
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Set up python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Clone test suite
         run: git clone https://github.com/json-schema-org/JSON-Schema-Test-Suite.git
-
-      - name: Set up python
-        uses: actions/setup-python@v3
-        with:
-          python-version: '3.10'
-
-      - name: Set up rust
-        uses: actions/setup-rust@v2
-        with:
-          rust-version: '1.57.0'
 
       - name: Install dependencies
         run: pip install -v .
