@@ -1,17 +1,12 @@
 use anyhow::{bail, Result};
 use llguidance::{
-    api::{ParserLimits, TopLevelGrammar},
+    api::ParserLimits,
     toktrie::{InferenceCapabilities, TokEnv},
     Constraint, JsonCompileOptions, TokenParser,
 };
 use serde_json::Value;
 
-use crate::cases::Test;
-
-use super::{
-    cases::Case,
-    results::{CaseResult, TestResult},
-};
+use super::{cases::Case, results::TestResult};
 
 pub fn run_case_tests(case: Case, tok_env: TokEnv) -> Vec<TestResult> {
     let opts = JsonCompileOptions::default();
