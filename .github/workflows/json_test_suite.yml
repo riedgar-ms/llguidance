@@ -26,5 +26,8 @@ jobs:
         run: pip install -v .
 
       - name: Run tests
-        run: scripts/json_tests.py JSON-Schema-Test-Suite/tests/latest
+        working-directory: json_test_suite
+        run: |
+          cargo run --release --  --root-dir "../JSON-Schema-Test-Suite" --output-path "test_suite_results.json"
+          cat test_suite_results.json
 
