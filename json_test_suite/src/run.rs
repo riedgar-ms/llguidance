@@ -20,12 +20,14 @@ pub fn run_case_tests(case: Case, tok_env: TokEnv) -> Vec<TestResult> {
                 .map(|_| TestResult {
                     valid: false,
                     success: true,
+                    error: Some("compile error".to_string()), // still document the error
                 })
                 .collect::<Vec<_>>();
         }
         return vec![TestResult {
             valid: false,
             success: false,
+            error: Some("compile error".to_string()),
         }];
     }
     let grammar = compiled.unwrap();
@@ -51,6 +53,7 @@ pub fn run_case_tests(case: Case, tok_env: TokEnv) -> Vec<TestResult> {
             TestResult {
                 valid: test.valid,
                 success: inner_result.is_ok() == test.valid,
+                error: inner_result.err().map(|e| e.to_string()), // document the error even for invalid tests
             }
         })
         .collect()

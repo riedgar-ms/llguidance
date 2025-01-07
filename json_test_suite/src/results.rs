@@ -4,6 +4,7 @@ use serde::Serialize;
 pub struct TestResult {
     pub valid: bool,
     pub success: bool,
+    pub error: Option<String>,
 }
 
 #[derive(Serialize, Debug)]
