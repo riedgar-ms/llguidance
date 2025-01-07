@@ -2,7 +2,11 @@ mod cases;
 mod results;
 mod run;
 
-use crate::{cases::Case, results::CaseResult, run::run_case_tests};
+use crate::{
+    cases::Case,
+    results::{CaseResult, CategoryResult},
+    run::run_case_tests,
+};
 use clap::{Parser, ValueEnum};
 use llguidance::toktrie::TokEnv;
 use std::{
@@ -106,18 +110,21 @@ fn main() {
             .to_env();
     let mut results = Vec::new();
     for test_file in test_files {
+        let mut case_results = Vec::new();
         let test_file = test_file.as_path();
         let file_name = test_file.file_stem().unwrap().to_str().unwrap();
         let cases: Vec<Case> =
             serde_json::from_str(&fs::read_to_string(test_file).unwrap()).unwrap();
-        for (i, case) in cases.into_iter().enumerate() {
+        for case in cases.into_iter() {
             let test_results = run_case_tests(case, tok_env.clone());
-            results.push(CaseResult {
-                category: file_name.to_string(),
-                index: i,
+            case_results.push(CaseResult {
                 tests: test_results,
             });
         }
+        results.push(CategoryResult {
+            category: file_name.to_string(),
+            results: case_results,
+        });
     }
     let output_json = serde_json::to_string(&results).unwrap();
     fs::write(&options.output_path, output_json).unwrap();

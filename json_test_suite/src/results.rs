@@ -8,7 +8,11 @@ pub struct TestResult {
 
 #[derive(Serialize, Debug)]
 pub struct CaseResult {
-    pub category: String,
-    pub index: usize,
     pub tests: Vec<TestResult>,
+}
+
+#[derive(Serialize, Debug)]
+pub struct CategoryResult {
+    pub category: String,
+    pub results: Vec<CaseResult>,
 }
