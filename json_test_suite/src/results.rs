@@ -14,5 +14,5 @@ pub struct CaseResult {
 #[derive(Serialize, Debug)]
 pub struct CategoryResult {
     pub category: String,
-    pub results: Vec<CaseResult>,
+    pub cases: Vec<CaseResult>,
 }

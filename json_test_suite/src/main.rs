@@ -123,7 +123,7 @@ fn main() {
         }
         results.push(CategoryResult {
             category: file_name.to_string(),
-            results: case_results,
+            cases: case_results,
         });
     }
     let output_json = serde_json::to_string(&results).unwrap();
