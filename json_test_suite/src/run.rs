@@ -24,11 +24,15 @@ pub fn run_case_tests(case: Case, tok_env: TokEnv) -> Vec<TestResult> {
                 })
                 .collect::<Vec<_>>();
         }
-        return vec![TestResult {
-            valid: false,
-            success: false,
-            error: Some("compile error".to_string()),
-        }];
+        return case.tests.iter()
+            .map(|test| {
+                TestResult {
+                    valid: test.valid,
+                    success: false,
+                    error: Some("compile error".to_string()), // document the error even for invalid tests
+                }
+            })
+            .collect();
     }
     let grammar = compiled.unwrap();
     let parser = TokenParser::from_llguidance_json(
