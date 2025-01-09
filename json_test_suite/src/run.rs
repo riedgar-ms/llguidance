@@ -12,6 +12,7 @@ pub fn run_case_tests(case: Case, tok_env: TokEnv) -> Vec<TestResult> {
     let opts = JsonCompileOptions::default();
     let compiled = opts.json_to_llg_no_validate(case.schema);
     if compiled.is_err() {
+        let err = compiled.err().unwrap();
         // If the tests are all invalid, let's call a compile error a success. I guess.
         if case.tests.iter().all(|test| !test.valid) {
             return case
@@ -20,16 +21,18 @@ pub fn run_case_tests(case: Case, tok_env: TokEnv) -> Vec<TestResult> {
                 .map(|_| TestResult {
                     valid: false,
                     success: true,
-                    error: Some("compile error".to_string()), // still document the error
+                    error: Some(format!("compile error: {}", err)), // still document the error
                 })
                 .collect::<Vec<_>>();
         }
-        return case.tests.iter()
+        return case
+            .tests
+            .iter()
             .map(|test| {
                 TestResult {
                     valid: test.valid,
                     success: false,
-                    error: Some("compile error".to_string()), // document the error even for invalid tests
+                    error: Some(format!("compile error: {}", err)), // document the error even for invalid tests
                 }
             })
             .collect();
