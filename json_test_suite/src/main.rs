@@ -7,11 +7,15 @@ use crate::{
     results::{CaseResult, CategoryResult},
     run::run_case_tests,
 };
+use anyhow::{bail, Result};
 use clap::{Parser, ValueEnum};
 use llguidance::toktrie::TokEnv;
+use referencing::Retrieve;
+use serde_json::{Map, Value};
 use std::{
     fs,
     path::{Path, PathBuf},
+    rc::Rc,
 };
 
 #[derive(Parser, Debug)]
@@ -88,6 +92,46 @@ fn list_test_files_in_dir(dir: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
+#[derive(Debug, Clone)]
+struct MapRetrieverError(String);
+impl std::fmt::Display for MapRetrieverError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Resource not found: {}", self.0)
+    }
+}
+impl std::error::Error for MapRetrieverError {}
+
+struct MapRetriever {
+    map: Map<String, Value>,
+}
+impl Retrieve for MapRetriever {
+    fn retrieve(
+        &self,
+        uri: &referencing::Uri<&str>,
+    ) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
+        match self.map.get(uri.as_str()) {
+            Some(value) => Ok(value.clone()),
+            None => Err(Box::new(MapRetrieverError(uri.as_str().to_string()))),
+        }
+    }
+}
+
+fn make_remotes_retriever(root_dir: &Path) -> Result<MapRetriever> {
+    let output =
+        std::process::Command::new(root_dir.join("bin/jsonschema_suite").to_str().unwrap())
+            .arg("remotes")
+            .output()
+            .expect("Failed to execute 'bin/jsonschema_suite remotes'");
+
+    let stdout = String::from_utf8(output.stdout)?;
+    let value: Value = serde_json::from_str(&stdout)?;
+    if let Value::Object(m) = value {
+        Ok(MapRetriever { map: m })
+    } else {
+        bail!("Expected 'bin/jsonschema_suite remotes' to return a JSON object")
+    }
+}
+
 fn main() {
     let options = CliOptions::parse();
     let root_dir = Path::new(&options.root_dir);
@@ -104,10 +148,13 @@ fn main() {
     });
     let test_files = list_test_files_in_dir(&test_dir);
 
+    let retriever = Rc::new(make_remotes_retriever(root_dir).unwrap());
+
     let tok_env: TokEnv =
         toktrie_hf_tokenizers::ByteTokenizerEnv::from_name(&options.tokenizer, None)
             .unwrap()
             .to_env();
+
     let mut results = Vec::new();
     for test_file in test_files {
         let mut case_results = Vec::new();
@@ -116,7 +163,11 @@ fn main() {
         let cases: Vec<Case> =
             serde_json::from_str(&fs::read_to_string(test_file).unwrap()).unwrap();
         for case in cases.into_iter() {
-            let test_results = run_case_tests(case, tok_env.clone());
+            let test_results = run_case_tests(
+                case,
+                tok_env.clone(),
+                Rc::clone(&retriever) as Rc<dyn Retrieve>,
+            );
             case_results.push(CaseResult {
                 tests: test_results,
             });

@@ -1,15 +1,24 @@
+use std::rc::Rc;
+
 use anyhow::{bail, Result};
 use llguidance::{
     api::ParserLimits,
     toktrie::{InferenceCapabilities, TokEnv},
     Constraint, JsonCompileOptions, TokenParser,
 };
+use referencing::Retrieve;
 use serde_json::Value;
 
 use super::{cases::Case, results::TestResult};
 
-pub fn run_case_tests(case: Case, tok_env: TokEnv) -> Vec<TestResult> {
-    let opts = JsonCompileOptions::default();
+pub fn run_case_tests(case: Case, tok_env: TokEnv, retriever: Rc<dyn Retrieve>) -> Vec<TestResult> {
+    let opts = JsonCompileOptions::new(
+        ",".to_string(),
+        ":".to_string(),
+        true,
+        false,
+        Some(retriever),
+    );
     let compiled = opts.json_to_llg_no_validate(case.schema);
     if compiled.is_err() {
         let err = compiled.err().unwrap();

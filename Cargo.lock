@@ -1056,6 +1056,7 @@ dependencies = [
  "anyhow",
  "clap",
  "llguidance",
+ "referencing 0.26.1",
  "serde",
  "serde_json",
  "toktrie_hf_tokenizers",
