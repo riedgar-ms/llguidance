@@ -8,8 +8,8 @@ mod toktree;
 
 pub use svob::{SimpleVob, SimpleVobIter};
 pub use toktree::{
-    Recognizer, SpecialToken, TokEnv, TokEnvWithTrie, TokRxInfo, TokTrie, TokenId, TokenizerEnv,
-    TrieNode,
+    parse_numeric_token, Recognizer, TokEnv, TokEnvWithTrie, TokRxInfo, TokTrie, TokenId,
+    TokenizerEnv, TrieNode, INVALID_TOKEN,
 };
 
 /// Defines what is allowed in Branch

@@ -57,16 +57,6 @@ impl TokRxInfo {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum SpecialToken {
-    Unknown,
-    Padding,
-    Separator,
-    BeginningOfSentence,
-    EndOfSentence,
-    EndOfTurn,
-}
-
 pub trait Recognizer {
     /// for _ in 0..num { stack.pop() }
     fn pop_bytes(&mut self, num: usize);
@@ -83,8 +73,6 @@ pub trait Recognizer {
             false
         }
     }
-    /// check if stack.top() transitions via tok to a viable state
-    fn special_allowed(&mut self, tok: SpecialToken) -> bool;
     /// Called when iteration over the trie is finished
     /// Stack has exactly one element then, except when iteration started from non-root node.
     /// In that case, the stack may have more than one element, and trie_finished() needs to pop the excessive elements.
@@ -98,6 +86,24 @@ pub trait Recognizer {
         None
     }
     fn save_stats(&mut self, _nodes_walked: usize) {}
+}
+
+/// Parse a special token of the form \xFF [ 1 2 3 4 ]
+/// The initial \xFF is not included in the input.
+/// Returns the number of bytes consumed and the token id.
+pub fn parse_numeric_token(s: &[u8]) -> Option<(usize, TokenId)> {
+    let spec_len = s[0..std::cmp::min(s.len(), 20)]
+        .iter()
+        .position(|&x| x == ']' as u8);
+    if let Some(spec_len) = spec_len {
+        let inner_bytes = &s[1..spec_len];
+        if let Ok(inner_str) = std::str::from_utf8(inner_bytes) {
+            if let Ok(id) = u32::from_str_radix(inner_str, 10) {
+                return Some((spec_len + 1, id as TokenId));
+            }
+        }
+    }
+    None
 }
 
 pub trait TokenizerEnv: Send {
@@ -138,20 +144,12 @@ pub trait TokenizerEnv: Send {
                         idx += spec_len;
                     }
                 }
-            } else if idx + 2 < s.len() && s[idx] == '[' as u8 {
+            } else if idx < s.len() {
                 // tokenize \xff[1234] as token 1234
-                let spec_len = s[idx..std::cmp::min(s.len(), idx + 20)]
-                    .iter()
-                    .position(|&x| x == ']' as u8);
-                if let Some(spec_len) = spec_len {
-                    let inner_bytes = &s[idx + 1..idx + spec_len];
-                    if let Ok(inner_str) = std::str::from_utf8(inner_bytes) {
-                        if let Ok(id) = u32::from_str_radix(inner_str, 10) {
-                            if id < trie.vocab_size() as u32 {
-                                result.push(id as TokenId);
-                                idx += spec_len + 1;
-                            }
-                        }
+                if let Some((n_bytes, tok_id)) = parse_numeric_token(&s[idx..]) {
+                    if tok_id < trie.vocab_size() as u32 {
+                        result.push(tok_id);
+                        idx += n_bytes;
                     }
                 }
             }
@@ -222,6 +220,8 @@ pub struct TrieNode {
     bits: u32,
     bits2: u32,
 }
+
+pub const INVALID_TOKEN: TokenId = 0xffff_ffff;
 
 const NO_TOKEN: u32 = 0xffffff;
 
@@ -329,13 +329,6 @@ impl TokTrie {
         &self.info
     }
 
-    pub fn special_token(&self, tok: SpecialToken) -> TokenId {
-        match tok {
-            SpecialToken::EndOfSentence => self.info.tok_eos,
-            _ => panic!("non-EOS special_token() called"), // TODO?
-        }
-    }
-
     pub fn eos_token(&self) -> TokenId {
         self.info.tok_eos
     }
@@ -364,7 +357,7 @@ impl TokTrie {
         let max_tok = std::cmp::min(max_examples, num_set);
         let mut token_names = Vec::new();
         // make sure we include EOS first if it's allowed
-        if ts1.is_allowed(self.info.tok_eos) {
+        if self.info.tok_eos != INVALID_TOKEN && ts1.is_allowed(self.info.tok_eos) {
             token_names.push("EOS".to_string());
         }
         for idx in 0..self.vocab_size() {
@@ -743,23 +736,6 @@ impl TokTrie {
             .and_then(|n| n.token_id())
     }
 
-    pub fn compute_bias(&self, r: &mut impl Recognizer, logits: &mut SimpleVob) {
-        self.compute_bias_ext(r, logits, &[]);
-    }
-
-    pub fn compute_bias_ext(&self, r: &mut impl Recognizer, logits: &mut SimpleVob, start: &[u8]) {
-        logits.set_all(false);
-        if start.is_empty() {
-            // EOS is only allowed if there is no forced byte prefix
-            for tok in vec![SpecialToken::EndOfSentence] {
-                if r.special_allowed(tok) {
-                    logits.allow_token(self.special_token(tok))
-                }
-            }
-        }
-        self.add_bias(r, logits, start);
-    }
-
     /// Return how many tokens and bytes need to chopped off tokens,
     /// so that we do not limit all possible future tokenizations matching the recognizer.
     pub fn chop_tokens(&self, r: &mut impl Recognizer, tokens: &[TokenId]) -> (usize, usize) {
@@ -1122,9 +1098,6 @@ impl FixedRecognizer {
 impl Recognizer for FixedRecognizer {
     fn collapse(&mut self) {}
     fn trie_finished(&mut self) {}
-    fn special_allowed(&mut self, _: SpecialToken) -> bool {
-        false
-    }
 
     fn pop_bytes(&mut self, num: usize) {
         self.bytes_ptr -= num;

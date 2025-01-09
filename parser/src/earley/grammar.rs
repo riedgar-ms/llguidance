@@ -8,6 +8,7 @@ use std::{fmt::Debug, hash::Hash};
 pub struct SymIdx(u32);
 
 impl SymIdx {
+    pub const BOGUS: SymIdx = SymIdx(u32::MAX);
     pub fn as_usize(&self) -> usize {
         self.0 as usize
     }
@@ -108,6 +109,10 @@ impl SymbolProps {
 
         if props.max_tokens < 10000 {
             outp.push_str(format!(" max_tokens={}", props.max_tokens).as_str());
+        }
+
+        if props.temperature != 0.0 {
+            outp.push_str(format!(" temp={:.2}", props.temperature).as_str());
         }
 
         outp

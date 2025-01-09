@@ -5,7 +5,7 @@ use toktrie::{bytes::limit_str, SimpleVob, TokTrie, TokenId};
 
 use crate::{api::ParserLimits, id32_type};
 
-use super::regexvec::RegexVec;
+use super::regexvec::{LexemeSet, RegexVec};
 
 #[derive(Clone)]
 pub struct LexerSpec {
@@ -97,6 +97,10 @@ impl LexemeSpec {
         }
         f
     }
+
+    pub fn contains_special_token(&self, token: TokenId) -> bool {
+        self.token_ranges.iter().any(|range| range.contains(&token))
+    }
 }
 
 impl Debug for LexemeSpec {
@@ -144,51 +148,44 @@ impl LexerSpec {
         Ok(self.current_class)
     }
 
-    pub fn alloc_lexeme_set(&self) -> SimpleVob {
-        SimpleVob::alloc(self.lexemes.len())
+    pub fn alloc_lexeme_set(&self) -> LexemeSet {
+        LexemeSet::new(self.lexemes.len())
     }
 
     pub fn alloc_grammar_set(&self) -> SimpleVob {
         SimpleVob::alloc(self.skip_by_class.len())
     }
 
-    pub fn all_lexemes(&self) -> SimpleVob {
-        let mut v = self.alloc_lexeme_set();
-        self.lexemes[0..self.lexemes.len() - self.num_extra_lexemes]
-            .iter()
-            .enumerate()
-            .for_each(|(idx, _)| v.set(idx, true));
-        v
-    }
-
-    pub fn lazy_lexemes(&self) -> SimpleVob {
+    pub fn lexeme_set(&self, cond: impl Fn(&LexemeSpec) -> bool) -> LexemeSet {
         let mut v = self.alloc_lexeme_set();
         for (idx, lex) in self.lexemes.iter().enumerate() {
-            if lex.lazy {
-                v.set(idx, true);
+            if cond(lex) {
+                v.add(LexemeIdx::new(idx));
             }
         }
         v
     }
 
-    pub fn eos_ending_lexemes(&self) -> SimpleVob {
-        let mut v = self.alloc_lexeme_set();
-        for (idx, lex) in self.lexemes.iter().enumerate() {
-            if lex.ends_at_eos {
-                v.set(idx, true);
-            }
-        }
-        v
+    pub fn all_lexemes(&self) -> LexemeSet {
+        self.lexeme_set(|_| true)
     }
 
-    pub fn token_range_lexemes(&self, possible: &SimpleVob) -> Vec<&LexemeSpec> {
+    pub fn lazy_lexemes(&self) -> LexemeSet {
+        self.lexeme_set(|lex| lex.lazy)
+    }
+
+    pub fn eos_ending_lexemes(&self) -> LexemeSet {
+        self.lexeme_set(|lex| lex.ends_at_eos)
+    }
+
+    pub fn token_range_lexemes(&self, possible: &LexemeSet) -> Vec<&LexemeSpec> {
         let mut res = Vec::new();
-        possible.iter_set_entries(|idx| {
-            let spec = &self.lexemes[idx];
+        for idx in possible.iter() {
+            let spec = &self.lexemes[idx.as_usize()];
             if spec.token_ranges.len() > 0 {
                 res.push(spec);
             }
-        });
+        }
         res
     }
 
@@ -374,11 +371,11 @@ impl LexerSpec {
         }
     }
 
-    pub fn dbg_lexeme_set(&self, vob: &SimpleVob) -> String {
+    pub fn dbg_lexeme_set(&self, vob: &LexemeSet) -> String {
         format!(
             "Lexemes( {} )",
             vob.iter()
-                .map(|idx| format!("[{}]", idx))
+                .map(|idx| format!("[{}]", idx.as_usize()))
                 .collect::<Vec<_>>()
                 .join(", ")
         )

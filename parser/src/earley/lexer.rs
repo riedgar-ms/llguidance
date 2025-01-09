@@ -6,7 +6,7 @@ use crate::api::ParserLimits;
 
 use super::{
     lexerspec::{LexemeIdx, LexerSpec},
-    regexvec::{NextByte, RegexVec, StateDesc},
+    regexvec::{LexemeSet, NextByte, RegexVec, StateDesc},
 };
 
 const DEBUG: bool = true;
@@ -78,7 +78,7 @@ impl Lexer {
         &self.spec
     }
 
-    pub fn start_state(&mut self, allowed_lexemes: &SimpleVob) -> StateID {
+    pub fn start_state(&mut self, allowed_lexemes: &LexemeSet) -> StateID {
         self.dfa.initial_state(allowed_lexemes)
     }
 
@@ -99,24 +99,28 @@ impl Lexer {
     }
 
     pub fn allows_eos(&mut self, state: StateID) -> bool {
-        let mut l = self.spec.eos_ending_lexemes();
-        l.and(&self.state_info(state).accepting);
-        !l.is_zero()
+        let l = self.spec.eos_ending_lexemes();
+        for lexeme in self.state_info(state).accepting.iter() {
+            if l.contains(lexeme) {
+                return true;
+            }
+        }
+        false
     }
 
-    pub fn limit_state_to(&mut self, state: StateID, allowed_lexemes: &SimpleVob) -> StateID {
+    pub fn limit_state_to(&mut self, state: StateID, allowed_lexemes: &LexemeSet) -> StateID {
         self.dfa.limit_state_to(state, allowed_lexemes)
     }
 
-    pub fn possible_lexemes(&self, state: StateID) -> &SimpleVob {
+    pub fn possible_lexemes(&self, state: StateID) -> &LexemeSet {
         &self.state_info(state).possible
     }
 
     pub fn force_lexeme_end(&self, prev: StateID) -> LexerResult {
         let info = self.state_info(prev);
-        match info.possible.first_bit_set() {
+        match info.possible.first() {
             Some(idx) => LexerResult::Lexeme(PreLexeme {
-                idx: LexemeIdx::new(idx),
+                idx,
                 byte: None,
                 byte_next_row: false,
                 hidden_len: 0,
@@ -128,7 +132,7 @@ impl Lexer {
     pub fn try_lexeme_end(&mut self, prev: StateID) -> LexerResult {
         if let Some(idx) = self.state_info(prev).lowest_accepting {
             LexerResult::Lexeme(PreLexeme {
-                idx: LexemeIdx::new(idx),
+                idx,
                 byte: None,
                 byte_next_row: false,
                 hidden_len: 0,
@@ -141,9 +145,9 @@ impl Lexer {
     pub fn check_for_single_byte_lexeme(&mut self, state: StateID, b: u8) -> Option<PreLexeme> {
         if self.dfa.next_byte(state) == NextByte::ForcedEOI {
             let info = self.state_info(state);
-            let idx = info.possible.first_bit_set().expect("no allowed lexemes");
+            let idx = info.possible.first().expect("no allowed lexemes");
             Some(PreLexeme {
-                idx: LexemeIdx::new(idx),
+                idx,
                 byte: Some(b),
                 byte_next_row: false,
                 hidden_len: 0,
@@ -159,7 +163,7 @@ impl Lexer {
 
     pub fn check_subsume(&mut self, state: StateID, extra_idx: usize, budget: u64) -> Result<bool> {
         self.dfa
-            .check_subsume(state, self.spec.extra_lexeme(extra_idx).as_usize(), budget)
+            .check_subsume(state, self.spec.extra_lexeme(extra_idx), budget)
     }
 
     #[inline(always)]
@@ -184,7 +188,7 @@ impl Lexer {
             // (eg., "while" will match both keyword and identifier, but keyword is first)
             if let Some(idx) = info.lowest_accepting {
                 LexerResult::Lexeme(PreLexeme {
-                    idx: LexemeIdx::new(idx),
+                    idx,
                     byte: Some(byte),
                     byte_next_row: true,
                     hidden_len: 0,
@@ -198,7 +202,7 @@ impl Lexer {
                     return LexerResult::SpecialToken(state);
                 }
                 LexerResult::Lexeme(PreLexeme {
-                    idx: LexemeIdx::new(idx),
+                    idx,
                     byte: Some(byte),
                     byte_next_row: false,
                     hidden_len,

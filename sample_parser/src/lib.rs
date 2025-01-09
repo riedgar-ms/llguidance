@@ -37,7 +37,7 @@ fn check_grammar(
     let mut seen_temp = temp == 0.0;
 
     for _ in 0..200 {
-        let res = constraint.compute_mask().unwrap();
+        let res = constraint.compute_mask().unwrap().clone();
 
         if let Some(t) = res.temperature {
             assert!(
@@ -76,6 +76,7 @@ fn check_grammar(
                     tok,
                     tok_env.tok_trie().token_dbg(tok)
                 );
+                assert!(constraint.validate_tokens_raw(&[tok]).unwrap() == 0);
                 gen_tokens.remove(0);
             }
 
@@ -247,16 +248,16 @@ lazy_static! {
 pub fn check_lark_grammar_prompt(lark: &str, prompt_str: &str, output: &[&str]) -> Constraint {
     let grm = TopLevelGrammar::from_lark(lark.to_string());
     println!("\nChecking grammar:\n{}\nagainst: {:?}", lark, output);
-    check_grammar(&PARSER_FACTORY, prompt_str, grm, output, 0.0)
+    let temp = find_temperature(lark);
+    check_grammar(&PARSER_FACTORY, prompt_str, grm, output, temp)
 }
 
 pub fn check_lark_grammar(lark: &str, output: &[&str]) -> Constraint {
     check_lark_grammar_prompt(lark, "", output)
 }
 
-pub fn check_lark_grammar_nested(lark: &str, sub_lark: &str, output: &[&str]) -> Constraint {
-    let temp = lark
-        .find("temperature=")
+fn find_temperature(lark: &str) -> f32 {
+    lark.find("temperature=")
         .map(|i| {
             let i = i + "temperature=".len();
             let mut end = i;
@@ -267,7 +268,11 @@ pub fn check_lark_grammar_nested(lark: &str, sub_lark: &str, output: &[&str]) ->
             }
             lark[i..end].parse::<f32>().unwrap()
         })
-        .unwrap_or(0.0);
+        .unwrap_or(0.0)
+}
+
+pub fn check_lark_grammar_nested(lark: &str, sub_lark: &str, output: &[&str]) -> Constraint {
+    let temp = find_temperature(lark);
     let mut top_grm = TopLevelGrammar::from_lark(lark.to_string());
     let mut sub_grm = GrammarWithLexer::from_lark(sub_lark.to_string());
     sub_grm.name = Some("sub".to_string());

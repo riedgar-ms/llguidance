@@ -299,6 +299,21 @@ fn test_ll_temperature() {
         "#,
         &["", "[‧]"],
     );
+
+    check_lark_grammar(
+        r#"start: gen
+           gen[temperature=0.5, stop=""]: /.*/
+        "#,
+        &["", "foo‧≺EOS≻"],
+    );
+
+    check_lark_grammar(
+        r#"start: foo | bar
+           foo[temperature=0.5]: "foo"
+           bar[temperature=0.5]: "bar"
+        "#,
+        &["", "foo"],
+    );
 }
 
 #[test]
@@ -593,6 +608,12 @@ fn test_ll_special_token() {
         "</s>",
         &["</s>", "a"],
     );
+
+    check_lark_grammar(
+        r#"start: /.*/ <|system|>
+        "#,
+        &["", "✖<|end|>‧foo‧✖<|end|>‧<|system|>"],
+    );
 }
 
 #[test]
@@ -627,4 +648,36 @@ fn test_ll_token_ranges() {
         "#,
         &["<|system|>", "✖<|system|>‧foo‧≺EOS≻"],
     );
+}
+
+#[test]
+fn test_ll_inline_json() {
+    let grm = r#"
+start: hd obj
+obj: %json {
+    "type": "object",
+    "properties": {
+        "a": {
+            "type": "number"
+        }
+    }
+}
+hd: "JSON"
+"#;
+
+    check_lark_grammar(grm, &["JSON", "{\"‧a‧\":‧ ‧✖true‧5‧}"]);
+
+    let grm = r#"
+start: "JSON" obj
+obj: %json{
+    "type": "object",
+    "properties": {
+        "a": {
+            "type": "number"
+        }
+    }
+} "END"
+"#;
+
+    check_lark_grammar(grm, &["JSON", "{\"‧a‧\":‧ ‧✖true‧5‧}", "END"]);
 }
