@@ -17,13 +17,13 @@ cd "$(dirname "$0")/../parser"
 
 mkdir -p tmp
 set -e
-cxxbridge --header > tmp/cxx.h
-cxxbridge src/cxx_ffi.rs -o tmp/llguidance_cxx.h
-cxxbridge src/cxx_ffi.rs -o tmp/llguidance_cxx.cc
+cxxbridge --header > tmp/cxx_gen.h
+cxxbridge src/cxx_ffi.rs -o tmp/llguidance_cxx_gen.h
+cxxbridge src/cxx_ffi.rs -o tmp/llguidance_cxx_gen.cc
 set +e
 
-for f in llguidance_cxx.h llguidance_cxx.cc cxx.h; do
-    sed -i -e 's@rust/cxx.h@cxx.h@' tmp/$f
+for f in llguidance_cxx_gen.h llguidance_cxx_gen.cc cxx_gen.h; do
+    sed -i -e 's@rust/cxx.h@cxx_gen.h@' tmp/$f
     if diff -u cxx/$f tmp/$f; then
         echo "cxx/$f is up to date"
     else
@@ -38,4 +38,4 @@ for f in llguidance_cxx.h llguidance_cxx.cc cxx.h; do
 done
 
 cd cxx
-c++ -std=c++20 -c llguidance_cxx.cc
+c++ -std=c++20 -c llguidance_cxx_gen.cc
