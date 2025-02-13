@@ -29,9 +29,18 @@ public:
   bool allow_backtracking() const { return m_allow_backtracking; }
   rust::Vec<rust::String> slices() const { return m_slices; }
 
-  // Virtual methods that need implementation
+  // Return bytes corresponding to a given token
+  // Prepend 0xff as the first byte, if it's a special token
   virtual rust::Vec<uint8_t> token_bytes(size_t token) const = 0;
-  virtual rust::Vec<uint32_t> tokenize(rust::Str text) const = 0;
+
+  // Tokenize given UTF-8 text into a sequence of token IDs.
+  // This function *has to be thread-safe*!
+  virtual rust::Vec<uint32_t> tokenize(rust::Str text) const {
+    // by default return empty tokenization - this will make llguidance
+    // use greedy, non-canonical tokenizer
+    (void)text;
+    return rust::Vec<uint32_t>();
+  }
 
 protected:
   FactoryInit(const FactoryInit &) = delete;

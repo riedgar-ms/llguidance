@@ -1,4 +1,5 @@
 use crate::{earley::SlicedBiasComputer, ParserFactory};
+use anyhow::Result;
 use std::sync::Arc;
 use toktrie::{InferenceCapabilities, TokEnv, TokRxInfo, TokTrie, TokenizerEnv};
 
@@ -23,8 +24,14 @@ mod ffi {
     extern "Rust" {
         type ParserFactory;
 
-        fn parser_factory(tok_init: UniquePtr<FactoryInit>) -> Box<ParserFactory>;
-        fn default_slices() -> Vec<String>;
+        fn parser_factory(tok_init: UniquePtr<FactoryInit>) -> Result<Box<ParserFactory>>;
+
+        /// Returns slices applicable for general grammars.
+        /// Currently the same as `json_slices`.
+        fn general_slices() -> Vec<String>;
+
+        /// Returns slices applicable for JSON schemas.
+        fn json_slices() -> Vec<String>;
     }
 }
 
@@ -55,7 +62,7 @@ impl TokenizerEnv for CTokenizer {
     }
 }
 
-fn parser_factory(init: cxx::UniquePtr<ffi::FactoryInit>) -> Box<ParserFactory> {
+fn parser_factory(init: cxx::UniquePtr<ffi::FactoryInit>) -> Result<Box<ParserFactory>> {
     let mut tokens = vec![];
     for tok in 0..init.vocab_size() {
         tokens.push(init.token_bytes(tok));
@@ -71,7 +78,7 @@ fn parser_factory(init: cxx::UniquePtr<ffi::FactoryInit>) -> Box<ParserFactory> 
         },
         &tokens,
     );
-    let tokenize_is_canonical = !init.tokenize("foobar").is_empty();
+    let tokenize_is_canonical = init.tokenize("foobar").len() > 0;
     let slices = init.slices();
     let stderr_log_level = init.stderr_log_level();
     let caps = InferenceCapabilities {
@@ -84,13 +91,17 @@ fn parser_factory(init: cxx::UniquePtr<ffi::FactoryInit>) -> Box<ParserFactory> 
         tokenize_is_canonical,
         init,
     });
-    let mut factory = ParserFactory::new(&tok_env, caps, &slices).unwrap();
+    let mut factory = ParserFactory::new(&tok_env, caps, &slices)?;
     factory.set_stderr_log_level(stderr_log_level);
     factory.set_buffer_log_level(0);
 
-    Box::new(factory)
+    Ok(Box::new(factory))
 }
 
-fn default_slices() -> Vec<String> {
+fn general_slices() -> Vec<String> {
     SlicedBiasComputer::general_slices()
+}
+
+fn json_slices() -> Vec<String> {
+    SlicedBiasComputer::json_slices()
 }

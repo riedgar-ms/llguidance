@@ -4,6 +4,13 @@
 
 namespace rust {
 inline namespace cxxbridge1 {
+namespace repr {
+struct PtrLen final {
+  void *ptr;
+  ::std::size_t len;
+};
+} // namespace repr
+
 namespace detail {
 template <typename T, typename = void *>
 struct operator_new {
@@ -25,6 +32,17 @@ union MaybeUninit {
 };
 
 namespace {
+template <>
+class impl<Error> final {
+public:
+  static Error error(repr::PtrLen repr) noexcept {
+    Error error;
+    error.msg = static_cast<char const *>(repr.ptr);
+    error.len = repr.len;
+    return error;
+  }
+};
+
 template <bool> struct deleter_if {
   template <typename T> void operator()(T *) {}
 };
@@ -99,9 +117,11 @@ bool llguidance$cxxbridge1$FactoryInit$allow_backtracking(::llguidance::FactoryI
 ::std::size_t llguidance$cxxbridge1$ParserFactory$operator$sizeof() noexcept;
 ::std::size_t llguidance$cxxbridge1$ParserFactory$operator$alignof() noexcept;
 
-::llguidance::ParserFactory *llguidance$cxxbridge1$parser_factory(::llguidance::FactoryInit *tok_init) noexcept;
+::rust::repr::PtrLen llguidance$cxxbridge1$parser_factory(::llguidance::FactoryInit *tok_init, ::rust::Box<::llguidance::ParserFactory> *return$) noexcept;
 
-void llguidance$cxxbridge1$default_slices(::rust::Vec<::rust::String> *return$) noexcept;
+void llguidance$cxxbridge1$general_slices(::rust::Vec<::rust::String> *return$) noexcept;
+
+void llguidance$cxxbridge1$json_slices(::rust::Vec<::rust::String> *return$) noexcept;
 } // extern "C"
 
 ::std::size_t ParserFactory::layout::size() noexcept {
@@ -112,13 +132,27 @@ void llguidance$cxxbridge1$default_slices(::rust::Vec<::rust::String> *return$) 
   return llguidance$cxxbridge1$ParserFactory$operator$alignof();
 }
 
-::rust::Box<::llguidance::ParserFactory> parser_factory(::std::unique_ptr<::llguidance::FactoryInit> tok_init) noexcept {
-  return ::rust::Box<::llguidance::ParserFactory>::from_raw(llguidance$cxxbridge1$parser_factory(tok_init.release()));
+::rust::Box<::llguidance::ParserFactory> parser_factory(::std::unique_ptr<::llguidance::FactoryInit> tok_init) {
+  ::rust::MaybeUninit<::rust::Box<::llguidance::ParserFactory>> return$;
+  ::rust::repr::PtrLen error$ = llguidance$cxxbridge1$parser_factory(tok_init.release(), &return$.value);
+  if (error$.ptr) {
+    throw ::rust::impl<::rust::Error>::error(error$);
+  }
+  return ::std::move(return$.value);
 }
 
-::rust::Vec<::rust::String> default_slices() noexcept {
+// Returns slices applicable for general grammars.
+// Currently the same as `json_slices`.
+::rust::Vec<::rust::String> general_slices() noexcept {
   ::rust::MaybeUninit<::rust::Vec<::rust::String>> return$;
-  llguidance$cxxbridge1$default_slices(&return$.value);
+  llguidance$cxxbridge1$general_slices(&return$.value);
+  return ::std::move(return$.value);
+}
+
+// Returns slices applicable for JSON schemas.
+::rust::Vec<::rust::String> json_slices() noexcept {
+  ::rust::MaybeUninit<::rust::Vec<::rust::String>> return$;
+  llguidance$cxxbridge1$json_slices(&return$.value);
   return ::std::move(return$.value);
 }
 } // namespace llguidance

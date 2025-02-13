@@ -23,7 +23,12 @@ private:
 };
 #endif // CXXBRIDGE1_STRUCT_llguidance$ParserFactory
 
-::rust::Box<::llguidance::ParserFactory> parser_factory(::std::unique_ptr<::llguidance::FactoryInit> tok_init) noexcept;
+::rust::Box<::llguidance::ParserFactory> parser_factory(::std::unique_ptr<::llguidance::FactoryInit> tok_init);
 
-::rust::Vec<::rust::String> default_slices() noexcept;
+// Returns slices applicable for general grammars.
+// Currently the same as `json_slices`.
+::rust::Vec<::rust::String> general_slices() noexcept;
+
+// Returns slices applicable for JSON schemas.
+::rust::Vec<::rust::String> json_slices() noexcept;
 } // namespace llguidance
