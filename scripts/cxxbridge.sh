@@ -23,6 +23,7 @@ cxxbridge src/cxx_ffi.rs -o tmp/llguidance_cxx.cc
 set +e
 
 for f in llguidance_cxx.h llguidance_cxx.cc cxx.h; do
+    sed -i -e 's@rust/cxx.h@cxx.h@' tmp/$f
     if diff -u cxx/$f tmp/$f; then
         echo "cxx/$f is up to date"
     else
@@ -35,3 +36,6 @@ for f in llguidance_cxx.h llguidance_cxx.cc cxx.h; do
         fi
     fi
 done
+
+cd cxx
+c++ -std=c++20 -c llguidance_cxx.cc

@@ -1,22 +1,30 @@
-#include "rust/cxx.h"
+#include "cxx.h"
 #include "llguidance_cxx_support.h"
 #include <memory>
 
 namespace rust {
 inline namespace cxxbridge1 {
-namespace repr {
-using Fat = ::std::array<::std::uintptr_t, 2>;
-} // namespace repr
-
-namespace {
-template <typename T>
-class impl<Slice<T>> final {
-public:
-  static repr::Fat repr(Slice<T> slice) noexcept {
-    return slice.repr;
-  }
+namespace detail {
+template <typename T, typename = void *>
+struct operator_new {
+  void *operator()(::std::size_t sz) { return ::operator new(sz); }
 };
 
+template <typename T>
+struct operator_new<T, decltype(T::operator new(sizeof(T)))> {
+  void *operator()(::std::size_t sz) { return T::operator new(sz); }
+};
+} // namespace detail
+
+template <typename T>
+union MaybeUninit {
+  T value;
+  void *operator new(::std::size_t sz) { return detail::operator_new<T>{}(sz); }
+  MaybeUninit() {}
+  ~MaybeUninit() {}
+};
+
+namespace {
 template <bool> struct deleter_if {
   template <typename T> void operator()(T *) {}
 };
@@ -28,11 +36,14 @@ template <> struct deleter_if<true> {
 } // namespace cxxbridge1
 } // namespace rust
 
-using TokenizerInit = ::TokenizerInit;
-struct ParserFactory;
+namespace llguidance {
+  using FactoryInit = ::llguidance::FactoryInit;
+  struct ParserFactory;
+}
 
-#ifndef CXXBRIDGE1_STRUCT_ParserFactory
-#define CXXBRIDGE1_STRUCT_ParserFactory
+namespace llguidance {
+#ifndef CXXBRIDGE1_STRUCT_llguidance$ParserFactory
+#define CXXBRIDGE1_STRUCT_llguidance$ParserFactory
 struct ParserFactory final : public ::rust::Opaque {
   ~ParserFactory() = delete;
 
@@ -43,79 +54,113 @@ private:
     static ::std::size_t align() noexcept;
   };
 };
-#endif // CXXBRIDGE1_STRUCT_ParserFactory
+#endif // CXXBRIDGE1_STRUCT_llguidance$ParserFactory
 
 extern "C" {
-::std::size_t cxxbridge1$TokenizerInit$vocab_size(::TokenizerInit const &self) noexcept {
-  ::std::size_t (::TokenizerInit::*vocab_size$)() const = &::TokenizerInit::vocab_size;
+::std::size_t llguidance$cxxbridge1$FactoryInit$vocab_size(::llguidance::FactoryInit const &self) noexcept {
+  ::std::size_t (::llguidance::FactoryInit::*vocab_size$)() const = &::llguidance::FactoryInit::vocab_size;
   return (self.*vocab_size$)();
 }
 
-::std::uint32_t cxxbridge1$TokenizerInit$tok_eos(::TokenizerInit const &self) noexcept {
-  ::std::uint32_t (::TokenizerInit::*tok_eos$)() const = &::TokenizerInit::tok_eos;
+::std::uint32_t llguidance$cxxbridge1$FactoryInit$tok_eos(::llguidance::FactoryInit const &self) noexcept {
+  ::std::uint32_t (::llguidance::FactoryInit::*tok_eos$)() const = &::llguidance::FactoryInit::tok_eos;
   return (self.*tok_eos$)();
 }
 
-::rust::repr::Fat cxxbridge1$TokenizerInit$token_bytes(::TokenizerInit const &self, ::std::size_t token) noexcept {
-  ::rust::Slice<::std::uint8_t const> (::TokenizerInit::*token_bytes$)(::std::size_t) const = &::TokenizerInit::token_bytes;
-  return ::rust::impl<::rust::Slice<::std::uint8_t const>>::repr((self.*token_bytes$)(token));
+void llguidance$cxxbridge1$FactoryInit$token_bytes(::llguidance::FactoryInit const &self, ::std::size_t token, ::rust::Vec<::std::uint8_t> *return$) noexcept {
+  ::rust::Vec<::std::uint8_t> (::llguidance::FactoryInit::*token_bytes$)(::std::size_t) const = &::llguidance::FactoryInit::token_bytes;
+  new (return$) ::rust::Vec<::std::uint8_t>((self.*token_bytes$)(token));
 }
-::std::size_t cxxbridge1$ParserFactory$operator$sizeof() noexcept;
-::std::size_t cxxbridge1$ParserFactory$operator$alignof() noexcept;
 
-::ParserFactory *cxxbridge1$parser_factory(::TokenizerInit *tok_init) noexcept;
+void llguidance$cxxbridge1$FactoryInit$tokenize(::llguidance::FactoryInit const &self, ::rust::Str text, ::rust::Vec<::std::uint32_t> *return$) noexcept {
+  ::rust::Vec<::std::uint32_t> (::llguidance::FactoryInit::*tokenize$)(::rust::Str) const = &::llguidance::FactoryInit::tokenize;
+  new (return$) ::rust::Vec<::std::uint32_t>((self.*tokenize$)(text));
+}
+
+void llguidance$cxxbridge1$FactoryInit$slices(::llguidance::FactoryInit const &self, ::rust::Vec<::rust::String> *return$) noexcept {
+  ::rust::Vec<::rust::String> (::llguidance::FactoryInit::*slices$)() const = &::llguidance::FactoryInit::slices;
+  new (return$) ::rust::Vec<::rust::String>((self.*slices$)());
+}
+
+bool llguidance$cxxbridge1$FactoryInit$allow_ff_tokens(::llguidance::FactoryInit const &self) noexcept {
+  bool (::llguidance::FactoryInit::*allow_ff_tokens$)() const = &::llguidance::FactoryInit::allow_ff_tokens;
+  return (self.*allow_ff_tokens$)();
+}
+
+bool llguidance$cxxbridge1$FactoryInit$allow_backtracking(::llguidance::FactoryInit const &self) noexcept {
+  bool (::llguidance::FactoryInit::*allow_backtracking$)() const = &::llguidance::FactoryInit::allow_backtracking;
+  return (self.*allow_backtracking$)();
+}
+
+::std::uint32_t llguidance$cxxbridge1$FactoryInit$stderr_log_level(::llguidance::FactoryInit const &self) noexcept {
+  ::std::uint32_t (::llguidance::FactoryInit::*stderr_log_level$)() const = &::llguidance::FactoryInit::stderr_log_level;
+  return (self.*stderr_log_level$)();
+}
+::std::size_t llguidance$cxxbridge1$ParserFactory$operator$sizeof() noexcept;
+::std::size_t llguidance$cxxbridge1$ParserFactory$operator$alignof() noexcept;
+
+::llguidance::ParserFactory *llguidance$cxxbridge1$parser_factory(::llguidance::FactoryInit *tok_init) noexcept;
+
+void llguidance$cxxbridge1$default_slices(::rust::Vec<::rust::String> *return$) noexcept;
 } // extern "C"
 
 ::std::size_t ParserFactory::layout::size() noexcept {
-  return cxxbridge1$ParserFactory$operator$sizeof();
+  return llguidance$cxxbridge1$ParserFactory$operator$sizeof();
 }
 
 ::std::size_t ParserFactory::layout::align() noexcept {
-  return cxxbridge1$ParserFactory$operator$alignof();
+  return llguidance$cxxbridge1$ParserFactory$operator$alignof();
 }
 
-::rust::Box<::ParserFactory> parser_factory(::std::unique_ptr<::TokenizerInit> tok_init) noexcept {
-  return ::rust::Box<::ParserFactory>::from_raw(cxxbridge1$parser_factory(tok_init.release()));
+::rust::Box<::llguidance::ParserFactory> parser_factory(::std::unique_ptr<::llguidance::FactoryInit> tok_init) noexcept {
+  return ::rust::Box<::llguidance::ParserFactory>::from_raw(llguidance$cxxbridge1$parser_factory(tok_init.release()));
 }
+
+::rust::Vec<::rust::String> default_slices() noexcept {
+  ::rust::MaybeUninit<::rust::Vec<::rust::String>> return$;
+  llguidance$cxxbridge1$default_slices(&return$.value);
+  return ::std::move(return$.value);
+}
+} // namespace llguidance
 
 extern "C" {
-static_assert(::rust::detail::is_complete<::TokenizerInit>::value, "definition of TokenizerInit is required");
-static_assert(sizeof(::std::unique_ptr<::TokenizerInit>) == sizeof(void *), "");
-static_assert(alignof(::std::unique_ptr<::TokenizerInit>) == alignof(void *), "");
-void cxxbridge1$unique_ptr$TokenizerInit$null(::std::unique_ptr<::TokenizerInit> *ptr) noexcept {
-  ::new (ptr) ::std::unique_ptr<::TokenizerInit>();
+static_assert(::rust::detail::is_complete<::llguidance::FactoryInit>::value, "definition of FactoryInit is required");
+static_assert(sizeof(::std::unique_ptr<::llguidance::FactoryInit>) == sizeof(void *), "");
+static_assert(alignof(::std::unique_ptr<::llguidance::FactoryInit>) == alignof(void *), "");
+void cxxbridge1$unique_ptr$llguidance$FactoryInit$null(::std::unique_ptr<::llguidance::FactoryInit> *ptr) noexcept {
+  ::new (ptr) ::std::unique_ptr<::llguidance::FactoryInit>();
 }
-void cxxbridge1$unique_ptr$TokenizerInit$raw(::std::unique_ptr<::TokenizerInit> *ptr, ::TokenizerInit *raw) noexcept {
-  ::new (ptr) ::std::unique_ptr<::TokenizerInit>(raw);
+void cxxbridge1$unique_ptr$llguidance$FactoryInit$raw(::std::unique_ptr<::llguidance::FactoryInit> *ptr, ::llguidance::FactoryInit *raw) noexcept {
+  ::new (ptr) ::std::unique_ptr<::llguidance::FactoryInit>(raw);
 }
-::TokenizerInit const *cxxbridge1$unique_ptr$TokenizerInit$get(::std::unique_ptr<::TokenizerInit> const &ptr) noexcept {
+::llguidance::FactoryInit const *cxxbridge1$unique_ptr$llguidance$FactoryInit$get(::std::unique_ptr<::llguidance::FactoryInit> const &ptr) noexcept {
   return ptr.get();
 }
-::TokenizerInit *cxxbridge1$unique_ptr$TokenizerInit$release(::std::unique_ptr<::TokenizerInit> &ptr) noexcept {
+::llguidance::FactoryInit *cxxbridge1$unique_ptr$llguidance$FactoryInit$release(::std::unique_ptr<::llguidance::FactoryInit> &ptr) noexcept {
   return ptr.release();
 }
-void cxxbridge1$unique_ptr$TokenizerInit$drop(::std::unique_ptr<::TokenizerInit> *ptr) noexcept {
-  ::rust::deleter_if<::rust::detail::is_complete<::TokenizerInit>::value>{}(ptr);
+void cxxbridge1$unique_ptr$llguidance$FactoryInit$drop(::std::unique_ptr<::llguidance::FactoryInit> *ptr) noexcept {
+  ::rust::deleter_if<::rust::detail::is_complete<::llguidance::FactoryInit>::value>{}(ptr);
 }
 
-::ParserFactory *cxxbridge1$box$ParserFactory$alloc() noexcept;
-void cxxbridge1$box$ParserFactory$dealloc(::ParserFactory *) noexcept;
-void cxxbridge1$box$ParserFactory$drop(::rust::Box<::ParserFactory> *ptr) noexcept;
+::llguidance::ParserFactory *cxxbridge1$box$llguidance$ParserFactory$alloc() noexcept;
+void cxxbridge1$box$llguidance$ParserFactory$dealloc(::llguidance::ParserFactory *) noexcept;
+void cxxbridge1$box$llguidance$ParserFactory$drop(::rust::Box<::llguidance::ParserFactory> *ptr) noexcept;
 } // extern "C"
 
 namespace rust {
 inline namespace cxxbridge1 {
 template <>
-::ParserFactory *Box<::ParserFactory>::allocation::alloc() noexcept {
-  return cxxbridge1$box$ParserFactory$alloc();
+::llguidance::ParserFactory *Box<::llguidance::ParserFactory>::allocation::alloc() noexcept {
+  return cxxbridge1$box$llguidance$ParserFactory$alloc();
 }
 template <>
-void Box<::ParserFactory>::allocation::dealloc(::ParserFactory *ptr) noexcept {
-  cxxbridge1$box$ParserFactory$dealloc(ptr);
+void Box<::llguidance::ParserFactory>::allocation::dealloc(::llguidance::ParserFactory *ptr) noexcept {
+  cxxbridge1$box$llguidance$ParserFactory$dealloc(ptr);
 }
 template <>
-void Box<::ParserFactory>::drop() noexcept {
-  cxxbridge1$box$ParserFactory$drop(this);
+void Box<::llguidance::ParserFactory>::drop() noexcept {
+  cxxbridge1$box$llguidance$ParserFactory$drop(this);
 }
 } // namespace cxxbridge1
 } // namespace rust

@@ -1,13 +1,16 @@
 #pragma once
-#include "rust/cxx.h"
+#include "cxx.h"
 #include "llguidance_cxx_support.h"
 #include <memory>
 
-using TokenizerInit = ::TokenizerInit;
-struct ParserFactory;
+namespace llguidance {
+  using FactoryInit = ::llguidance::FactoryInit;
+  struct ParserFactory;
+}
 
-#ifndef CXXBRIDGE1_STRUCT_ParserFactory
-#define CXXBRIDGE1_STRUCT_ParserFactory
+namespace llguidance {
+#ifndef CXXBRIDGE1_STRUCT_llguidance$ParserFactory
+#define CXXBRIDGE1_STRUCT_llguidance$ParserFactory
 struct ParserFactory final : public ::rust::Opaque {
   ~ParserFactory() = delete;
 
@@ -18,6 +21,9 @@ private:
     static ::std::size_t align() noexcept;
   };
 };
-#endif // CXXBRIDGE1_STRUCT_ParserFactory
+#endif // CXXBRIDGE1_STRUCT_llguidance$ParserFactory
 
-::rust::Box<::ParserFactory> parser_factory(::std::unique_ptr<::TokenizerInit> tok_init) noexcept;
+::rust::Box<::llguidance::ParserFactory> parser_factory(::std::unique_ptr<::llguidance::FactoryInit> tok_init) noexcept;
+
+::rust::Vec<::rust::String> default_slices() noexcept;
+} // namespace llguidance
