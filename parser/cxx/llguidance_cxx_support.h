@@ -17,11 +17,7 @@ protected:
 public:
   FactoryInit(size_t vocab_size, uint32_t tok_eos,
               uint32_t stderr_log_level = 1, bool allow_ff_tokens = false,
-              bool allow_backtracking = false)
-      : m_vocab_size(vocab_size), m_tok_eos(tok_eos),
-        m_stderr_log_level(stderr_log_level),
-        m_allow_ff_tokens(allow_ff_tokens),
-        m_allow_backtracking(allow_backtracking), m_slices(default_slices()) {}
+              bool allow_backtracking = false);
 
   virtual ~FactoryInit() = default;
 
@@ -31,7 +27,7 @@ public:
   uint32_t stderr_log_level() const { return m_stderr_log_level; }
   bool allow_ff_tokens() const { return m_allow_ff_tokens; }
   bool allow_backtracking() const { return m_allow_backtracking; }
-  const rust::Vec<rust::String> &slices() const { return m_slices; }
+  rust::Vec<rust::String> slices() const { return m_slices; }
 
   // Virtual methods that need implementation
   virtual rust::Vec<uint8_t> token_bytes(size_t token) const = 0;

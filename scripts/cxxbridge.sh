@@ -22,6 +22,8 @@ cxxbridge src/cxx_ffi.rs -o tmp/llguidance_cxx_gen.h
 cxxbridge src/cxx_ffi.rs -o tmp/llguidance_cxx_gen.cc
 set +e
 
+sed -i -e 's@llguidance_cxx_support.h@llguidance_cxx.h@' tmp/llguidance_cxx_gen.cc
+
 for f in llguidance_cxx_gen.h llguidance_cxx_gen.cc cxx_gen.h; do
     sed -i -e 's@rust/cxx.h@cxx_gen.h@' tmp/$f
     if diff -u cxx/$f tmp/$f; then
@@ -38,4 +40,6 @@ for f in llguidance_cxx_gen.h llguidance_cxx_gen.cc cxx_gen.h; do
 done
 
 cd cxx
-c++ -std=c++20 -c llguidance_cxx_gen.cc
+set -e
+c++ -W -Wall -std=c++20 -c llguidance_cxx_gen.cc llguidance_cxx_support.cc
+rm -f *.o *.obj

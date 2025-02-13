@@ -1,5 +1,5 @@
 #include "cxx_gen.h"
-#include "llguidance_cxx_support.h"
+#include "llguidance_cxx.h"
 #include <memory>
 
 namespace rust {
