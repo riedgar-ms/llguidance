@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use crate::{api::IndentKind, HashMap, HashSet};
+use crate::{
+    api::{IndentKind, LarkLLGuidanceOptions},
+    HashMap, HashSet,
+};
 use anyhow::{anyhow, bail, ensure, Result};
 
 use crate::{
@@ -25,7 +28,7 @@ struct Grammar {
     rules: HashMap<String, Rule>,
     tokens: HashMap<String, TokenDef>,
     ignore: Vec<Expansions>,
-    llg_opts: LLGuidanceOptions,
+    lark_opts: LarkLLGuidanceOptions,
 }
 
 struct Compiler {
@@ -128,6 +131,12 @@ impl Compiler {
                 }
                 Value::Name(n) => self.do_token(n),
                 Value::LiteralString(val, flags) => {
+                    if self.grammar.lark_opts.indent_parens.contains(val) {
+                        bail!(
+                            "{:?} is in %llguidance.indent_parens and cannot be used here",
+                            val
+                        );
+                    }
                     if flags.contains("i") {
                         self.mk_regex(
                             "string with i-flag",
@@ -234,6 +243,10 @@ impl Compiler {
         }
     }
 
+    fn llg_opts(&self) -> &LLGuidanceOptions {
+        &self.grammar.lark_opts.general
+    }
+
     fn do_atom(&mut self, expr: &Atom) -> Result<NodeRef> {
         match expr {
             Atom::Group(expansions) => self.do_expansions(expansions),
@@ -248,7 +261,7 @@ impl Compiler {
                             return self.do_rule(n);
                         } else if let Some(k) = indent_kind(n) {
                             ensure!(
-                                self.grammar.llg_opts.indent.is_some(),
+                                self.llg_opts().indent.is_some(),
                                 "indentation tokens used but %llguidance.indent not set"
                             );
                             return Ok(self.builder.indent(k));
@@ -317,6 +330,30 @@ impl Compiler {
                     }
                     // special case "" literal, so it doesn't pollute grammar with epsilon regex
                     Value::LiteralString(s, _) if s.is_empty() => return Ok(self.builder.empty()),
+
+                    Value::LiteralString(p, f)
+                        if f.is_empty() && self.grammar.lark_opts.indent_parens.contains(p) =>
+                    {
+                        let id = self.builder.regex.literal(p.clone());
+                        let pos = self
+                            .grammar
+                            .lark_opts
+                            .indent_parens
+                            .iter()
+                            .position(|x| x == p)
+                            .unwrap();
+                        return Ok(self.builder.add_node(Node::Lexeme {
+                            rx: RegexSpec::RegexId(id),
+                            contextual: None,
+                            temperature: None,
+                            json_string: None,
+                            json_raw: None,
+                            json_allowed_escapes: None,
+                            paren_balance: if pos % 2 == 0 { Some(1) } else { Some(-1) },
+                            props: NodeProps::default(),
+                        }));
+                    }
+
                     Value::RegexExt(_)
                     | Value::LiteralRange(_, _)
                     | Value::LiteralString(_, _)
@@ -450,7 +487,7 @@ impl Compiler {
                     _ => {
                         if rule.paren_balance.is_some() {
                             ensure!(
-                                self.grammar.llg_opts.indent.is_some(),
+                                self.llg_opts().indent.is_some(),
                                 "paren used but %llguidance.indent not set"
                             );
                         }
@@ -509,7 +546,7 @@ impl Compiler {
             match item {
                 Item::Statement(_, Statement::LLGuidance(json_value)) => {
                     // first, check if it's valid JSON and all the right types
-                    let _v: LLGuidanceOptions = serde_json::from_str(&json_value)
+                    let _v: LarkLLGuidanceOptions = serde_json::from_str(&json_value)
                         .map_err(|e| anyhow!("failed to parse %llguidance declaration: {}", e))
                         .map_err(|e| loc.augment(e))?;
                     // but in fact, we'll work on JSON object
@@ -521,8 +558,17 @@ impl Compiler {
         }
 
         let mut grm = Grammar::default();
-        grm.llg_opts = serde_json::from_value(llg_opts)
+        grm.lark_opts = serde_json::from_value(llg_opts)
             .map_err(|e| anyhow!("failed to parse %llguidance declaration: {}", e))?;
+
+        ensure!(
+            grm.lark_opts.indent_parens.is_empty() || grm.lark_opts.general.indent.is_some(),
+            "%llguidance.indent_parens used but %llguidance.indent not set"
+        );
+        ensure!(
+            grm.lark_opts.indent_parens.len() % 2 == 0,
+            "%llguidance.indent_parens must have an even number of elements"
+        );
 
         for item in std::mem::take(&mut self.parsed.items) {
             let loc = item.location().clone();
@@ -538,7 +584,7 @@ impl Compiler {
         self.grammar = Arc::new(grm);
 
         let mut grm_with_lex = GrammarWithLexer::default();
-        grm_with_lex.options = self.grammar.llg_opts.clone();
+        grm_with_lex.options = self.llg_opts().clone();
         self.builder.add_grammar(grm_with_lex);
 
         let ignore = ignore

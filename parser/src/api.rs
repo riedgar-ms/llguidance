@@ -24,6 +24,18 @@ pub const DEFAULT_CONTEXTUAL: bool = true;
 
 /// In lark syntax, this can be specified as JSON object after '%llguidance' declaration in the grammar.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LarkLLGuidanceOptions {
+    #[serde(flatten)]
+    pub general: LLGuidanceOptions,
+
+    /// Lists pairs of literal lexemes that are to be treated as open/close parens.
+    /// Example: ["(", ")", "[", "]", "{", "}"]
+    /// Defaults to empty; you can also use [open_paren] and [close_paren] annotations on lexeme definitions.
+    #[serde(default)]
+    pub indent_parens: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LLGuidanceOptions {
     /// Normally, when a sequence of bytes is forced by grammar, it is tokenized
     /// canonically and forced as tokens.

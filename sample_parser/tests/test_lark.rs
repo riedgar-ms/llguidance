@@ -724,3 +724,42 @@ fn test_lark_syntax_indentation() {
         "INDENT and DEDENT must both be present",
     );
 }
+
+#[test]
+fn test_lark_syntax_indent_parens() {
+    lark_err_test(
+        r#"
+            %llguidance { "indent_parens": ["(", ")"] }
+            start: /a/
+        "#,
+        "%llguidance.indent_parens used but %llguidance.indent not set",
+    );
+
+    lark_err_test(
+        r#"
+            %llguidance { "indent": "  ", "indent_parens": ["("] }
+        "#,
+        "%llguidance.indent_parens must have an even number of elements",
+    );
+
+    // Test valid indent_parens usage
+    lark_ok(
+        r#"
+            %llguidance { "indent": "  ", "indent_parens": ["(", ")", "[", "]"] }
+            start: stmt | block
+            stmt: /[a-z]+/ "(" stmt rparen
+            block: INDENT stmt (KEEPDENT stmt)* DEDENT
+            rparen: ")"
+        "#,
+    );
+
+    // Test defining an indent_parens lexeme elsewhere
+    lark_err_test(
+        r#"
+            %llguidance { "indent": "  ", "indent_parens": ["(", ")"] }
+            start: FOO
+            FOO: "("
+        "#,
+        "\"(\" is in %llguidance.indent_parens and cannot be used here",
+    );
+}
