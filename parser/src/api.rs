@@ -36,6 +36,14 @@ pub struct LLGuidanceOptions {
     /// Any Unicode regex will cause an error.
     #[serde(default)]
     pub allow_invalid_utf8: bool,
+
+    /// If set (typically to "  " or "    "), the grammar will allow INDENT/DEDENT tokens with given indentation string.
+    #[serde(default)]
+    pub indent: Option<String>,
+
+    /// Defaults to "\r?\n"; only used when indent is set.
+    #[serde(default)]
+    pub indent_newline_rx: Option<String>,
 }
 
 impl LLGuidanceOptions {
@@ -99,6 +107,19 @@ impl Debug for GrammarWithLexer {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum IndentKind {
+    /// Newline, followed by increase in indentation level.
+    Indent,
+    /// Newline, followed by decrease in indentation level.
+    Dedent,
+    /// Newline, followed by no change in indentation level.
+    Keepdent,
+    /// Similar to Keepdent, but allows additional spaces afterwards, which need to matched with a different lexeme.
+    KeepdentLazy,
+}
+
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub enum Node {
     // Terminals:
@@ -149,6 +170,9 @@ pub enum Node {
         /// When set and json_string is also set, "..." will not be added around the regular expression.
         json_raw: Option<bool>,
 
+        /// This is 1 for '(' or -1 for ')' - used for INDENT/DEDENT lexemes.
+        paren_balance: Option<i8>,
+
         #[serde(flatten)]
         props: NodeProps,
     },
@@ -170,6 +194,13 @@ pub enum Node {
     /// Used for special tokens.
     TokenRanges {
         token_ranges: Vec<RangeInclusive<TokenId>>,
+
+        #[serde(flatten)]
+        props: NodeProps,
+    },
+    /// Used for INDENT/DEDENT lexemes.
+    Indentation {
+        kind: IndentKind,
 
         #[serde(flatten)]
         props: NodeProps,
@@ -368,6 +399,7 @@ impl Node {
             Node::String { props, .. } => props,
             Node::Gen { props, .. } => props,
             Node::Lexeme { props, .. } => props,
+            Node::Indentation { props, .. } => props,
             Node::GenGrammar { props, .. } => props,
             Node::Select { props, .. } => props,
             Node::Join { props, .. } => props,
@@ -532,6 +564,7 @@ impl GrammarWithLexer {
                 json_string: None,
                 json_allowed_escapes: None,
                 json_raw: None,
+                paren_balance: None,
             }],
             rx_nodes: vec![rx],
             ..Default::default()

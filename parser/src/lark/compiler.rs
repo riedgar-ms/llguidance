@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{HashMap, HashSet};
+use crate::{api::IndentKind, HashMap, HashSet};
 use anyhow::{anyhow, bail, ensure, Result};
 
 use crate::{
@@ -42,6 +42,7 @@ impl Default for Grammar {
 struct Compiler {
     test_rx: derivre::RegexBuilder,
     builder: GrammarBuilder,
+    has_indent: bool,
     additional_grammars: Vec<GrammarWithLexer>,
     parsed: ParsedLark,
     grammar: Arc<Grammar>,
@@ -55,6 +56,7 @@ fn compile_lark(parsed: ParsedLark) -> Result<TopLevelGrammar> {
         builder: GrammarBuilder::new(),
         test_rx: derivre::RegexBuilder::new(),
         additional_grammars: vec![],
+        has_indent: false,
         parsed,
         grammar: Arc::new(Grammar::default()),
         node_ids: HashMap::default(),
@@ -77,6 +79,9 @@ impl Compiler {
     }
 
     fn do_token(&mut self, name: &str) -> Result<RegexId> {
+        if indent_kind(name).is_some() {
+            bail!("indentation tokens cannot be used in terminals");
+        }
         if let Some(id) = self.regex_ids.get(name) {
             return Ok(*id);
         }
@@ -254,6 +259,9 @@ impl Compiler {
                     Value::Name(n) => {
                         if self.grammar.rules.contains_key(n) {
                             return self.do_rule(n);
+                        } else if let Some(k) = indent_kind(n) {
+                            self.has_indent = true;
+                            return Ok(self.builder.indent(k));
                         } else if self.grammar.tokens.contains_key(n) {
                             // OK -> treat as token
                         } else {
@@ -435,9 +443,12 @@ impl Compiler {
                 rule.stop_capture_name.is_none(),
                 "stop_capture_name requires stop= or suffix="
             );
-            if rule.temperature.is_some() || rule.max_tokens.is_some() {
+            if rule.temperature.is_some()
+                || rule.max_tokens.is_some()
+                || rule.paren_balance.is_some()
+            {
                 match rule.expansions.single_atom() {
-                    Some(Atom::Value(Value::GrammarRef(g))) => {
+                    Some(Atom::Value(Value::GrammarRef(g))) if rule.paren_balance.is_none() => {
                         return Ok(self.builder.gen_grammar(
                             GenGrammarOptions {
                                 grammar: Compiler::get_grammar_id(g),
@@ -447,10 +458,13 @@ impl Compiler {
                         ));
                     }
                     _ => {
+                        if rule.paren_balance.is_some() {
+                            self.has_indent = true;
+                        }
                         // try as terminal
                         let rx_id = self.do_token_expansions(&rule.expansions).map_err(|e| {
                             anyhow::anyhow!(
-                                "{}; temperature= and max_tokens= only \
+                                "{}; temperature=, max_tokens=, etc. only \
                                 supported on TERMINALS and @subgrammars",
                                 e
                             )
@@ -462,6 +476,7 @@ impl Compiler {
                             json_string: None,
                             json_raw: None,
                             json_allowed_escapes: None,
+                            paren_balance: rule.paren_balance,
                             props,
                         }));
                     }
@@ -512,6 +527,10 @@ impl Compiler {
         let opts: LLGuidanceOptions =
             serde_json::from_value(self.grammar.llguidance_options.clone())
                 .map_err(|e| anyhow!("failed to parse %llguidance declaration: {}", e))?;
+        ensure!(
+            !self.has_indent || opts.indent.is_some(),
+            "indentation tokens used but %llguidance.indent not set"
+        );
         let mut grm_with_lex = GrammarWithLexer::default();
         grm_with_lex.options = opts;
         self.builder.add_grammar(grm_with_lex);
@@ -655,4 +674,14 @@ fn compile_lark_regex(builder: &mut GrammarBuilder, l: RegexExt) -> Result<Regex
 
     let rx_id = builder.regex.add_node(RegexNode::Substring(chunks));
     Ok(rx_id)
+}
+
+fn indent_kind(s: &str) -> Option<IndentKind> {
+    match s {
+        "INDENT" => Some(IndentKind::Indent),
+        "DEDENT" => Some(IndentKind::Dedent),
+        "KEEPDENT" => Some(IndentKind::Keepdent),
+        "KEEPDENT_LAZY" => Some(IndentKind::KeepdentLazy),
+        _ => None,
+    }
 }

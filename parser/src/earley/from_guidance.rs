@@ -4,10 +4,11 @@ use std::{sync::Arc, vec};
 use super::grammar::SymIdx;
 use super::{grammar::SymbolProps, lexerspec::LexerSpec, CGrammar, Grammar};
 use crate::api::{
-    GrammarId, GrammarWithLexer, Node, ParserLimits, RegexId, RegexNode, RegexSpec,
+    GrammarId, GrammarWithLexer, IndentKind, Node, ParserLimits, RegexId, RegexNode, RegexSpec,
     TopLevelGrammar, DEFAULT_CONTEXTUAL,
 };
 use crate::earley::lexerspec::{token_ranges_to_string, LexemeClass};
+use crate::earley::regexvec::LexemeIndent;
 use crate::substring::substring;
 use crate::HashMap;
 use crate::Instant;
@@ -266,6 +267,7 @@ fn grammar_from_json(
                 json_allowed_escapes,
                 json_raw,
                 json_string,
+                paren_balance,
                 ..
             } => {
                 let json_options = if json_string.unwrap_or(false) {
@@ -284,18 +286,50 @@ fn grammar_from_json(
                     ensure!(json_raw.is_none(), "json_raw is only valid for json_string");
                     None
                 };
+                let indent = match paren_balance {
+                    None => LexemeIndent::None,
+                    Some(1) => LexemeIndent::OpenParen,
+                    Some(-1) => LexemeIndent::CloseParen,
+                    _ => bail!("invalid paren_balance: {:?}", paren_balance),
+                };
                 let idx = lexer_spec.add_greedy_lexeme(
                     format!("lex_{}", grm.sym_name(lhs)),
                     resolve_rx(&rx_nodes, rx)?,
                     contextual.unwrap_or(input.contextual.unwrap_or(DEFAULT_CONTEXTUAL)),
                     json_options,
                     max_tokens,
+                    indent,
                 )?;
                 if let Some(t) = temperature {
                     let symprops = grm.sym_props_mut(lhs);
                     symprops.temperature = *t;
                 }
                 grm.make_terminal(lhs, idx, &lexer_spec)?;
+            }
+            Node::Indentation { kind, .. } => {
+                ensure!(
+                    input.options.indent.is_some(),
+                    "indentation requires \"indent\" option in %llguidance {{}}"
+                );
+                let (rx, lex_kind) = match kind {
+                    IndentKind::Dedent => (
+                        RegexAst::Regex(
+                            input
+                                .options
+                                .indent_newline_rx
+                                .clone()
+                                .unwrap_or_else(|| r"\r?\n".to_string()),
+                        ),
+                        LexemeIndent::Dedent,
+                    ),
+                    IndentKind::Indent => (
+                        RegexAst::Literal(input.options.indent.clone().unwrap()),
+                        LexemeIndent::Indent,
+                    ),
+                    IndentKind::Keepdent => (RegexAst::NoMatch, LexemeIndent::KeepdentNormal),
+                    IndentKind::KeepdentLazy => (RegexAst::NoMatch, LexemeIndent::KeepdentLazy),
+                };
+                lexer_spec.add_indent_lexeme(rx, lex_kind)?;
             }
             Node::String { literal, .. } => {
                 if literal.is_empty() {
