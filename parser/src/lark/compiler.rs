@@ -20,29 +20,17 @@ use super::{
     parser::{parse_lark, ParsedLark},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Grammar {
     rules: HashMap<String, Rule>,
     tokens: HashMap<String, TokenDef>,
     ignore: Vec<Expansions>,
-    llguidance_options: serde_json::Value,
-}
-
-impl Default for Grammar {
-    fn default() -> Self {
-        Self {
-            rules: HashMap::default(),
-            tokens: HashMap::default(),
-            ignore: vec![],
-            llguidance_options: serde_json::Value::Object(serde_json::Map::new()),
-        }
-    }
+    llg_opts: LLGuidanceOptions,
 }
 
 struct Compiler {
     test_rx: derivre::RegexBuilder,
     builder: GrammarBuilder,
-    has_indent: bool,
     additional_grammars: Vec<GrammarWithLexer>,
     parsed: ParsedLark,
     grammar: Arc<Grammar>,
@@ -56,7 +44,6 @@ fn compile_lark(parsed: ParsedLark) -> Result<TopLevelGrammar> {
         builder: GrammarBuilder::new(),
         test_rx: derivre::RegexBuilder::new(),
         additional_grammars: vec![],
-        has_indent: false,
         parsed,
         grammar: Arc::new(Grammar::default()),
         node_ids: HashMap::default(),
@@ -260,7 +247,10 @@ impl Compiler {
                         if self.grammar.rules.contains_key(n) {
                             return self.do_rule(n);
                         } else if let Some(k) = indent_kind(n) {
-                            self.has_indent = true;
+                            ensure!(
+                                self.grammar.llg_opts.indent.is_some(),
+                                "indentation tokens used but %llguidance.indent not set"
+                            );
                             return Ok(self.builder.indent(k));
                         } else if self.grammar.tokens.contains_key(n) {
                             // OK -> treat as token
@@ -459,7 +449,10 @@ impl Compiler {
                     }
                     _ => {
                         if rule.paren_balance.is_some() {
-                            self.has_indent = true;
+                            ensure!(
+                                self.grammar.llg_opts.indent.is_some(),
+                                "paren used but %llguidance.indent not set"
+                            );
                         }
                         // try as terminal
                         let rx_id = self.do_token_expansions(&rule.expansions).map_err(|e| {
@@ -510,7 +503,27 @@ impl Compiler {
     }
 
     fn execute(&mut self) -> Result<()> {
+        let mut llg_opts = serde_json::json!({});
+        for item in &self.parsed.items {
+            let loc = item.location().clone();
+            match item {
+                Item::Statement(_, Statement::LLGuidance(json_value)) => {
+                    // first, check if it's valid JSON and all the right types
+                    let _v: LLGuidanceOptions = serde_json::from_str(&json_value)
+                        .map_err(|e| anyhow!("failed to parse %llguidance declaration: {}", e))
+                        .map_err(|e| loc.augment(e))?;
+                    // but in fact, we'll work on JSON object
+                    let v: serde_json::Value = serde_json::from_str(&json_value).unwrap();
+                    json_merge(&mut llg_opts, &v);
+                }
+                _ => {}
+            }
+        }
+
         let mut grm = Grammar::default();
+        grm.llg_opts = serde_json::from_value(llg_opts)
+            .map_err(|e| anyhow!("failed to parse %llguidance declaration: {}", e))?;
+
         for item in std::mem::take(&mut self.parsed.items) {
             let loc = item.location().clone();
             grm.process_item(item).map_err(|e| loc.augment(e))?;
@@ -524,15 +537,8 @@ impl Compiler {
         let ignore = std::mem::take(&mut grm.ignore);
         self.grammar = Arc::new(grm);
 
-        let opts: LLGuidanceOptions =
-            serde_json::from_value(self.grammar.llguidance_options.clone())
-                .map_err(|e| anyhow!("failed to parse %llguidance declaration: {}", e))?;
-        ensure!(
-            !self.has_indent || opts.indent.is_some(),
-            "indentation tokens used but %llguidance.indent not set"
-        );
         let mut grm_with_lex = GrammarWithLexer::default();
-        grm_with_lex.options = opts;
+        grm_with_lex.options = self.grammar.llg_opts.clone();
         self.builder.add_grammar(grm_with_lex);
 
         let ignore = ignore
@@ -596,13 +602,8 @@ impl Grammar {
                     self.add_token_def(loc, n.to_string(), regex)?;
                 }
             }
-            Statement::LLGuidance(json_value) => {
-                // first, check if it's valid JSON and all the right types
-                let _v: LLGuidanceOptions = serde_json::from_str(&json_value)
-                    .map_err(|e| anyhow!("failed to parse %llguidance declaration: {}", e))?;
-                // but in fact, we'll work on JSON object
-                let v: serde_json::Value = serde_json::from_str(&json_value).unwrap();
-                json_merge(&mut self.llguidance_options, &v);
+            Statement::LLGuidance(_) => {
+                // handled outside in pre-pass
             }
             Statement::OverrideRule(_) => {
                 bail!("override statement not supported yet");
