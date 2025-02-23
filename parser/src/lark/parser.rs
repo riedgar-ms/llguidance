@@ -155,10 +155,10 @@ impl Parser {
                         rule.suffix = Some(Value::LiteralRegex("".to_string(), "".to_string()));
                     }
                 }
-                "open" => {
+                "open_paren" => {
                     rule.paren_balance = Some(1);
                 }
-                "close" => {
+                "close_paren" => {
                     rule.paren_balance = Some(-1);
                 }
                 _ => {

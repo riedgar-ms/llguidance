@@ -148,7 +148,7 @@ fn grammar_from_json(
         input.rx_nodes = g.rx_nodes;
         input.contextual = g.contextual;
 
-        input.options.apply(&g.options);
+        input.options.apply(&g.options)?;
 
         if g.allow_initial_skip {
             input.allow_initial_skip = true;
@@ -159,6 +159,10 @@ fn grammar_from_json(
     }
 
     ensure!(input.nodes.len() > 0, "empty grammar");
+    ensure!(
+        input.options.indent != Some("".to_string()),
+        "indent option cannot be empty string"
+    );
 
     let utf8 = !input.options.allow_invalid_utf8;
     let lexer_spec = &mut ctx.lexer_spec;
@@ -309,7 +313,7 @@ fn grammar_from_json(
             Node::Indentation { kind, .. } => {
                 ensure!(
                     input.options.indent.is_some(),
-                    "indentation requires \"indent\" option in %llguidance {{}}"
+                    "indentation lexemes require \"indent\" option in %llguidance {{}}"
                 );
                 let (rx, lex_kind) = match kind {
                     IndentKind::Dedent => (

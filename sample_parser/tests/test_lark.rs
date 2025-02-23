@@ -601,3 +601,126 @@ fn test_lexer_amb() {
         &["'bar'a", "'bar'c"],
     );
 }
+
+#[test]
+fn test_lark_syntax_indentation() {
+    for tok in &["INDENT", "DEDENT", "KEEPDENT", "KEEPDENT_LAZY"] {
+        lark_err_test(
+            &format!("start: {} /hello/", tok),
+            "indentation tokens used but %llguidance.indent not set",
+        );
+
+        lark_err_test(
+            &format!("start: /a/\n{}: /hello/", tok),
+            "indentation tokens cannot be defined",
+        );
+    }
+
+    lark_err_test(
+        r#"
+            start: lparen
+            lparen[open_paren]: "("
+        "#,
+        "paren used but %llguidance.indent not set",
+    );
+
+    lark_err_test(
+        r#"
+            start: lparen
+            lparen[close_paren]: ")"
+        "#,
+        "paren used but %llguidance.indent not set",
+    );
+
+    // Test valid configurations with %llguidance.indent set
+    lark_ok(
+        r#"
+            %llguidance { "indent": "  " }
+            start: INDENT "hello" DEDENT
+        "#,
+    );
+
+    lark_err_test(
+        r#"
+            %llguidance { "indent": "  " }
+            start: KEEPDENT_LAZY "hello"
+        "#,
+        "INDENT and DEDENT must both be present",
+    );
+
+    // Test valid paren configurations
+    lark_ok(
+        r#"
+            %llguidance { "indent": "  " }
+            start: block | stmt
+            stmt: /[a-z]+/ lparen stmt rparen
+            lparen[open_paren]: "("
+            rparen[close_paren]: ")"
+            block: INDENT stmt (KEEPDENT stmt)* DEDENT
+        "#,
+    );
+
+    lark_err_test(
+        r#"
+            %llguidance { "indent": "  " }
+            start: foo
+            foo[open_paren]: bar
+            bar: "("
+        "#,
+        "temperature=, max_tokens=, etc. only supported on TERMINALS and @subgrammars",
+    );
+
+    // Test using indentation tokens in terminals
+    lark_err_test(
+        r#"
+            %llguidance { "indent": "  " }
+            start: FOO
+            FOO: INDENT
+        "#,
+        "indentation tokens cannot be used in terminals",
+    );
+
+    // Test custom newline regex
+    lark_ok(
+        r#"
+            %llguidance { 
+                "indent": "  ",
+                "indent_newline_rx": "\n"
+            }
+            start: INDENT "hello" DEDENT
+        "#,
+    );
+
+    // Test invalid %llguidance.indent values
+    lark_err_test(
+        r#"
+            %llguidance { "indent": true }
+            start: INDENT "hello" DEDENT
+        "#,
+        "failed to parse %llguidance declaration",
+    );
+
+    lark_err_test(
+        r#"
+            %llguidance { "indent": "" }
+            start: INDENT "hello" DEDENT
+        "#,
+        "indent option cannot be empty string",
+    );
+
+    lark_err_test(
+        r#"
+            %llguidance { "indent": "  " }
+            start: INDENT "hello"
+        "#,
+        "INDENT and DEDENT must both be present",
+    );
+
+    lark_err_test(
+        r#"
+            %llguidance { "indent": "  " }
+            start: DEDENT "hello"
+        "#,
+        "INDENT and DEDENT must both be present",
+    );
+}

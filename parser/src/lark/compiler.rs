@@ -635,6 +635,10 @@ impl Grammar {
                     "duplicate token: {:?}",
                     token_def.name
                 );
+                ensure!(
+                    indent_kind(&token_def.name).is_none(),
+                    "indentation tokens cannot be defined"
+                );
                 self.tokens.insert(token_def.name.clone(), token_def);
             }
             Item::Statement(loc, statement) => {

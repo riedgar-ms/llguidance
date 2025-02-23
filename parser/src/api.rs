@@ -3,6 +3,7 @@ use std::{
     ops::RangeInclusive,
 };
 
+use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use toktrie::TokenId;
@@ -47,13 +48,27 @@ pub struct LLGuidanceOptions {
 }
 
 impl LLGuidanceOptions {
-    pub fn apply(&mut self, other: &LLGuidanceOptions) {
+    pub fn apply(&mut self, other: &LLGuidanceOptions) -> Result<()> {
         if other.no_forcing {
             self.no_forcing = true;
         }
         if other.allow_invalid_utf8 {
             self.allow_invalid_utf8 = true;
         }
+        if self.indent.is_none() {
+            self.indent = other.indent.clone();
+        } else {
+            ensure!(self.indent == other.indent, "Incompatible indent options");
+        }
+        if self.indent_newline_rx.is_none() {
+            self.indent_newline_rx = other.indent_newline_rx.clone();
+        } else {
+            ensure!(
+                self.indent_newline_rx == other.indent_newline_rx,
+                "Incompatible indent_newline_rx options"
+            );
+        }
+        Ok(())
     }
 }
 

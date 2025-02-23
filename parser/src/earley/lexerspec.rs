@@ -289,6 +289,10 @@ impl LexerSpec {
                 && lex.class == spec.class
                 && lex.max_tokens == spec.max_tokens
                 && lex.token_ranges == spec.token_ranges
+                && lex.indent == spec.indent
+                && lex.lazy == spec.lazy
+                && lex.contextual == spec.contextual
+                && lex.ends_at_eos == spec.ends_at_eos
         }) {
             return Ok(LexemeIdx::new(idx));
         }
