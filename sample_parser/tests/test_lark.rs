@@ -58,13 +58,16 @@ fn lark_str_test(lark: &str, should_accept: bool, s: &str, quiet: bool) {
     let mut p = make_parser(lark, quiet).unwrap();
     // println!("make_parser: {:?}", t0.elapsed());
 
-    for tok in tokens.iter() {
+    for (idx, tok) in tokens.iter().enumerate() {
         let m = p.compute_mask().unwrap();
         if m.is_allowed(*tok) {
             consume(&mut p, *tok);
         } else {
             if should_accept {
-                panic!("unexpected token: {}", trie.token_dbg(*tok));
+                panic!(
+                    "unexpected token (last): {}",
+                    trie.tokens_dbg(&tokens[idx.saturating_sub(100)..=idx])
+                );
             }
             return;
         }
@@ -761,5 +764,75 @@ fn test_lark_syntax_indent_parens() {
             FOO: "("
         "#,
         "\"(\" is in %llguidance.indent_parens and cannot be used here",
+    );
+}
+
+#[test]
+fn test_indent_simple() {
+    let missing_indent = r#"
+if x > 10:
+print("Too high")  # Error: No indentation after colon
+"#;
+
+    let missing_dedent = r#"
+if x > 10:
+    print("Too high")
+  print("Check complete")  # Error: Unexpected dedent
+"#;
+
+    let missing_colon_inline_suite = r#"
+if x > 10:
+    print("Too high")
+elif x > 5:
+    print("Moderate")
+else print("Low")  # Error: Missing colon before block
+"#;
+
+    let missing_colon_while = r#"
+while x < 5  # Error: Missing colon
+    x += 1
+"#;
+
+    let try_without_except_or_finally = r#"
+try:
+    x = 1 / 0  # Error: `except` or `finally` is required
+x = 1
+"#;
+
+    let invalid_assignment_in_if = r#"
+if x := 5:  # Error: `:=` is not supported in this grammar
+    print("Assigned")
+"#;
+
+    let empty_block = r#"
+if x > 10:
+    # No statements inside block
+x = 1
+"#;
+
+    let invalid_programs = &[
+        missing_indent,
+        missing_dedent,
+        missing_colon_inline_suite,
+        missing_colon_while,
+        try_without_except_or_finally,
+        invalid_assignment_in_if,
+        empty_block,
+    ];
+
+    let simple_py = include_str!("py/simple_py.lark");
+
+    lark_str_test_many(
+        &simple_py,
+        &[
+            "\n",
+            "",
+            "# foo",
+            "#foo\n",
+            "x = 5\n",
+            "\nx = 5\n",
+            include_str!("py/ok0.py"),
+        ],
+        invalid_programs,
     );
 }
