@@ -1,4 +1,8 @@
-%llguidance { "indent": "    ", "indent_parens": ["(", ")"] }
+%llguidance {
+    "indent": "    ",
+    "indent_parens": ["(", ")"],
+    "allow_initial_skip": true
+}
 
 start: file_input
 file_input: (KEEPDENT | stmt)*
@@ -24,7 +28,10 @@ finally: "finally" ":" suite
 
 suite: simple_stmt | INDENT stmt+ DEDENT
 
-expr: term (("+" | "-") term)*
+expr: comparison
+comparison: add (comp_op add)*
+comp_op: "<" | ">" | "!=" | "=="
+add: term (("+" | "-") term)*
 term: factor (("*" | "/") factor)*
 factor: NUMBER | NAME | "(" expr ")"
 

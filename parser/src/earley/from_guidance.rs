@@ -150,10 +150,6 @@ fn grammar_from_json(
 
         input.options.apply(&g.options)?;
 
-        if g.allow_initial_skip {
-            input.allow_initial_skip = true;
-        }
-
         input.lark_grammar = None;
         input.json_schema = None;
     }
@@ -184,7 +180,7 @@ fn grammar_from_json(
     if input.options.no_forcing {
         lexer_spec.no_forcing = true;
     }
-    if input.allow_initial_skip && grammar_id == LexemeClass::ROOT {
+    if input.options.allow_initial_skip && grammar_id == LexemeClass::ROOT {
         // TODO: what about sub-grammars?
         lexer_spec.allow_initial_skip = true;
     }
@@ -333,7 +329,8 @@ fn grammar_from_json(
                     IndentKind::Keepdent => (RegexAst::NoMatch, LexemeIndent::KeepdentNormal),
                     IndentKind::KeepdentLazy => (RegexAst::NoMatch, LexemeIndent::KeepdentLazy),
                 };
-                lexer_spec.add_indent_lexeme(rx, lex_kind)?;
+                let idx = lexer_spec.add_indent_lexeme(rx, lex_kind)?;
+                grm.make_terminal(lhs, idx, &lexer_spec)?;
             }
             Node::String { literal, .. } => {
                 if literal.is_empty() {

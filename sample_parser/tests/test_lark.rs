@@ -825,8 +825,9 @@ x = 1
     lark_str_test_many(
         &simple_py,
         &[
-            "\n",
+            "if x > 10:\n    x = 2\n    y = 3\nz = 1\n",
             "",
+            "\n",
             "# foo",
             "#foo\n",
             "x = 5\n",

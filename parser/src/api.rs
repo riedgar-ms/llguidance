@@ -57,6 +57,10 @@ pub struct LLGuidanceOptions {
     /// Defaults to "\r?\n"; only used when indent is set.
     #[serde(default)]
     pub indent_newline_rx: Option<String>,
+
+    /// If set, the grammar will allow skip_rx as the first lexeme.
+    #[serde(default)]
+    pub allow_initial_skip: bool,
 }
 
 impl LLGuidanceOptions {
@@ -66,6 +70,9 @@ impl LLGuidanceOptions {
         }
         if other.allow_invalid_utf8 {
             self.allow_invalid_utf8 = true;
+        }
+        if other.allow_initial_skip {
+            self.allow_initial_skip = true;
         }
         if self.indent.is_none() {
             self.indent = other.indent.clone();
@@ -119,10 +126,6 @@ pub struct GrammarWithLexer {
     /// When set, the regexps can be referenced by their id (position in this list).
     #[serde(default)]
     pub rx_nodes: Vec<RegexNode>,
-
-    /// If set, the grammar will allow skip_rx as the first lexeme.
-    #[serde(default)]
-    pub allow_initial_skip: bool,
 
     #[serde(flatten)]
     pub options: LLGuidanceOptions,

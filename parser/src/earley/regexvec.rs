@@ -19,6 +19,16 @@ use crate::api::ParserLimits;
 
 use super::lexerspec::LexemeIdx;
 
+// PRTODO DEBUG
+const DEBUG: bool = false;
+macro_rules! debug {
+    ($($arg:tt)*) => {
+        if cfg!(feature = "logging") && DEBUG {
+            eprintln!($($arg)*);
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize, Default)]
 pub struct LexerStats {
     pub num_regexps: usize,
@@ -263,6 +273,7 @@ impl RegexVec {
     }
 
     fn indent_rx(&mut self, min_level: usize, max_level: usize) -> ExprRef {
+        debug!("indent_rx: {}-{}", min_level, max_level);
         let inner = self
             .exprs
             .mk_repeat(self.one_indent_rx, min_level as u32, max_level as u32);
@@ -280,9 +291,9 @@ impl RegexVec {
         let mut vec_desc = vec![];
         if self.has_indent {
             for idx in selected.iter() {
-                let spec = &self.rx_lexemes[idx.as_usize()];
+                let spec_ind = self.rx_lexemes[idx.as_usize()].indent;
                 let ind = indent_state.indent_level as usize;
-                let rx = match spec.indent {
+                let rx = match spec_ind {
                     LexemeIndent::None | LexemeIndent::OpenParen | LexemeIndent::CloseParen => {
                         self.get_rx(idx)
                     }
@@ -300,6 +311,14 @@ impl RegexVec {
                     }
                 };
                 if rx != ExprRef::NO_MATCH {
+                    if spec_ind != LexemeIndent::None {
+                        debug!(
+                            "indent: {:?} {:?} {}",
+                            idx,
+                            spec_ind,
+                            self.exprs.expr_to_string(rx)
+                        );
+                    }
                     Self::push_rx(&mut vec_desc, idx, rx);
                 }
             }
