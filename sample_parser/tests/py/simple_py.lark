@@ -4,6 +4,8 @@
     "allow_initial_skip": true
 }
 
+// based on https://github.com/lark-parser/lark/blob/master/lark/grammars/python.lark
+
 start: file_input
 file_input: (KEEPDENT | stmt)*
 
