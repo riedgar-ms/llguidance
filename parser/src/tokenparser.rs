@@ -670,10 +670,15 @@ impl TokenParser {
             self.parser.perf_counters().tokenize_ff.record(t0.elapsed());
 
             if !grm_tokens.is_empty() {
-                infoln!(self, "fixed_tokens: {}", trie.tokens_dbg(&grm_tokens));
+                infoln!(
+                    self,
+                    "fixed_tokens: {}; prefix len {}",
+                    trie.tokens_dbg(&grm_tokens),
+                    token_prefix.len()
+                );
                 return (grm_tokens, token_prefix);
             } else {
-                infoln!(self, "no fixed tokens");
+                infoln!(self, "no fixed tokens; prefix len {}", token_prefix.len());
             }
         } else if forced_bytes.len() > num_existing_bytes {
             infoln!(self, "not-forcing {} bytes", forced_bytes.len());
