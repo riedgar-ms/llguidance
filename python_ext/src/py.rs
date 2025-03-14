@@ -87,9 +87,9 @@ impl LLExecutor {
 
         let mut ok = true;
         let mut refs = vec![];
-        for (idx, interp_ptr) in ptrs.iter_mut().enumerate() {
+        for (idx, &interp_ptr) in ptrs.iter().enumerate() {
             unsafe {
-                let interp = &mut **interp_ptr;
+                let interp = &mut *interp_ptr;
                 if interp.borrowed {
                     ok = false;
                     break;
@@ -99,12 +99,9 @@ impl LLExecutor {
             }
         }
 
-        let rlen = refs.len();
-
         if !ok {
-            #[allow(clippy::needless_range_loop)]
-            for idx in 0..rlen {
-                unsafe { (*ptrs[idx]).borrowed = false };
+            for &ptr in &ptrs {
+                unsafe { (*ptr).borrowed = false };
             }
             return Err(PyValueError::new_err("Duplicate interpreter in list"));
         }
@@ -116,9 +113,8 @@ impl LLExecutor {
                 })
                 .collect::<Result<Vec<_>, _>>()
         });
-        #[allow(clippy::needless_range_loop)]
-        for idx in 0..rlen {
-            unsafe { (*ptrs[idx]).borrowed = false };
+        for &ptr in &ptrs {
+            unsafe { (*ptr).borrowed = false };
         }
         let strs = strs?;
         Ok(format!("[{}]", strs.join(",")))
