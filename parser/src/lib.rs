@@ -7,6 +7,7 @@
 /// cbindgen:ignore
 pub mod earley;
 
+mod lightconstraint;
 mod tokenparser;
 pub use tokenparser::TokenParser;
 pub mod api;
@@ -18,6 +19,7 @@ mod constraint;
 mod stop_controller;
 mod tokenizer_json;
 pub use constraint::{CommitResult, Constraint};
+pub use lightconstraint::LightConstraint;
 
 mod factory;
 pub use factory::ParserFactory;
