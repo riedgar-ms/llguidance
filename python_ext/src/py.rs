@@ -44,7 +44,10 @@ impl LLTokenizer {
         slices: Option<Vec<String>>,
     ) -> PyResult<Self> {
         let tok_env: TokEnv = if let Ok(tokenizer_str) = tokenizer.extract::<String>() {
-            if tokenizer_str.starts_with("{") {
+            if tokenizer_str == "byte" {
+                let tok = ApproximateTokEnv::single_byte();
+                Arc::new(tok)
+            } else if tokenizer_str.starts_with("{") {
                 let val = serde_json::from_str(&tokenizer_str).map_err(val_error)?;
                 let mut tokens = token_bytes_from_tokenizer_json(&val).map_err(val_error)?;
                 if let Some(n_vocab) = n_vocab {
