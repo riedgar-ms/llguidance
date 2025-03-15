@@ -3,19 +3,19 @@ use toktrie::{SimpleVob, TokEnv, TokenId};
 
 use crate::{panic_utils, TokenParser};
 
-struct ConstraintInner {
+struct MatcherInner {
     parser: TokenParser,
 }
 
 #[allow(clippy::large_enum_variant)]
 enum ConstraintOrError {
-    Constraint(ConstraintInner),
+    Matcher(MatcherInner),
     Error(String),
 }
 
-pub struct LightConstraint(ConstraintOrError);
+pub struct Matcher(ConstraintOrError);
 
-impl LightConstraint {
+impl Matcher {
     pub fn new(parser: Result<TokenParser>) -> Self {
         match parser {
             Ok(parser) => {
@@ -24,16 +24,16 @@ impl LightConstraint {
                     Self::new(Err(anyhow!("backtracking not supported")))
                 } else {
                     // rest of caps is ignored
-                    LightConstraint(ConstraintOrError::Constraint(ConstraintInner { parser }))
+                    Matcher(ConstraintOrError::Matcher(MatcherInner { parser }))
                 }
             }
-            Err(e) => LightConstraint(ConstraintOrError::Error(e.to_string())),
+            Err(e) => Matcher(ConstraintOrError::Error(e.to_string())),
         }
     }
 
-    fn with_inner<T>(&mut self, f: impl FnOnce(&mut ConstraintInner) -> Result<T>) -> Result<T> {
+    fn with_inner<T>(&mut self, f: impl FnOnce(&mut MatcherInner) -> Result<T>) -> Result<T> {
         match &mut self.0 {
-            ConstraintOrError::Constraint(ref mut inner) => {
+            ConstraintOrError::Matcher(ref mut inner) => {
                 // We catch any panics here and transform them into regular errors.
                 // They shouldn't happen, but if they do, we don't want to crash the whole program.
                 let r = panic_utils::catch_unwind(std::panic::AssertUnwindSafe(|| f(inner)));
@@ -118,14 +118,14 @@ impl LightConstraint {
 
     pub fn get_error(&self) -> Option<String> {
         match &self.0 {
-            ConstraintOrError::Constraint(_) => None,
+            ConstraintOrError::Matcher(_) => None,
             ConstraintOrError::Error(e) => Some(e.clone()),
         }
     }
 
     pub fn tok_env(&self) -> Result<TokEnv> {
         match &self.0 {
-            ConstraintOrError::Constraint(inner) => Ok(inner.parser.token_env.clone()),
+            ConstraintOrError::Matcher(inner) => Ok(inner.parser.token_env.clone()),
             ConstraintOrError::Error(e) => Err(anyhow!("{}", e)),
         }
     }
