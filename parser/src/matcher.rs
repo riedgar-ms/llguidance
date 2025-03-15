@@ -1,29 +1,35 @@
 use anyhow::{anyhow, ensure, Result};
 use toktrie::{SimpleVob, TokEnv, TokenId};
 
-use crate::{panic_utils, TokenParser};
+use crate::{api::StopReason, panic_utils, TokenParser};
 
+#[derive(Clone)]
 struct MatcherInner {
     parser: TokenParser,
 }
 
+#[derive(Clone)]
 #[allow(clippy::large_enum_variant)]
 enum MatcherState {
     Normal(MatcherInner),
     Error(String),
 }
 
+#[derive(Clone)]
 pub struct Matcher(MatcherState);
 
 impl Matcher {
     pub fn new(parser: Result<TokenParser>) -> Self {
         match parser {
-            Ok(parser) => {
+            Ok(mut parser) => {
                 let caps = &parser.inference_caps;
                 if caps.backtrack {
                     Self::new(Err(anyhow!("backtracking not supported")))
                 } else {
                     // rest of caps is ignored
+                    if parser.is_fresh() {
+                        parser.start_without_prompt();
+                    }
                     Matcher(MatcherState::Normal(MatcherInner { parser }))
                 }
             }
@@ -80,6 +86,13 @@ impl Matcher {
     /// In other words, would the current token mask allow EOS token?
     pub fn is_accepting(&mut self) -> Result<bool> {
         self.with_inner(|inner| Ok(inner.parser.is_accepting()))
+    }
+
+    pub fn stop_reason(&self) -> StopReason {
+        match &self.0 {
+            MatcherState::Normal(inner) => inner.parser.stop_reason(),
+            MatcherState::Error(_) => StopReason::InternalError,
+        }
     }
 
     /// This will always return [] for non-canonical tokenizers.
