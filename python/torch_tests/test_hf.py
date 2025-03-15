@@ -86,7 +86,7 @@ def test_par_grammar() -> None:
 def asserts(msg: str, fn: Callable[..., Any], *args: Any) -> None:
     try:
         fn(*args)
-        raise AssertionError(f"Expected {msg}")
+        raise Exception("OK")
     except Exception as e:
         if msg in str(e):
             return
