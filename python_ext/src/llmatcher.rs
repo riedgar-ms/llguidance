@@ -4,11 +4,10 @@ use std::ops::DerefMut;
 
 use llguidance::api::ParserLimits;
 use llguidance::toktrie::{InferenceCapabilities, TokEnv, TokenId};
-use llguidance::{api::TopLevelGrammar, output::ParserOutput, TokenParser};
+use llguidance::{api::TopLevelGrammar, TokenParser};
 use llguidance::{Logger, Matcher};
 use pyo3::types::PyList;
 use pyo3::{exceptions::PyValueError, prelude::*};
-use serde::{Deserialize, Serialize};
 
 use crate::py::LLTokenizer;
 
@@ -21,12 +20,12 @@ struct LLMatcher {
 }
 
 #[pyclass]
-struct LLMatcherExecutor {
+struct LLExecutor {
     pool: rayon::ThreadPool,
 }
 
 #[pymethods]
-impl LLMatcherExecutor {
+impl LLExecutor {
     #[new]
     #[pyo3(signature = (num_threads=None))]
     fn py_new(num_threads: Option<usize>) -> PyResult<Self> {
@@ -39,7 +38,7 @@ impl LLMatcherExecutor {
             .num_threads(num_threads)
             .build()
             .map_err(val_error)?;
-        Ok(LLMatcherExecutor { pool })
+        Ok(LLExecutor { pool })
     }
 
     fn unsafe_compute_mask_ptr(
@@ -190,18 +189,36 @@ impl LLMatcher {
     fn consume_token(&mut self, sampled_token: TokenId) -> PyResult<()> {
         Ok(self.inner.consume_tokens(&[sampled_token])?)
     }
-}
 
-#[derive(Serialize, Deserialize)]
-struct PyMidProcessResult {
-    progress: Vec<ParserOutput>,
-    stop: bool,
-    temperature: f32,
+    fn rollback(&mut self, num_tokens: usize) -> PyResult<()> {
+        self.inner.rollback(num_tokens).map_err(val_error)
+    }
+
+    fn compute_ff_tokens(&mut self) -> PyResult<Vec<TokenId>> {
+        Ok(self.inner.compute_ff_tokens())
+    }
+
+    fn compute_ff_bytes(&mut self) -> PyResult<Cow<[u8]>> {
+        let bytes = self.inner.compute_ff_bytes();
+        Ok(Cow::Owned(bytes))
+    }
+
+    fn try_consume_tokens(&mut self, tokens: Vec<TokenId>) -> PyResult<usize> {
+        self.inner.try_consume_tokens(&tokens).map_err(val_error)
+    }
+
+    fn is_error(&self) -> bool {
+        self.inner.is_error()
+    }
+
+    fn get_error(&self) -> Option<String> {
+        self.inner.get_error()
+    }
 }
 
 pub(crate) fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<LLMatcher>()?;
-    m.add_class::<LLMatcherExecutor>()?;
+    m.add_class::<LLExecutor>()?;
     Ok(())
 }
 

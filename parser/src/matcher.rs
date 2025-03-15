@@ -15,6 +15,8 @@ enum MatcherState {
     Error(String),
 }
 
+/// This is meant to be used in server-side scenarios.
+/// The Constraint interface is more for usage in Python Guidance.
 #[derive(Clone)]
 pub struct Matcher(MatcherState);
 

@@ -1,12 +1,11 @@
 use std::borrow::Cow;
 use std::fmt::Display;
-use std::ops::DerefMut;
 
 use llguidance::api::ParserLimits;
 use llguidance::toktrie::{InferenceCapabilities, TokenId};
 use llguidance::{api::TopLevelGrammar, output::ParserOutput, TokenParser};
 use llguidance::{Constraint, Logger};
-use pyo3::types::{PyByteArray, PyList};
+use pyo3::types::PyByteArray;
 use pyo3::{exceptions::PyValueError, prelude::*};
 use serde::{Deserialize, Serialize};
 
@@ -18,95 +17,6 @@ struct LLInterpreter {
     inner: Constraint,
     #[pyo3(get, set)]
     log_level: isize,
-    borrowed: bool,
-}
-
-#[pyclass]
-struct LLExecutor {
-    pool: rayon::ThreadPool,
-}
-
-#[pymethods]
-impl LLExecutor {
-    #[new]
-    #[pyo3(signature = (num_threads=None))]
-    fn py_new(num_threads: Option<usize>) -> PyResult<Self> {
-        let num_threads = num_threads.unwrap_or_else(|| {
-            let n = std::thread::available_parallelism().unwrap().get();
-            // by default run on 80% of available threads but not more than 32
-            (n * 80 / 100).clamp(1, 32)
-        });
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(num_threads)
-            .build()
-            .map_err(val_error)?;
-        Ok(LLExecutor { pool })
-    }
-
-    fn unsafe_compute_mask_ptr(
-        &self,
-        interpreters: Bound<'_, PyList>,
-        trg_ptr: usize,
-        one_mask_bytes: usize,
-    ) -> PyResult<String> {
-        if interpreters.len() == 0 {
-            return Err(PyValueError::new_err("No interpreters"));
-        }
-
-        if interpreters.len() == 1 {
-            let mut interp = interpreters
-                .get_item(0)?
-                .extract::<PyRefMut<LLInterpreter>>()?;
-            return interp.unsafe_compute_mask_ptr(trg_ptr, one_mask_bytes);
-        }
-
-        use rayon::prelude::*;
-
-        let mut ptrs = vec![];
-        for ent in interpreters.iter() {
-            let mut interp = ent.extract::<PyRefMut<LLInterpreter>>()?;
-            interp.validate_mask_ptr(trg_ptr, one_mask_bytes)?;
-            if interp.borrowed {
-                return Err(PyValueError::new_err("Interpreter already borrowed"));
-            }
-            let interp = interp.deref_mut() as *mut LLInterpreter;
-            ptrs.push(interp);
-        }
-
-        let mut ok = true;
-        let mut refs = vec![];
-        for (idx, &interp_ptr) in ptrs.iter().enumerate() {
-            unsafe {
-                let interp = &mut *interp_ptr;
-                if interp.borrowed {
-                    ok = false;
-                    break;
-                }
-                interp.borrowed = true;
-                refs.push((idx, interp));
-            }
-        }
-
-        if !ok {
-            for &ptr in &ptrs {
-                unsafe { (*ptr).borrowed = false };
-            }
-            return Err(PyValueError::new_err("Duplicate interpreter in list"));
-        }
-
-        let strs = self.pool.install(|| {
-            refs.into_par_iter()
-                .map(|(idx, interp)| {
-                    interp.unsafe_compute_mask_ptr(trg_ptr + idx * one_mask_bytes, one_mask_bytes)
-                })
-                .collect::<Result<Vec<_>, _>>()
-        });
-        for &ptr in &ptrs {
-            unsafe { (*ptr).borrowed = false };
-        }
-        let strs = strs?;
-        Ok(format!("[{}]", strs.join(",")))
-    }
 }
 
 impl LLInterpreter {
@@ -170,7 +80,6 @@ impl LLInterpreter {
         Ok(LLInterpreter {
             inner,
             log_level,
-            borrowed: false,
         })
     }
 
@@ -178,7 +87,6 @@ impl LLInterpreter {
         Self {
             inner: self.inner.clone(),
             log_level: self.log_level,
-            borrowed: false,
         }
     }
 
@@ -288,7 +196,6 @@ struct PyMidProcessResult {
 
 pub(crate) fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<LLInterpreter>()?;
-    m.add_class::<LLExecutor>()?;
     Ok(())
 }
 

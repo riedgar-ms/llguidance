@@ -30,7 +30,7 @@ def from_tokenizer(
         if n_vocab is None:
             n_vocab = hf_tokenizer.vocab_size
         if eos_token is None:
-            eos_token = hf_tokenizer.eos_token_id  # type: ignore
+            eos_token = hf_tokenizer.eos_token_id
         return LLTokenizer(s,
                            n_vocab=n_vocab,
                            eos_token=eos_token,
