@@ -8,12 +8,12 @@ struct MatcherInner {
 }
 
 #[allow(clippy::large_enum_variant)]
-enum ConstraintOrError {
-    Matcher(MatcherInner),
+enum MatcherState {
+    Normal(MatcherInner),
     Error(String),
 }
 
-pub struct Matcher(ConstraintOrError);
+pub struct Matcher(MatcherState);
 
 impl Matcher {
     pub fn new(parser: Result<TokenParser>) -> Self {
@@ -24,28 +24,28 @@ impl Matcher {
                     Self::new(Err(anyhow!("backtracking not supported")))
                 } else {
                     // rest of caps is ignored
-                    Matcher(ConstraintOrError::Matcher(MatcherInner { parser }))
+                    Matcher(MatcherState::Normal(MatcherInner { parser }))
                 }
             }
-            Err(e) => Matcher(ConstraintOrError::Error(e.to_string())),
+            Err(e) => Matcher(MatcherState::Error(e.to_string())),
         }
     }
 
     fn with_inner<T>(&mut self, f: impl FnOnce(&mut MatcherInner) -> Result<T>) -> Result<T> {
         match &mut self.0 {
-            ConstraintOrError::Matcher(ref mut inner) => {
+            MatcherState::Normal(ref mut inner) => {
                 // We catch any panics here and transform them into regular errors.
                 // They shouldn't happen, but if they do, we don't want to crash the whole program.
                 let r = panic_utils::catch_unwind(std::panic::AssertUnwindSafe(|| f(inner)));
                 match r {
                     Ok(r) => Ok(r),
                     Err(e) => {
-                        self.0 = ConstraintOrError::Error(e.to_string());
+                        self.0 = MatcherState::Error(e.to_string());
                         Err(e)
                     }
                 }
             }
-            ConstraintOrError::Error(e) => Err(anyhow!("{}", e)),
+            MatcherState::Error(e) => Err(anyhow!("{}", e)),
         }
     }
 
@@ -113,20 +113,20 @@ impl Matcher {
     }
 
     pub fn is_error(&self) -> bool {
-        matches!(self.0, ConstraintOrError::Error(_))
+        matches!(self.0, MatcherState::Error(_))
     }
 
     pub fn get_error(&self) -> Option<String> {
         match &self.0 {
-            ConstraintOrError::Matcher(_) => None,
-            ConstraintOrError::Error(e) => Some(e.clone()),
+            MatcherState::Normal(_) => None,
+            MatcherState::Error(e) => Some(e.clone()),
         }
     }
 
     pub fn tok_env(&self) -> Result<TokEnv> {
         match &self.0 {
-            ConstraintOrError::Matcher(inner) => Ok(inner.parser.token_env.clone()),
-            ConstraintOrError::Error(e) => Err(anyhow!("{}", e)),
+            MatcherState::Normal(inner) => Ok(inner.parser.token_env.clone()),
+            MatcherState::Error(e) => Err(anyhow!("{}", e)),
         }
     }
 }
