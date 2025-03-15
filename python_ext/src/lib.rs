@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 
-mod py;
 mod llinterpreter;
+mod py;
 
 // name must match the `lib.name` setting in the `Cargo.toml`
 #[pymodule]

@@ -8,9 +8,7 @@ use llguidance::toktrie::{
     TokenizerEnv,
 };
 use llguidance::{api::TopLevelGrammar, output::ParserOutput};
-use llguidance::{
-    token_bytes_from_tokenizer_json, JsonCompileOptions, ParserFactory,
-};
+use llguidance::{token_bytes_from_tokenizer_json, JsonCompileOptions, ParserFactory};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

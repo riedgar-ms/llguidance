@@ -3,13 +3,9 @@ use std::fmt::Display;
 use std::ops::DerefMut;
 
 use llguidance::api::ParserLimits;
-use llguidance::toktrie::{
-    InferenceCapabilities, TokenId,
-};
+use llguidance::toktrie::{InferenceCapabilities, TokenId};
 use llguidance::{api::TopLevelGrammar, output::ParserOutput, TokenParser};
-use llguidance::{
-    Constraint, Logger,
-};
+use llguidance::{Constraint, Logger};
 use pyo3::types::{PyByteArray, PyList};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use serde::{Deserialize, Serialize};
