@@ -77,10 +77,7 @@ impl LLInterpreter {
         .map_err(val_error)?;
         fact.post_process_parser(&mut inner);
         let inner = Constraint::new(inner);
-        Ok(LLInterpreter {
-            inner,
-            log_level,
-        })
+        Ok(LLInterpreter { inner, log_level })
     }
 
     fn deep_copy(&self) -> Self {
