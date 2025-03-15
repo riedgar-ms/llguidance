@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::ops::DerefMut;
 use std::{borrow::Cow, sync::Arc};
 
 use llguidance::api::{GrammarInit, ParserLimits};
@@ -8,11 +7,10 @@ use llguidance::toktrie::{
     self, ApproximateTokEnv, InferenceCapabilities, TokEnv, TokRxInfo, TokTrie, TokenId,
     TokenizerEnv,
 };
-use llguidance::{api::TopLevelGrammar, output::ParserOutput, TokenParser};
+use llguidance::{api::TopLevelGrammar, output::ParserOutput};
 use llguidance::{
-    token_bytes_from_tokenizer_json, Constraint, JsonCompileOptions, Logger, ParserFactory,
+    token_bytes_from_tokenizer_json, JsonCompileOptions, ParserFactory,
 };
-use pyo3::types::{PyByteArray, PyList};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -24,11 +22,10 @@ struct PyTokenizer {
     tok_bos: Option<u32>,
 }
 
-
 #[derive(Clone)]
 #[pyclass]
 pub(crate) struct LLTokenizer {
-    pub(crate) factory: Arc<ParserFactory>,
+    factory: Arc<ParserFactory>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -115,7 +112,7 @@ impl LLTokenizer {
     }
 
     fn tokenize_bytes(&self, utf8bytes: &[u8]) -> Vec<TokenId> {
-        self.factory.tok_env().tokenize_bytes(utf8bytes)
+        self.tok_env().tokenize_bytes(utf8bytes)
     }
 
     fn tokenize_str(&self, text: &str) -> Vec<TokenId> {
@@ -161,8 +158,14 @@ impl LLTokenizer {
 }
 
 impl LLTokenizer {
-    fn tok_trie(&self) -> &toktrie::TokTrie {
-        self.factory.tok_env().tok_trie()
+    pub fn tok_env(&self) -> &TokEnv {
+        self.factory().tok_env()
+    }
+    pub fn tok_trie(&self) -> &toktrie::TokTrie {
+        self.tok_env().tok_trie()
+    }
+    pub fn factory(&self) -> &ParserFactory {
+        &self.factory
     }
 }
 
