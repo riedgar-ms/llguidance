@@ -180,10 +180,23 @@ impl LLMatcher {
     }
 
     fn compute_logit_bias(&mut self, py: Python<'_>) -> PyResult<Cow<[u8]>> {
-        let m = py.allow_threads(|| self.inner.compute_mask())?;
-        let mut res = vec![0u8; m.len()];
-        m.iter_set_entries(|i| res[i] = 200);
+        let res = py.allow_threads(|| {
+            self.inner.compute_mask().map(|m| {
+                let mut res = vec![0u8; m.len()];
+                m.iter_set_entries(|i| res[i] = 200);
+                res
+            })
+        })?;
         Ok(Cow::Owned(res))
+    }
+
+    fn compute_bitmask(&mut self, py: Python<'_>) -> PyResult<Cow<[u8]>> {
+        let m = py.allow_threads(|| {
+            self.inner
+                .compute_mask()
+                .map(|m| bytemuck::cast_slice(m.as_slice()).to_vec())
+        })?;
+        Ok(Cow::Owned(m))
     }
 
     fn consume_token(&mut self, sampled_token: TokenId) -> PyResult<()> {

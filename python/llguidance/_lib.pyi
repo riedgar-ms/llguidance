@@ -242,9 +242,15 @@ class LLMatcher:
         Check how many of the tokens in the list can be committed in the current state.
         """
 
-    def compute_mask(self) -> bytes:
+    def compute_bitmask(self) -> bytes:
         """
-        Compute the token mask for the next parsing step.
+        Compute the token mask, with one bit per tokenizer word, for the next parsing step.
+        """
+
+    def compute_logit_bias(self) -> bytes:
+        """
+        Compute the token mask, with one byte per tokenizer word, for the next parsing step.
+        Entries are either 0 (not allowed) or 200 (allowed).
         """
 
     def unsafe_compute_mask_ptr(self, trg_pointer: int,

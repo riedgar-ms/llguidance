@@ -35,7 +35,7 @@ def tokenizer() -> LLTokenizer:
     return _tokenizer
 
 
-def lark_interp(grm: str) -> LLMatcher:
+def lark_matcher(grm: str) -> LLMatcher:
     gstr = json.dumps({"grammars": [{"lark_grammar": grm}]})
     interp = LLMatcher(tokenizer(), gstr, log_level=1)
     return interp
@@ -44,7 +44,7 @@ def lark_interp(grm: str) -> LLMatcher:
 def test_grammar() -> None:
     t = tokenizer()
     mask = allocate_token_bitmask(2, t.vocab_size)
-    interp = lark_interp(r"start: /[A-Z ]*/")
+    interp = lark_matcher(r"start: /[A-Z ]*/")
     fill_next_token_bitmask(interp, mask)
     allowed = []
     for idx, v in enumerate(mask[0, :].tolist()):
@@ -66,7 +66,7 @@ def test_grammar() -> None:
 def test_par_grammar() -> None:
     n_gram = 50
     t = tokenizer()
-    grammars = [lark_interp(r"start: /[a-zA-Z ]*/") for _ in range(n_gram)]
+    grammars = [lark_matcher(r"start: /[a-zA-Z ]*/") for _ in range(n_gram)]
     mask = allocate_token_bitmask(n_gram, t.vocab_size)
     mask2 = allocate_token_bitmask(n_gram, t.vocab_size)
     exec = LLExecutor()
@@ -96,8 +96,8 @@ def asserts(msg: str, fn: Callable[..., Any], *args: Any) -> None:
 def test_par_errors() -> None:
     t = tokenizer()
     exec = LLExecutor()
-    g0 = lark_interp(r"start: /[a-zA-Z ]*/")
-    g1 = lark_interp(r"start: /[0-9 ]*/")
+    g0 = lark_matcher(r"start: /[a-zA-Z ]*/")
+    g1 = lark_matcher(r"start: /[0-9 ]*/")
     mask = allocate_token_bitmask(3, t.vocab_size)
     asserts("count mismatch", fill_next_token_bitmask_par, exec, [g0, g1],
             mask)
