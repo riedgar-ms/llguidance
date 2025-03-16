@@ -253,17 +253,19 @@ struct JsonCompiler {
     item_separator: String,
     key_separator: String,
     whitespace_flexible: bool,
+    whitespace_pattern: Option<String>,
     coerce_one_of: bool,
 }
 
 #[pymethods]
 impl JsonCompiler {
     #[new]
-    #[pyo3(signature = (separators = None, whitespace_flexible = false, coerce_one_of = false))]
+    #[pyo3(signature = (separators = None, whitespace_flexible = false, coerce_one_of = false, whitespace_pattern = None))]
     fn py_new(
         separators: Option<(String, String)>,
         whitespace_flexible: bool,
         coerce_one_of: bool,
+        whitespace_pattern: Option<String>,
     ) -> Self {
         let (item_separator, key_separator) = separators.unwrap_or_else(|| {
             if whitespace_flexible {
@@ -277,6 +279,7 @@ impl JsonCompiler {
             key_separator,
             whitespace_flexible,
             coerce_one_of,
+            whitespace_pattern,
         }
     }
     #[pyo3(signature = (schema, check = true))]
@@ -287,6 +290,7 @@ impl JsonCompiler {
             key_separator: self.key_separator.clone(),
             whitespace_flexible: self.whitespace_flexible,
             coerce_one_of: self.coerce_one_of,
+            whitespace_pattern: self.whitespace_pattern.clone(),
             retriever: None,
         };
         compile_options.apply_to(&mut schema);
