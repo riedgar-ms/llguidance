@@ -1,4 +1,4 @@
-from typing import List, Tuple, Mapping, Optional, Sequence, Union
+from typing import List, Tuple, Mapping, Optional, Sequence, Union, TypedDict, Dict, Any
 from ._util import TokenId, StopReason
 from ._tokenizer import TokenizerWrapper
 
@@ -188,9 +188,15 @@ class LLMatcher:
         """
 
     @staticmethod
-    def grammar_from_json_schema(schema: Union[str, dict]) -> str:
+    def grammar_from_json_schema(
+            schema: Union[str, Dict[str, Any]],
+            options: Optional[JsonCompileOptions] = None) -> str:
         """
         Create a grammar from a JSON schema.
+
+        Args:
+            schema: str or dict - the JSON schema; can be stringified already or not
+            options: JsonCompileOptions - options for the JSON compiler; note that "x-guidance" key in the schema overrides these options
         """
 
     @staticmethod
@@ -357,3 +363,16 @@ class LLExecutor:
         Perform next parsing step.
         Returns: a JSON string.
         """
+
+
+class JsonCompileOptions(TypedDict, total=False):
+    # defaults to ","
+    item_separator: Optional[str]
+    # defaults to ":"
+    key_separator: Optional[str]
+    # defaults to None - depends on whitespace_flexible
+    whitespace_pattern: Optional[str]
+    # defaults to true (r"[\x20\x0A\x0D\x09]+"); if false, no whitespace is allowed
+    whitespace_flexible: Optional[bool]
+    # defaults to false
+    coerce_one_of: Optional[bool]

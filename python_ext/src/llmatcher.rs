@@ -5,12 +5,12 @@ use std::ops::DerefMut;
 use llguidance::api::ParserLimits;
 use llguidance::toktrie::{InferenceCapabilities, TokEnv, TokenId};
 use llguidance::{api::TopLevelGrammar, TokenParser};
-use llguidance::{Logger, Matcher};
+use llguidance::{json_merge, Logger, Matcher};
 use pyo3::types::PyList;
 use pyo3::{exceptions::PyValueError, prelude::*};
 
 use crate::py::LLTokenizer;
-use crate::pyjson::{stringify_if_needed, to_json_value};
+use crate::pyjson::{str_or_dict_to_value, stringify_if_needed, to_json_value};
 
 // #[derive(Clone)]
 #[pyclass]
@@ -158,11 +158,34 @@ impl LLMatcher {
     }
 
     #[staticmethod]
-    fn grammar_from_json_schema(schema: Bound<'_, PyAny>) -> PyResult<String> {
-        Ok(format!(
-            "{{ \"grammars\": [{{ \"json_schema\": {} }}] }}",
-            stringify_if_needed(schema)?
-        ))
+    #[pyo3(signature = (schema, options = None))]
+    fn grammar_from_json_schema(
+        schema: Bound<'_, PyAny>,
+        options: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<String> {
+        if let Some(options) = options {
+            let mut options = str_or_dict_to_value(options)?;
+            let mut schema = str_or_dict_to_value(schema)?;
+            if schema.is_object() {
+                let overrides = &schema["x-guidance"];
+                if overrides.is_object() {
+                    json_merge(&mut options, overrides);
+                }
+                schema["x-guidance"] = options;
+            } else {
+                // we could support "true" and "false" as schemas here but probably not worth it
+                return Err(PyValueError::new_err(
+                    "Expecting object schema to apply options",
+                ));
+            }
+            let grm = TopLevelGrammar::from_json_schema(schema);
+            Ok(serde_json::to_string(&grm).map_err(val_error)?)
+        } else {
+            Ok(format!(
+                "{{ \"grammars\": [{{ \"json_schema\": {} }}] }}",
+                stringify_if_needed(schema)?
+            ))
+        }
     }
 
     #[staticmethod]

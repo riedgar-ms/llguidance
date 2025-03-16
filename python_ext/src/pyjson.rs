@@ -40,7 +40,7 @@ pub fn stringify_if_needed(v: Bound<'_, PyAny>) -> PyResult<String> {
 }
 
 #[allow(dead_code)]
-pub fn string_or_dict_to_value(v: Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
+pub fn str_or_dict_to_value(v: Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
     if let Ok(s) = v.extract::<String>() {
         return serde_json::from_str(&s).map_err(|e| PyValueError::new_err(format!("{}", e)));
     }

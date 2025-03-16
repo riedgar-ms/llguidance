@@ -516,9 +516,7 @@ def is_lark_syntax(text: str) -> bool:
     """
     Check if the text is already in Lark syntax.
     """
-    return (
-        text.startswith("%llguidance") or "\nstart:" in text or "\n%llguidance" in text
-    )
+    return re.match(r"^\s*(%llguidance\b|start\s*:)", text, re.MULTILINE) is not None
 
 
 def any_to_lark(text: str) -> str:
