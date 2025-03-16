@@ -2,7 +2,6 @@ from typing import List, Tuple, Mapping, Optional, Sequence, Union
 from ._util import TokenId, StopReason
 from ._tokenizer import TokenizerWrapper
 
-
 class LLTokenizer:
     vocab_size: int
     eos_token: TokenId
@@ -185,6 +184,24 @@ class LLMatcher:
             tokenizer: LLTokenizer - the tokenizer to use
             grammar: str - either a Lark grammar or stringified JSON representation of LLGuidance grammar
             log_level: int - verbosity level (0: silent, 1: warnings, 2: verbose)
+        """
+
+    @staticmethod
+    def grammar_from_json_schema(schema: str) -> str:
+        """
+        Create a grammar from a JSON schema.
+        """
+
+    @staticmethod
+    def grammar_from_lark(lark: str) -> str:
+        """
+        Create a grammar from a Lark grammar.
+        """
+
+    @staticmethod
+    def grammar_from_regex(regex: str) -> str:
+        """
+        Create a grammar from a regex.
         """
 
     def deep_copy(self) -> "LLMatcher":

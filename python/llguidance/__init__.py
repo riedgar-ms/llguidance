@@ -8,6 +8,7 @@ from ._lib import (
     LLMatcher,
 )
 from ._tokenizer import TokenizerWrapper
+from ._grammar_from import grammar_from
 
 __all__ = [
     "LLTokenizer",
@@ -18,4 +19,5 @@ __all__ = [
     "LarkCompiler",
     "RegexCompiler",
     "TokenizerWrapper",
+    "grammar_from",
 ]
