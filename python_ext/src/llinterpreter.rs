@@ -57,7 +57,7 @@ impl LLInterpreter {
         log_level: Option<isize>,
     ) -> PyResult<Self> {
         let fact = tokenizer.factory();
-        let arg = TopLevelGrammar::from_lark_or_json_schema(grammar).map_err(val_error)?;
+        let arg = TopLevelGrammar::from_lark_or_grammar_list(grammar).map_err(val_error)?;
         let log_level = log_level.unwrap_or(1);
         let inference_caps = InferenceCapabilities {
             backtrack: enable_backtrack.unwrap_or(true),

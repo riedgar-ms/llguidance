@@ -128,7 +128,7 @@ impl LLMatcher {
     #[pyo3(signature = (tokenizer, grammar, log_level=None))]
     fn py_new(tokenizer: &LLTokenizer, grammar: &str, log_level: Option<isize>) -> PyResult<Self> {
         let fact = tokenizer.factory();
-        let arg = TopLevelGrammar::from_lark_or_json_schema(grammar)?;
+        let arg = TopLevelGrammar::from_lark_or_grammar_list(grammar)?;
         let log_level = log_level.unwrap_or(1);
         let logger = Logger::new(0, std::cmp::max(0, log_level) as u32);
         let mut inner = TokenParser::from_grammar(
@@ -146,6 +146,22 @@ impl LLMatcher {
             tok_env: fact.tok_env().clone(),
             borrowed: false,
         })
+    }
+
+    #[staticmethod]
+    fn grammar_from_json_schema(schema: &str) -> String {
+        format!("{{ \"grammars\": [{{ \"json_schema\": {} }}] }}", schema)
+    }
+
+    #[staticmethod]
+    fn grammar_from_lark(lark: String) -> String {
+        // lark can be passed directly
+        lark
+    }
+
+    #[staticmethod]
+    fn grammar_from_regex(regex: &str) -> String {
+        serde_json::to_string(&TopLevelGrammar::from_regex(regex)).unwrap()
     }
 
     fn deep_copy(&self) -> Self {

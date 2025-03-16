@@ -279,7 +279,8 @@ impl JsonCompiler {
             coerce_one_of,
         }
     }
-    fn compile(&self, schema: &str) -> PyResult<String> {
+    #[pyo3(signature = (schema, check = true))]
+    fn compile(&self, schema: &str, check: bool) -> PyResult<String> {
         let mut schema: Value = serde_json::from_str(schema).map_err(val_error)?;
         let compile_options = JsonCompileOptions {
             item_separator: self.item_separator.clone(),
@@ -289,15 +290,20 @@ impl JsonCompiler {
             retriever: None,
         };
         compile_options.apply_to(&mut schema);
-        let grm = TopLevelGrammar::from_json_schema(schema);
-        let res = serde_json::to_string(&grm).map_err(val_error)?;
+        check_grammar(TopLevelGrammar::from_json_schema(schema), check)
+    }
+}
+
+fn check_grammar(grm: TopLevelGrammar, check: bool) -> PyResult<String> {
+    let res = serde_json::to_string(&grm).map_err(val_error)?;
+    if check {
         let g_init = GrammarInit::Serialized(grm);
         // this compiles the grammar and signals errors
         let _ = g_init
             .to_internal(None, ParserLimits::default())
             .map_err(val_error)?;
-        Ok(res)
     }
+    Ok(res)
 }
 
 #[derive(Clone)]
@@ -310,9 +316,10 @@ impl LarkCompiler {
     fn py_new() -> Self {
         LarkCompiler {}
     }
-    fn compile(&self, lark: &str) -> PyResult<String> {
+    #[pyo3(signature = (lark, check = true))]
+    fn compile(&self, lark: &str, check: bool) -> PyResult<String> {
         let grammar = TopLevelGrammar::from_lark(lark.to_string());
-        serde_json::to_string(&grammar).map_err(val_error)
+        check_grammar(grammar, check)
     }
 }
 
@@ -326,9 +333,11 @@ impl RegexCompiler {
     fn py_new() -> Self {
         RegexCompiler {}
     }
-    fn compile(&self, regex: &str) -> PyResult<String> {
+
+    #[pyo3(signature = (regex, check = true))]
+    fn compile(&self, regex: &str, check: bool) -> PyResult<String> {
         let grammar = TopLevelGrammar::from_regex(regex);
-        serde_json::to_string(&grammar).map_err(val_error)
+        check_grammar(grammar, check)
     }
 }
 
