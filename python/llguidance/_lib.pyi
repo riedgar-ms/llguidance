@@ -2,6 +2,7 @@ from typing import List, Tuple, Mapping, Optional, Sequence, Union
 from ._util import TokenId, StopReason
 from ._tokenizer import TokenizerWrapper
 
+
 class LLTokenizer:
     vocab_size: int
     eos_token: TokenId
@@ -187,7 +188,7 @@ class LLMatcher:
         """
 
     @staticmethod
-    def grammar_from_json_schema(schema: str) -> str:
+    def grammar_from_json_schema(schema: Union[str, dict]) -> str:
         """
         Create a grammar from a JSON schema.
         """

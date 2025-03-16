@@ -10,6 +10,7 @@ use pyo3::types::PyList;
 use pyo3::{exceptions::PyValueError, prelude::*};
 
 use crate::py::LLTokenizer;
+use crate::pyjson::{stringify_if_needed, to_json_value};
 
 // #[derive(Clone)]
 #[pyclass]
@@ -126,9 +127,17 @@ impl LLMatcher {
 impl LLMatcher {
     #[new]
     #[pyo3(signature = (tokenizer, grammar, log_level=None))]
-    fn py_new(tokenizer: &LLTokenizer, grammar: &str, log_level: Option<isize>) -> PyResult<Self> {
+    fn py_new(
+        tokenizer: &LLTokenizer,
+        grammar: Bound<'_, PyAny>,
+        log_level: Option<isize>,
+    ) -> PyResult<Self> {
         let fact = tokenizer.factory();
-        let arg = TopLevelGrammar::from_lark_or_grammar_list(grammar)?;
+        let arg = if let Ok(s) = grammar.extract::<String>() {
+            TopLevelGrammar::from_lark_or_grammar_list(&s)?
+        } else {
+            serde_json::from_value(to_json_value(grammar)?).map_err(val_error)?
+        };
         let log_level = log_level.unwrap_or(1);
         let logger = Logger::new(0, std::cmp::max(0, log_level) as u32);
         let mut inner = TokenParser::from_grammar(
@@ -149,8 +158,11 @@ impl LLMatcher {
     }
 
     #[staticmethod]
-    fn grammar_from_json_schema(schema: &str) -> String {
-        format!("{{ \"grammars\": [{{ \"json_schema\": {} }}] }}", schema)
+    fn grammar_from_json_schema(schema: Bound<'_, PyAny>) -> PyResult<String> {
+        Ok(format!(
+            "{{ \"grammars\": [{{ \"json_schema\": {} }}] }}",
+            stringify_if_needed(schema)?
+        ))
     }
 
     #[staticmethod]

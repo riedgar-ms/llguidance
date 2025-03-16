@@ -20,12 +20,34 @@ impl<'a> SerializePyObject<'a> {
     }
 }
 
-pub fn to_json<'a>(v: Bound<'a, PyAny>) -> PyResult<serde_json::Value> {
+pub fn to_json_value(v: Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
     let obj = SerializePyObject::new(v);
     serde_json::to_value(&obj).map_err(|e| PyValueError::new_err(format!("{}", e)))
 }
 
-impl<'a> Serialize for SerializePyObject<'a> {
+#[allow(dead_code)]
+pub fn to_json_string(v: Bound<'_, PyAny>) -> PyResult<String> {
+    let obj = SerializePyObject::new(v);
+    serde_json::to_string(&obj).map_err(|e| PyValueError::new_err(format!("{}", e)))
+}
+
+pub fn stringify_if_needed(v: Bound<'_, PyAny>) -> PyResult<String> {
+    if let Ok(s) = v.extract::<String>() {
+        return Ok(s);
+    }
+    let obj = SerializePyObject::new(v);
+    serde_json::to_string(&obj).map_err(|e| PyValueError::new_err(format!("{}", e)))
+}
+
+#[allow(dead_code)]
+pub fn string_or_dict_to_value(v: Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
+    if let Ok(s) = v.extract::<String>() {
+        return serde_json::from_str(&s).map_err(|e| PyValueError::new_err(format!("{}", e)));
+    }
+    to_json_value(v)
+}
+
+impl Serialize for SerializePyObject<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
