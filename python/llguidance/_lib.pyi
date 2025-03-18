@@ -263,9 +263,9 @@ class LLMatcher:
         Once matcher is in an error state, it will stay in it.
         """
 
-    def get_error(self) -> Optional[str]:
+    def get_error(self) -> str:
         """
-        Get the error message if the matcher is in an error state.
+        Get the error message if the matcher is in an error state, empty string otherwise.
         """
 
     def deep_copy(self) -> "LLMatcher":
@@ -300,7 +300,7 @@ class LLMatcher:
         Compute and return the fast-forward tokens available in the current state.
         """
 
-    def compute_ff_bytes(self) -> List[int]:
+    def compute_ff_bytes(self) -> bytes:
         """
         Compute and return the forced bytes available in the current state.
         """
@@ -313,6 +313,13 @@ class LLMatcher:
     def consume_token(self, sampled_token: TokenId) -> bool:
         """
         Consume a single token.
+        Returns true on success.
+        If it returns false, the matcher is in an error state (either from previous errors or it has just entered it).
+        """
+
+    def consume_tokens(self, sampled_tokens: List[TokenId]) -> bool:
+        """
+        Consume a list of tokens.
         Returns true on success.
         If it returns false, the matcher is in an error state (either from previous errors or it has just entered it).
         """

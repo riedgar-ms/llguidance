@@ -57,12 +57,16 @@ impl Matcher {
         }
     }
 
+    /// Advance the parser by one token.
+    /// Also checks if the parser should stop after consuming the tokens
+    /// and puts the parser in stop state if necessary.
     pub fn consume_tokens(&mut self, tokens: &[TokenId]) -> Result<()> {
         self.with_inner(|inner| {
             for &t in tokens {
                 let bt = inner.parser.consume_token(t)?;
                 ensure!(bt == 0, "unexpected backtracking");
             }
+            let _ = inner.parser.check_stop()?;
             Ok(())
         })
     }
@@ -74,14 +78,6 @@ impl Matcher {
     /// Compute which tokens can be consumed in the current state.
     pub fn compute_mask(&mut self) -> Result<SimpleVob> {
         self.with_inner(|inner| inner.parser.compute_mask())
-    }
-
-    /// Check whether the current parser state forces the sequence to stop.
-    /// If so, puts the parser in stop state and returns true.
-    /// Otherwise, returns false.
-    /// This generally should be called after consume_token().
-    pub fn check_stop(&mut self) -> Result<bool> {
-        self.with_inner(|inner| inner.parser.check_stop())
     }
 
     /// Can the grammar be finished in the current state?
@@ -117,6 +113,10 @@ impl Matcher {
             .unwrap_or_else(|_| vec![])
     }
 
+    /// Tries to advance the parser by consuming the given tokens.
+    /// Returns the number of tokens consumed.
+    /// Also checks if the parser should stop after consuming the tokens
+    /// and puts the parser in stop state if necessary.
     pub fn try_consume_tokens(&mut self, tokens: &[TokenId]) -> Result<usize> {
         self.with_inner(|inner| {
             for (idx, &t) in tokens.iter().enumerate() {
@@ -126,6 +126,7 @@ impl Matcher {
                 let bt = inner.parser.consume_token(t)?;
                 ensure!(bt == 0, "unexpected backtracking");
             }
+            let _ = inner.parser.check_stop()?;
             Ok(tokens.len())
         })
     }

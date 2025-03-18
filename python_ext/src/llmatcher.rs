@@ -267,6 +267,10 @@ impl LLMatcher {
         self.inner.consume_tokens(&[sampled_token]).is_ok()
     }
 
+    fn consume_tokens(&mut self, tokens: Vec<TokenId>) -> bool {
+        self.inner.consume_tokens(&tokens).is_ok()
+    }
+
     fn rollback(&mut self, num_tokens: usize) -> bool {
         self.inner.rollback(num_tokens).is_ok()
     }
@@ -288,8 +292,8 @@ impl LLMatcher {
         self.inner.is_error()
     }
 
-    fn get_error(&self) -> Option<String> {
-        self.inner.get_error()
+    fn get_error(&self) -> String {
+        self.inner.get_error().unwrap_or_default()
     }
 }
 

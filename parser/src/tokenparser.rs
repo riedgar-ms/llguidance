@@ -381,6 +381,16 @@ impl TokenParser {
             return Ok(0);
         }
 
+        let n_vocab = self.tok_trie().vocab_size();
+        for &t in tokens {
+            if t as usize >= n_vocab {
+                return Err(self.stop(
+                    &format!("token id {} out of range", t),
+                    StopReason::InternalError,
+                ));
+            }
+        }
+
         let n_valid = self.parser.validate_tokens(tokens);
         Ok(n_valid)
     }
@@ -458,6 +468,14 @@ impl TokenParser {
         self.clear_caches();
 
         let trie = self.token_env.tok_trie();
+
+        if (tok_id as usize) >= trie.vocab_size() {
+            return Err(self.stop(
+                &format!("token id {} out of range", tok_id),
+                StopReason::InternalError,
+            ));
+        }
+
         self.llm_tokens.push(tok_id);
 
         let tok_bytes = trie.decode_raw(&[tok_id]);
