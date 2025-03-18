@@ -112,8 +112,25 @@ impl LLTokenizer {
         })
     }
 
+    fn with_slices(&self, slices: Vec<String>) -> PyResult<Self> {
+        let factory = self.factory.with_slices(&slices)?;
+        Ok(LLTokenizer {
+            factory: Arc::new(factory),
+        })
+    }
+
     fn tokenize_bytes(&self, utf8bytes: &[u8]) -> Vec<TokenId> {
         self.tok_env().tokenize_bytes(utf8bytes)
+    }
+
+    #[staticmethod]
+    fn general_slices() -> Vec<String> {
+        SlicedBiasComputer::general_slices()
+    }
+
+    #[staticmethod]
+    fn json_slices() -> Vec<String> {
+        SlicedBiasComputer::json_slices()
     }
 
     fn tokenize_str(&self, text: &str) -> Vec<TokenId> {

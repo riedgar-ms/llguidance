@@ -16,12 +16,32 @@ class LLTokenizer:
     ) -> "LLTokenizer":
         """
         Create a new tokenizer.
+        This contains both the actual tokenizer and the "slices" used as optimization
+        when computing the token mask.
 
         Args:
             tokenizer: str or TokenizerWrapper - if str, it is the name or path to the HF tokenizers tokenizer; otherwise it is a TokenizerWrapper
             n_vocab: int - override the size of the vocabulary
             slices: List[str] - configuration for slicer optimization; pass [] to disable,
-                or None to use the default configuration
+                or None to use general_slices()
+        """
+
+    def with_slices(self, slices: List[str]) -> "LLTokenizer":
+        """
+        Create a new tokenizer with the specified "slices" for optimization when computing the token mask.
+        """
+
+    @staticmethod
+    def general_slices() -> List[str]:
+        """
+        Get the default slices for optimization when computing the token mask.
+        This should be good for most grammars.
+        """
+
+    @staticmethod
+    def json_slices() -> List[str]:
+        """
+        Get the slices suitable for JSON Schema grammars.
         """
 
     def greedy_tokenize(self, text: str) -> List[int]:
@@ -189,14 +209,18 @@ class LLMatcher:
 
     @staticmethod
     def grammar_from_json_schema(
-            schema: Union[str, Dict[str, Any]],
-            options: Optional[JsonCompileOptions] = None) -> str:
+        schema: Union[str, Dict[str, Any]],
+        /,
+        defaults: Optional[JsonCompileOptions] = None,
+        overrides: Optional[JsonCompileOptions] = None,
+    ) -> str:
         """
         Create a grammar from a JSON schema.
 
         Args:
             schema: str or dict - the JSON schema; can be stringified already or not
-            options: JsonCompileOptions - options for the JSON compiler; note that "x-guidance" key in the schema overrides these options
+            defaults, overrides: JsonCompileOptions - options for the JSON compiler;
+                they are applied in order: defaults -> schema["x-guidance"] -> overrides
         """
 
     @staticmethod

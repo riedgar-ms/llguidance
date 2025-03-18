@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Tuple
 import llguidance
+import pytest
 
 _tokenizer = None
 
@@ -94,3 +95,8 @@ def test_lark() -> None:
             "🔵🟠abc🟠🔵",
         ],
     )
+
+
+def test_lark_syntax():
+    with pytest.raises(ValueError, match="no_such_rule"):
+        matcher('start: /.../ no_such_rule')

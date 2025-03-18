@@ -8,6 +8,7 @@ use llguidance::{api::TopLevelGrammar, TokenParser};
 use llguidance::{json_merge, Logger, Matcher};
 use pyo3::types::PyList;
 use pyo3::{exceptions::PyValueError, prelude::*};
+use serde_json::json;
 
 use crate::py::LLTokenizer;
 use crate::pyjson::{str_or_dict_to_value, stringify_if_needed, to_json_value};
@@ -131,23 +132,30 @@ impl LLMatcher {
         tokenizer: &LLTokenizer,
         grammar: Bound<'_, PyAny>,
         log_level: Option<isize>,
+        py: Python<'_>,
     ) -> PyResult<Self> {
         let fact = tokenizer.factory();
         let arg = if let Ok(s) = grammar.extract::<String>() {
-            TopLevelGrammar::from_lark_or_grammar_list(&s)?
+            TopLevelGrammar::from_lark_or_grammar_list(&s).map_err(val_error)?
         } else {
             serde_json::from_value(to_json_value(grammar)?).map_err(val_error)?
         };
         let log_level = log_level.unwrap_or(1);
         let logger = Logger::new(0, std::cmp::max(0, log_level) as u32);
-        let mut inner = TokenParser::from_grammar(
-            fact.tok_env().clone(),
-            arg,
-            logger,
-            InferenceCapabilities::default(),
-            ParserLimits::default(),
-            fact.extra_lexemes(),
-        )?;
+        // constructing a grammar can take on the order of 100ms
+        // for very large grammars, so we drop the GIL here
+        let mut inner = py
+            .allow_threads(|| {
+                TokenParser::from_grammar(
+                    fact.tok_env().clone(),
+                    arg,
+                    logger,
+                    InferenceCapabilities::default(),
+                    ParserLimits::default(),
+                    fact.extra_lexemes(),
+                )
+            })
+            .map_err(val_error)?;
         fact.post_process_parser(&mut inner);
         let inner = Matcher::new(Ok(inner));
         Ok(LLMatcher {
@@ -158,18 +166,23 @@ impl LLMatcher {
     }
 
     #[staticmethod]
-    #[pyo3(signature = (schema, options = None))]
+    #[pyo3(signature = (schema, /, defaults=None, overrides=None))]
     fn grammar_from_json_schema(
         schema: Bound<'_, PyAny>,
-        options: Option<Bound<'_, PyAny>>,
+        defaults: Option<Bound<'_, PyAny>>,
+        overrides: Option<Bound<'_, PyAny>>,
     ) -> PyResult<String> {
-        if let Some(options) = options {
-            let mut options = str_or_dict_to_value(options)?;
+        if defaults.is_some() || overrides.is_some() {
             let mut schema = str_or_dict_to_value(schema)?;
             if schema.is_object() {
-                let overrides = &schema["x-guidance"];
-                if overrides.is_object() {
-                    json_merge(&mut options, overrides);
+                let mut options = defaults.map_or_else(|| Ok(json!({})), str_or_dict_to_value)?;
+                let in_schema = &schema["x-guidance"];
+                if in_schema.is_object() {
+                    json_merge(&mut options, in_schema);
+                }
+                if let Some(overrides) = overrides {
+                    let overrides = str_or_dict_to_value(overrides)?;
+                    json_merge(&mut options, &overrides);
                 }
                 schema["x-guidance"] = options;
             } else {
