@@ -132,6 +132,20 @@ def test_par_errors() -> None:
     with pytest.raises(RuntimeError, match="Already borrowed"):
         fill_next_token_bitmask_par(exec, [g0, g1, g1], mask)
 
+    with pytest.raises(TypeError, match="cannot be converted"):
+        fill_next_token_bitmask_par(exec, [1, g1, g1], mask)  # type: ignore
+
+    (three, vocab) = mask.shape
+    assert three == 3
+    with pytest.raises(ValueError, match="Null pointer"):
+        exec.unsafe_compute_mask_ptr([g0, g1], 0, vocab * 4)
+    with pytest.raises(ValueError, match="Pointer not aligned"):
+        exec.unsafe_compute_mask_ptr([g0, g1], 3, vocab * 4)
+    with pytest.raises(ValueError, match="Invalid buffer size"):
+        exec.unsafe_compute_mask_ptr([g0, g1], 1024, vocab * 4 + 1)
+    with pytest.raises(ValueError, match="Invalid buffer size"):
+        exec.unsafe_compute_mask_ptr([g0, g1], 1024, vocab * 4 - 1)
+
     # should be OK
     fill_next_token_bitmask_par(exec, [g0, g1], mask[0:2, :])
     t_a = t.tokenize_str("a")[0]
