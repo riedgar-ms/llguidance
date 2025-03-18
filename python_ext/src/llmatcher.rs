@@ -3,7 +3,7 @@ use std::fmt::Display;
 use std::ops::DerefMut;
 
 use llguidance::api::ParserLimits;
-use llguidance::toktrie::{InferenceCapabilities, TokEnv, TokenId};
+use llguidance::toktrie::{InferenceCapabilities, SimpleVob, TokEnv, TokenId};
 use llguidance::{api::TopLevelGrammar, TokenParser};
 use llguidance::{json_merge, Logger, Matcher};
 use pyo3::types::PyList;
@@ -69,20 +69,19 @@ impl LLExecutor {
 
         let mut_refs2: Vec<_> = mut_refs.iter_mut().map(|x| x.deref_mut()).collect();
 
-        let _ = py.allow_threads(|| {
+        py.allow_threads(|| {
             self.pool.install(|| {
                 mut_refs2
                     .into_par_iter()
                     .enumerate()
-                    .map(|(idx, interp)| {
+                    .for_each(|(idx, interp)| {
                         interp.unsafe_compute_mask_ptr_inner(
                             trg_ptr + idx * one_mask_bytes,
                             one_mask_bytes,
                         )
                     })
-                    .collect::<Result<Vec<_>, _>>()
             })
-        })?;
+        });
 
         Ok(())
     }
@@ -103,14 +102,19 @@ impl LLMatcher {
         Ok(())
     }
 
-    fn unsafe_compute_mask_ptr_inner(&mut self, trg_ptr: usize, trg_bytes: usize) -> PyResult<()> {
-        let r = self.inner.compute_mask()?;
+    fn unsafe_compute_mask_ptr_inner(&mut self, trg_ptr: usize, trg_bytes: usize) {
+        let r = self.compute_mask_or_eos();
         let trg_slice =
             unsafe { std::slice::from_raw_parts_mut(trg_ptr as *mut u32, trg_bytes / 4) };
         let src = r.as_slice();
         trg_slice.copy_from_slice(&src[0..trg_slice.len()]);
+    }
 
-        Ok(())
+    fn compute_mask_or_eos(&mut self) -> SimpleVob {
+        self.inner.compute_mask().unwrap_or_else(|_| {
+            let trie = self.tok_env.tok_trie();
+            trie.singleton_token_set(trie.eos_token())
+        })
     }
 }
 
@@ -213,12 +217,23 @@ impl LLMatcher {
         self.inner.is_accepting().unwrap_or(false)
     }
 
+    fn is_stopped(&self) -> bool {
+        self.inner.is_stopped()
+    }
+
     fn stop_reason(&self) -> String {
         self.inner.stop_reason().to_string()
     }
 
-    fn validate_tokens(&mut self, tokens: Vec<TokenId>) -> PyResult<usize> {
-        Ok(self.inner.validate_tokens(&tokens)?)
+    fn validate_tokens(&mut self, tokens: Vec<TokenId>) -> usize {
+        self.inner.validate_tokens(&tokens).unwrap_or_else(|_| {
+            let eos = self.tok_env.tok_trie().eos_token();
+            if tokens.first() == Some(&eos) {
+                1
+            } else {
+                0
+            }
+        })
     }
 
     fn unsafe_compute_mask_ptr(
@@ -228,48 +243,45 @@ impl LLMatcher {
         py: Python<'_>,
     ) -> PyResult<()> {
         self.validate_mask_ptr(trg_ptr, trg_bytes)?;
-        py.allow_threads(|| self.unsafe_compute_mask_ptr_inner(trg_ptr, trg_bytes))
+        py.allow_threads(|| self.unsafe_compute_mask_ptr_inner(trg_ptr, trg_bytes));
+        Ok(())
     }
 
-    fn compute_logit_bias(&mut self, py: Python<'_>) -> PyResult<Cow<[u8]>> {
-        let res = py.allow_threads(|| {
-            self.inner.compute_mask().map(|m| {
-                let mut res = vec![0u8; m.len()];
-                m.iter_set_entries(|i| res[i] = 200);
-                res
-            })
-        })?;
-        Ok(Cow::Owned(res))
+    fn compute_logit_bias(&mut self, py: Python<'_>) -> Cow<[u8]> {
+        py.allow_threads(|| {
+            let m = self.compute_mask_or_eos();
+            let mut res = vec![0u8; m.len()];
+            m.iter_set_entries(|i| res[i] = 200);
+            Cow::Owned(res)
+        })
     }
 
-    fn compute_bitmask(&mut self, py: Python<'_>) -> PyResult<Cow<[u8]>> {
-        let m = py.allow_threads(|| {
-            self.inner
-                .compute_mask()
-                .map(|m| bytemuck::cast_slice(m.as_slice()).to_vec())
-        })?;
-        Ok(Cow::Owned(m))
+    fn compute_bitmask(&mut self, py: Python<'_>) -> Cow<[u8]> {
+        py.allow_threads(|| {
+            let m = self.compute_mask_or_eos();
+            Cow::Owned(bytemuck::cast_slice(m.as_slice()).to_vec())
+        })
     }
 
-    fn consume_token(&mut self, sampled_token: TokenId) -> PyResult<()> {
-        Ok(self.inner.consume_tokens(&[sampled_token])?)
+    fn consume_token(&mut self, sampled_token: TokenId) -> bool {
+        self.inner.consume_tokens(&[sampled_token]).is_ok()
     }
 
-    fn rollback(&mut self, num_tokens: usize) -> PyResult<()> {
-        self.inner.rollback(num_tokens).map_err(val_error)
+    fn rollback(&mut self, num_tokens: usize) -> bool {
+        self.inner.rollback(num_tokens).is_ok()
     }
 
-    fn compute_ff_tokens(&mut self) -> PyResult<Vec<TokenId>> {
-        Ok(self.inner.compute_ff_tokens())
+    fn compute_ff_tokens(&mut self) -> Vec<TokenId> {
+        self.inner.compute_ff_tokens()
     }
 
-    fn compute_ff_bytes(&mut self) -> PyResult<Cow<[u8]>> {
+    fn compute_ff_bytes(&mut self) -> Cow<[u8]> {
         let bytes = self.inner.compute_ff_bytes();
-        Ok(Cow::Owned(bytes))
+        Cow::Owned(bytes)
     }
 
-    fn try_consume_tokens(&mut self, tokens: Vec<TokenId>) -> PyResult<usize> {
-        self.inner.try_consume_tokens(&tokens).map_err(val_error)
+    fn try_consume_tokens(&mut self, tokens: Vec<TokenId>) -> usize {
+        self.inner.try_consume_tokens(&tokens).unwrap_or(0)
     }
 
     fn is_error(&self) -> bool {

@@ -205,6 +205,19 @@ class LLMatcher:
             tokenizer: LLTokenizer - the tokenizer to use
             grammar: str - either a Lark grammar or stringified JSON representation of LLGuidance grammar
             log_level: int - verbosity level (0: silent, 1: warnings, 2: verbose)
+        Raises:
+            ValueError: if the grammar is invalid.
+
+        Note:
+            Other methods in this class do not raise exceptions for user (grammar) errors,
+            resource limits, or when an invalid token is consumed.
+            In such cases, the matcher will enter an error state, and never leave it.
+            You can use is_error() and get_error() to check for the error.
+            Methods will raise exceptions when misused at the API level.
+
+        Note:
+            This drops the GIL for the duration of the grammar construction, which can be
+            100-1000ms for extremely complex grammars.
         """
 
     @staticmethod
@@ -221,18 +234,38 @@ class LLMatcher:
             schema: str or dict - the JSON schema; can be stringified already or not
             defaults, overrides: JsonCompileOptions - options for the JSON compiler;
                 they are applied in order: defaults -> schema["x-guidance"] -> overrides
+        
+        Raises:
+            ValueError: if either of the arguments is not a valid JSON object.
+            This does not check for schema validity.
+            LLMatcher constructor will raise if the grammar is invalid.
         """
 
     @staticmethod
     def grammar_from_lark(lark: str) -> str:
         """
         Create a grammar from a Lark grammar.
+        This never raises exceptions (it doesn't check for grammar validity).
+        LLMatcher constructor will raise if the grammar is invalid.
         """
 
     @staticmethod
     def grammar_from_regex(regex: str) -> str:
         """
         Create a grammar from a regex.
+        This never raises exceptions (it doesn't check for regex validity).
+        LLMatcher constructor will raise if the regex is invalid.
+        """
+
+    def is_error(self) -> bool:
+        """
+        Check if the matcher is in an error state.
+        Once matcher is in an error state, it will stay in it.
+        """
+
+    def get_error(self) -> Optional[str]:
+        """
+        Get the error message if the matcher is in an error state.
         """
 
     def deep_copy(self) -> "LLMatcher":
@@ -242,12 +275,19 @@ class LLMatcher:
 
     def is_accepting(self) -> bool:
         """
-        Check if the matcher is in an accepting state.
+        Check if the matcher is in an accepting state (can be terminated and the grammar is satisfied).
+        """
+
+    def is_stopped(self) -> bool:
+        """
+        Check if the matcher is stopped, and will not accept any more tokens, except for the EOS token.
+        This is also true when matcher is in an error state, use is_error() or get_error() to check for that.
         """
 
     def stop_reason(self) -> StopReason:
         """
         Get the reason why the matcher stopped.
+        May return "NotStopped" if the matcher is not stopped.
         """
 
     def rollback(self, num_tokens: int) -> None:
@@ -270,19 +310,11 @@ class LLMatcher:
         Try consuming a list of tokens and return how many were successfully consumed.
         """
 
-    def is_error(self) -> bool:
-        """
-        Check if the matcher is in an error state.
-        """
-
-    def get_error(self) -> Optional[str]:
-        """
-        Get the error message if the matcher is in an error state.
-        """
-
-    def consume_token(self, sampled_token: TokenId) -> None:
+    def consume_token(self, sampled_token: TokenId) -> bool:
         """
         Consume a single token.
+        Returns true on success.
+        If it returns false, the matcher is in an error state (either from previous errors or it has just entered it).
         """
 
     def validate_tokens(self, tokens: List[TokenId]) -> int:
@@ -310,24 +342,28 @@ class LLMatcher:
 
 class JsonCompiler:
 
-    def __new__(
-        cls,
-        separators: Optional[Tuple[str, str]] = None,
-        whitespace_flexible: bool = False,
-        coerce_one_of: bool = False,
-    ) -> "JsonCompiler":
+    def __new__(cls,
+                separators: Optional[Tuple[str, str]] = None,
+                whitespace_flexible: bool = False,
+                coerce_one_of: bool = False,
+                whitespace_pattern: Optional[str] = None) -> "JsonCompiler":
         """
         Create a new JSON compiler.
-        Args:
-            compact: bool - whether to use compact JSON representation
         """
 
     def compile(
         self,
         schema: str,
+        check=True,
     ) -> str:
         """
-        Compile the JSON representation of the AG2 grammar/constraint.
+        Similar to:
+
+            g = LLMatcher.grammar_from_json_schema(schema, overrides=self.options)
+            if check:
+                LLMatcher(tokenizer, g)
+
+        Best not use.
         """
 
 
@@ -341,15 +377,22 @@ class LarkCompiler:
     def compile(
         self,
         lark: str,
+        check=True,
     ) -> str:
         """
-        Compile the JSON representation of the AG2 grammar/constraint.
+        Equivalent to (with an empty tokenizer):
+
+            g = LLMatcher.grammar_from_lark(lark)
+            if check:
+                LLMatcher(tokenizer, g)
+
+        Best not use.
         """
 
 
 class RegexCompiler:
 
-    def __new__(cls, ) -> "RegexCompiler":
+    def __new__(cls) -> "RegexCompiler":
         """
         Create a new Regex compiler.
         """
@@ -357,10 +400,16 @@ class RegexCompiler:
     def compile(
         self,
         regex: str,
-        stop_regex: Optional[str] = None,
+        check=True,
     ) -> str:
         """
-        Compile the JSON representation of the AG2 grammar/constraint.
+        Equivalent to:
+
+            g = LLMatcher.grammar_from_regex(regex)
+            if check:
+                LLMatcher(tokenizer, g)
+
+        Best not use.
         """
 
 

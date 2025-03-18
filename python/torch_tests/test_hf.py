@@ -99,10 +99,16 @@ def test_par_errors() -> None:
     g0 = lark_matcher(r"start: /[a-zA-Z ]*/")
     g1 = lark_matcher(r"start: /[0-9 ]*/")
     mask = allocate_token_bitmask(3, t.vocab_size)
-    asserts("count mismatch", fill_next_token_bitmask_par, exec, [g0, g1],
-            mask)
-    asserts("Duplicate interpreter", fill_next_token_bitmask_par, exec,
-            [g0, g1, g1], mask)
+
+    with pytest.raises(AssertionError, match="count mismatch"):
+        fill_next_token_bitmask_par(exec, [g0, g1], mask)
+
+    with pytest.raises(RuntimeError, match="Already borrowed"):
+        fill_next_token_bitmask_par(exec, [g0, g1, g1], mask)
+
+    with pytest.raises(TypeError, match="cannot be converted"):
+        fill_next_token_bitmask_par(exec, [1, g1, g1], mask)  # type: ignore
+
     # should be OK
     fill_next_token_bitmask_par(exec, [g0, g1], mask[0:2, :])
 

@@ -90,6 +90,13 @@ impl Matcher {
         self.with_inner(|inner| Ok(inner.parser.is_accepting()))
     }
 
+    pub fn is_stopped(&self) -> bool {
+        match &self.0 {
+            MatcherState::Normal(inner) => inner.parser.stop_reason() != StopReason::NotStopped,
+            MatcherState::Error(_) => true,
+        }
+    }
+
     pub fn stop_reason(&self) -> StopReason {
         match &self.0 {
             MatcherState::Normal(inner) => inner.parser.stop_reason(),
