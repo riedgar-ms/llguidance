@@ -100,3 +100,13 @@ def test_lark() -> None:
 def test_lark_syntax():
     with pytest.raises(ValueError, match="no_such_rule"):
         matcher('start: /.../ no_such_rule')
+
+
+def test_slices():
+    t = tokenizer()
+    gen_slices = llguidance.LLTokenizer.general_slices()
+    assert len(gen_slices) > 0
+    json_slices = llguidance.LLTokenizer.json_slices()
+    assert len(json_slices) > 0
+    t2 = t.with_slices(json_slices)
+    assert t.tokenize_str("Hello, world!") == t2.tokenize_str("Hello, world!")

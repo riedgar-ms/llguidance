@@ -89,9 +89,9 @@ pub trait Recognizer {
 }
 
 #[derive(Clone, Copy)]
-pub struct TokDesc {
-    pub len: u32,
-    pub off: u32,
+struct TokDesc {
+    len: u32,
+    off: u32,
 }
 
 #[derive(Clone)]

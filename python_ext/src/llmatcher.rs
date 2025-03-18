@@ -48,6 +48,7 @@ impl LLExecutor {
         interpreters: Bound<'_, PyList>,
         trg_ptr: usize,
         one_mask_bytes: usize,
+        py: Python<'_>,
     ) -> PyResult<()> {
         if interpreters.len() == 0 {
             return Err(PyValueError::new_err("No interpreters"));
@@ -55,11 +56,12 @@ impl LLExecutor {
 
         if interpreters.len() == 1 {
             let mut interp = interpreters.get_item(0)?.extract::<PyRefMut<LLMatcher>>()?;
-            return interp.unsafe_compute_mask_ptr(trg_ptr, one_mask_bytes);
+            return interp.unsafe_compute_mask_ptr(trg_ptr, one_mask_bytes, py);
         }
 
         use rayon::prelude::*;
 
+        let mut mut_refs = vec![];
         let mut ptrs = vec![];
         for ent in interpreters.iter() {
             let mut interp = ent.extract::<PyRefMut<LLMatcher>>()?;
@@ -67,8 +69,9 @@ impl LLExecutor {
             if interp.borrowed {
                 return Err(PyValueError::new_err("Interpreter already borrowed"));
             }
-            let interp = interp.deref_mut() as *mut LLMatcher;
-            ptrs.push(interp);
+            let ptr = interp.deref_mut() as *mut LLMatcher;
+            mut_refs.push(interp);
+            ptrs.push(ptr);
         }
 
         let mut ok = true;
@@ -92,12 +95,17 @@ impl LLExecutor {
             return Err(PyValueError::new_err("Duplicate interpreter in list"));
         }
 
-        let results = self.pool.install(|| {
-            refs.into_par_iter()
-                .map(|(idx, interp)| {
-                    interp.unsafe_compute_mask_ptr(trg_ptr + idx * one_mask_bytes, one_mask_bytes)
-                })
-                .collect::<Result<Vec<_>, _>>()
+        let results = py.allow_threads(|| {
+            self.pool.install(|| {
+                refs.into_par_iter()
+                    .map(|(idx, interp)| {
+                        interp.unsafe_compute_mask_ptr_inner(
+                            trg_ptr + idx * one_mask_bytes,
+                            one_mask_bytes,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            })
         });
         for &ptr in &ptrs {
             unsafe { (*ptr).borrowed = false };
@@ -119,6 +127,16 @@ impl LLMatcher {
         if mask_bytes != n_words * 4 {
             return Err(PyValueError::new_err("Invalid buffer size"));
         }
+        Ok(())
+    }
+
+    fn unsafe_compute_mask_ptr_inner(&mut self, trg_ptr: usize, trg_bytes: usize) -> PyResult<()> {
+        let r = self.inner.compute_mask()?;
+        let trg_slice =
+            unsafe { std::slice::from_raw_parts_mut(trg_ptr as *mut u32, trg_bytes / 4) };
+        let src = r.as_slice();
+        trg_slice.copy_from_slice(&src[0..trg_slice.len()]);
+
         Ok(())
     }
 }
@@ -232,15 +250,14 @@ impl LLMatcher {
         Ok(self.inner.validate_tokens(&tokens)?)
     }
 
-    fn unsafe_compute_mask_ptr(&mut self, trg_ptr: usize, trg_bytes: usize) -> PyResult<()> {
+    fn unsafe_compute_mask_ptr(
+        &mut self,
+        trg_ptr: usize,
+        trg_bytes: usize,
+        py: Python<'_>,
+    ) -> PyResult<()> {
         self.validate_mask_ptr(trg_ptr, trg_bytes)?;
-        let r = self.inner.compute_mask()?;
-        let trg_slice =
-            unsafe { std::slice::from_raw_parts_mut(trg_ptr as *mut u32, trg_bytes / 4) };
-        let src = r.as_slice();
-        trg_slice.copy_from_slice(&src[0..trg_slice.len()]);
-
-        Ok(())
+        py.allow_threads(|| self.unsafe_compute_mask_ptr_inner(trg_ptr, trg_bytes))
     }
 
     fn compute_logit_bias(&mut self, py: Python<'_>) -> PyResult<Cow<[u8]>> {
