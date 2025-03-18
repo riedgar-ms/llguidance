@@ -1,6 +1,9 @@
 from typing import Any, Dict, List, Tuple
 import llguidance
+from llguidance.numpy import fill_next_token_bitmask_par, allocate_token_bitmask
 import pytest
+from numpy.typing import NDArray
+import numpy as np
 
 _tokenizer = None
 
@@ -97,12 +100,12 @@ def test_lark() -> None:
     )
 
 
-def test_lark_syntax():
+def test_lark_syntax() -> None:
     with pytest.raises(ValueError, match="no_such_rule"):
         matcher('start: /.../ no_such_rule')
 
 
-def test_slices():
+def test_slices() -> None:
     t = tokenizer()
     gen_slices = llguidance.LLTokenizer.general_slices()
     assert len(gen_slices) > 0
@@ -110,3 +113,30 @@ def test_slices():
     assert len(json_slices) > 0
     t2 = t.with_slices(json_slices)
     assert t.tokenize_str("Hello, world!") == t2.tokenize_str("Hello, world!")
+
+
+def mask_has(mask: NDArray[np.int32], t: int) -> bool:
+    return mask[t // 32] & (1 << (t % 32)) != 0
+
+
+def test_par_errors() -> None:
+    t = tokenizer()
+    exec = llguidance.LLExecutor()
+    g0 = matcher(r"start: /[a-zA-Z ]*/")
+    g1 = matcher(r"start: /[0-9 ]*/")
+    mask = allocate_token_bitmask(3, t.vocab_size)
+
+    with pytest.raises(AssertionError, match="count mismatch"):
+        fill_next_token_bitmask_par(exec, [g0, g1], mask)
+
+    with pytest.raises(RuntimeError, match="Already borrowed"):
+        fill_next_token_bitmask_par(exec, [g0, g1, g1], mask)
+
+    # should be OK
+    fill_next_token_bitmask_par(exec, [g0, g1], mask[0:2, :])
+    t_a = t.tokenize_str("a")[0]
+    t_1 = t.tokenize_str("1")[0]
+    assert mask_has(mask[0, :], t_a)
+    assert not mask_has(mask[0, :], t_1)
+    assert not mask_has(mask[1, :], t_a)
+    assert mask_has(mask[1, :], t_1)

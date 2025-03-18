@@ -18,7 +18,6 @@ use crate::pyjson::{str_or_dict_to_value, stringify_if_needed, to_json_value};
 struct LLMatcher {
     inner: Matcher,
     tok_env: TokEnv,
-    borrowed: bool,
 }
 
 #[pyclass]
@@ -62,42 +61,19 @@ impl LLExecutor {
         use rayon::prelude::*;
 
         let mut mut_refs = vec![];
-        let mut ptrs = vec![];
         for ent in interpreters.iter() {
-            let mut interp = ent.extract::<PyRefMut<LLMatcher>>()?;
+            let interp = ent.extract::<PyRefMut<LLMatcher>>()?;
             interp.validate_mask_ptr(trg_ptr, one_mask_bytes)?;
-            if interp.borrowed {
-                return Err(PyValueError::new_err("Interpreter already borrowed"));
-            }
-            let ptr = interp.deref_mut() as *mut LLMatcher;
             mut_refs.push(interp);
-            ptrs.push(ptr);
         }
 
-        let mut ok = true;
-        let mut refs = vec![];
-        for (idx, &interp_ptr) in ptrs.iter().enumerate() {
-            unsafe {
-                let interp = &mut *interp_ptr;
-                if interp.borrowed {
-                    ok = false;
-                    break;
-                }
-                interp.borrowed = true;
-                refs.push((idx, interp));
-            }
-        }
+        let mut_refs2: Vec<_> = mut_refs.iter_mut().map(|x| x.deref_mut()).collect();
 
-        if !ok {
-            for &ptr in &ptrs {
-                unsafe { (*ptr).borrowed = false };
-            }
-            return Err(PyValueError::new_err("Duplicate interpreter in list"));
-        }
-
-        let results = py.allow_threads(|| {
+        let _ = py.allow_threads(|| {
             self.pool.install(|| {
-                refs.into_par_iter()
+                mut_refs2
+                    .into_par_iter()
+                    .enumerate()
                     .map(|(idx, interp)| {
                         interp.unsafe_compute_mask_ptr_inner(
                             trg_ptr + idx * one_mask_bytes,
@@ -106,11 +82,8 @@ impl LLExecutor {
                     })
                     .collect::<Result<Vec<_>, _>>()
             })
-        });
-        for &ptr in &ptrs {
-            unsafe { (*ptr).borrowed = false };
-        }
-        let _ = results?;
+        })?;
+
         Ok(())
     }
 }
@@ -179,7 +152,6 @@ impl LLMatcher {
         Ok(LLMatcher {
             inner,
             tok_env: fact.tok_env().clone(),
-            borrowed: false,
         })
     }
 
@@ -234,7 +206,6 @@ impl LLMatcher {
         Self {
             inner: self.inner.clone(),
             tok_env: self.tok_env.clone(),
-            borrowed: false,
         }
     }
 
