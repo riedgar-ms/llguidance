@@ -17,17 +17,18 @@ def allocate_token_bitmask(batch_size: int, vocab_size: int) -> torch.Tensor:
 
 
 @torch.compile(dynamic=True)  # faster than dynamic=False and jit.script
-def apply_token_bitmask_inplace_kernel(logits: torch.Tensor, mask: torch.Tensor) -> None:
+def apply_token_bitmask_inplace_kernel(logits: torch.Tensor,
+                                       mask: torch.Tensor) -> None:
     mask_expanded = torch.repeat_interleave(mask, 32, dim=1)
-    bit_indices = torch.arange(32, device=logits.device, dtype=torch.int32).repeat(
-        mask.shape[1]
-    )
+    bit_indices = torch.arange(32, device=logits.device,
+                               dtype=torch.int32).repeat(mask.shape[1])
     bit_masks = (mask_expanded >> bit_indices) & 1  # Extract each bit
-    bit_masks = bit_masks[:, : logits.shape[1]]  # Trim to match vocab size
+    bit_masks = bit_masks[:, :logits.shape[1]]  # Trim to match vocab size
     logits.masked_fill_(bit_masks == 0, float("-inf"))  # Apply mask
 
 
-def apply_token_bitmask_inplace(logits: torch.Tensor, mask: torch.Tensor) -> None:
+def apply_token_bitmask_inplace(logits: torch.Tensor,
+                                mask: torch.Tensor) -> None:
     if logits.dim() == 1:
         logits = logits.unsqueeze(0)
     if mask.dim() == 1:
@@ -44,9 +45,9 @@ def apply_token_bitmask_inplace(logits: torch.Tensor, mask: torch.Tensor) -> Non
     apply_token_bitmask_inplace_kernel(logits, mask)
 
 
-def fill_next_token_bitmask(
-    interp: LLMatcher, bitmask: torch.Tensor, index: int = 0
-) -> None:
+def fill_next_token_bitmask(interp: LLMatcher,
+                            bitmask: torch.Tensor,
+                            index: int = 0) -> None:
     assert bitmask.dtype == torch.int32, "Mask must be int32"
     assert bitmask.is_cpu, "Mask must be on CPU"
     assert bitmask.dim() == 2, "Mask must be 2D"
@@ -55,13 +56,13 @@ def fill_next_token_bitmask(
     interp.unsafe_compute_mask_ptr(v.data_ptr(), v.numel() * v.element_size())
 
 
-def fill_next_token_bitmask_par(
-    executor: LLExecutor, interps: List[LLMatcher], bitmask: torch.Tensor
-) -> None:
+def fill_next_token_bitmask_par(executor: LLExecutor,
+                                matchers: List[Tuple[LLMatcher, int]],
+                                bitmask: torch.Tensor) -> None:
     assert bitmask.dtype == torch.int32, "Mask must be int32"
     assert bitmask.is_cpu, "Mask must be on CPU"
     assert bitmask.dim() == 2, "Mask must be 2D"
     batch, vocab = bitmask.shape
     assert bitmask.is_contiguous(), "Mask must be contiguous"
-    assert len(interps) == batch, "Interpreter count mismatch"
-    executor.unsafe_compute_mask_ptr(interps, bitmask.data_ptr(), vocab * 4)
+    executor.unsafe_compute_mask_ptr(matchers, bitmask.data_ptr(), vocab * 4,
+                                     batch)

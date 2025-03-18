@@ -332,18 +332,23 @@ class LLMatcher:
     def compute_bitmask(self) -> bytes:
         """
         Compute the token mask, with one bit per tokenizer word, for the next parsing step.
+        This drops the GIL, but for best performance, use fill_next_token_bitmask_par().
         """
 
     def compute_logit_bias(self) -> bytes:
         """
         Compute the token mask, with one byte per tokenizer word, for the next parsing step.
         Entries are either 0 (not allowed) or 200 (allowed).
+        The idea is to create a uint8 tensor from the result, convert to float and add to logits tensor.
+        This drops the GIL, but for best performance, use fill_next_token_bitmask_par()
+        and apply_token_bitmask().
         """
 
     def unsafe_compute_mask_ptr(self, trg_pointer: int,
                                 trg_byte_size: int) -> None:
         """
         Compute the token mask directly into memory at the specified pointer.
+        This drops the GIL; prefer to use fill_next_token_bitmask() or fill_next_token_bitmask_par().
         """
 
 
@@ -435,13 +440,18 @@ class LLExecutor:
 
     def unsafe_compute_mask_ptr(
         self,
-        interpreters: List[LLMatcher],
+        interpreters: List[Tuple[LLMatcher, int]],
         trg_pointer: int,
         one_mask_byte_size: int,
-    ) -> str:
+        trg_batch_size: int,
+    ) -> None:
         """
-        Perform next parsing step.
-        Returns: a JSON string.
+        Compute the token mask directly into memory at the specified pointer.
+        For each matcher, provide the index of the target mask.
+        If index is K, the memory will be written at trg_pointer + K * one_mask_byte_size,
+        where K < trg_batch_size.
+        Memory has to have size trg_batch_size * one_mask_byte_size.
+        Prefer to use fill_next_token_bitmask_par(), which wraps this.
         """
 
 

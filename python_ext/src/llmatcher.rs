@@ -6,7 +6,7 @@ use llguidance::api::ParserLimits;
 use llguidance::toktrie::{InferenceCapabilities, SimpleVob, TokEnv, TokenId};
 use llguidance::{api::TopLevelGrammar, TokenParser};
 use llguidance::{json_merge, Logger, Matcher};
-use pyo3::types::PyList;
+use pyo3::types::{PyList, PyTuple};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use serde_json::json;
 
@@ -47,39 +47,52 @@ impl LLExecutor {
         interpreters: Bound<'_, PyList>,
         trg_ptr: usize,
         one_mask_bytes: usize,
+        trg_batch_size: usize,
         py: Python<'_>,
     ) -> PyResult<()> {
         if interpreters.len() == 0 {
             return Err(PyValueError::new_err("No interpreters"));
         }
 
-        if interpreters.len() == 1 {
-            let mut interp = interpreters.get_item(0)?.extract::<PyRefMut<LLMatcher>>()?;
-            return interp.unsafe_compute_mask_ptr(trg_ptr, one_mask_bytes, py);
+        let mut mut_refs = vec![];
+        for ent in interpreters.iter() {
+            let tupl = ent.downcast::<PyTuple>()?;
+            if tupl.len() != 2 {
+                return Err(PyValueError::new_err("Expecting (LLMatcher, int) tuple"));
+            }
+            let interp = tupl.get_item(0)?.extract::<PyRefMut<LLMatcher>>()?;
+            let idx = tupl.get_item(1)?.extract::<usize>()?;
+            if idx >= trg_batch_size {
+                return Err(PyValueError::new_err("Target index out of bounds"));
+            }
+            interp.validate_mask_ptr(trg_ptr, one_mask_bytes)?;
+            mut_refs.push((interp, idx));
         }
+
+        if mut_refs.len() == 1 {
+            let (mut interp, idx) = mut_refs.pop().unwrap();
+            return interp.unsafe_compute_mask_ptr(
+                trg_ptr + idx * one_mask_bytes,
+                one_mask_bytes,
+                py,
+            );
+        }
+
+        let mut_refs2: Vec<_> = mut_refs
+            .iter_mut()
+            .map(|(x, idx)| (x.deref_mut(), *idx))
+            .collect();
 
         use rayon::prelude::*;
 
-        let mut mut_refs = vec![];
-        for ent in interpreters.iter() {
-            let interp = ent.extract::<PyRefMut<LLMatcher>>()?;
-            interp.validate_mask_ptr(trg_ptr, one_mask_bytes)?;
-            mut_refs.push(interp);
-        }
-
-        let mut_refs2: Vec<_> = mut_refs.iter_mut().map(|x| x.deref_mut()).collect();
-
         py.allow_threads(|| {
             self.pool.install(|| {
-                mut_refs2
-                    .into_par_iter()
-                    .enumerate()
-                    .for_each(|(idx, interp)| {
-                        interp.unsafe_compute_mask_ptr_inner(
-                            trg_ptr + idx * one_mask_bytes,
-                            one_mask_bytes,
-                        )
-                    })
+                mut_refs2.into_par_iter().for_each(|(interp, idx)| {
+                    interp.unsafe_compute_mask_ptr_inner(
+                        trg_ptr + idx * one_mask_bytes,
+                        one_mask_bytes,
+                    )
+                })
             })
         });
 

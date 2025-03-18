@@ -66,7 +66,8 @@ def test_grammar() -> None:
 def test_par_grammar() -> None:
     n_gram = 50
     t = tokenizer()
-    grammars = [lark_matcher(r"start: /[a-zA-Z ]*/") for _ in range(n_gram)]
+    grammars = [(lark_matcher(r"start: /[a-zA-Z ]*/"), idx)
+                for idx in range(n_gram)]
     mask = allocate_token_bitmask(n_gram, t.vocab_size)
     mask2 = allocate_token_bitmask(n_gram, t.vocab_size)
     exec = LLExecutor()
@@ -76,8 +77,8 @@ def test_par_grammar() -> None:
     for i in range(n_gram):
         assert torch.isclose(mask[i, :], mask[0, :]).all()
     t0 = time.monotonic()
-    for i in range(n_gram):
-        fill_next_token_bitmask(grammars[i], mask2, i)
+    for g, idx in grammars:
+        fill_next_token_bitmask(g, mask2, idx)
     seq_time = int((time.monotonic() - t0) * 1_000_000)
     assert torch.isclose(mask, mask2).all()
     print(f"Parallel: {par_time} us, Sequential: {seq_time} us")
@@ -91,26 +92,6 @@ def asserts(msg: str, fn: Callable[..., Any], *args: Any) -> None:
         if msg in str(e):
             return
         raise AssertionError(f"Expected {msg}, got {e}")
-
-
-def test_par_errors() -> None:
-    t = tokenizer()
-    exec = LLExecutor()
-    g0 = lark_matcher(r"start: /[a-zA-Z ]*/")
-    g1 = lark_matcher(r"start: /[0-9 ]*/")
-    mask = allocate_token_bitmask(3, t.vocab_size)
-
-    with pytest.raises(AssertionError, match="count mismatch"):
-        fill_next_token_bitmask_par(exec, [g0, g1], mask)
-
-    with pytest.raises(RuntimeError, match="Already borrowed"):
-        fill_next_token_bitmask_par(exec, [g0, g1, g1], mask)
-
-    with pytest.raises(TypeError, match="cannot be converted"):
-        fill_next_token_bitmask_par(exec, [1, g1, g1], mask)  # type: ignore
-
-    # should be OK
-    fill_next_token_bitmask_par(exec, [g0, g1], mask[0:2, :])
 
 
 if __name__ == "__main__":

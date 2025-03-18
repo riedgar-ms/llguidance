@@ -100,7 +100,7 @@ def test_lark() -> None:
     )
 
 
-def test_regex_grammar():
+def test_regex_grammar() -> None:
     grm = llguidance.LLMatcher.grammar_from_regex(r"\d+")
     check_grammar(grm, ["123", "456"], ["abc", "1a2"])
 
@@ -132,34 +132,45 @@ def test_par_errors() -> None:
     g1 = matcher(r"start: /[0-9 ]*/")
     mask = allocate_token_bitmask(3, t.vocab_size)
 
-    with pytest.raises(AssertionError, match="count mismatch"):
-        fill_next_token_bitmask_par(exec, [g0, g1], mask)
+    with pytest.raises(ValueError, match="Target index out of bounds"):
+        fill_next_token_bitmask_par(exec, [(g0, 0), (g1, 3)], mask)
 
     with pytest.raises(RuntimeError, match="Already borrowed"):
-        fill_next_token_bitmask_par(exec, [g0, g1, g1], mask)
+        fill_next_token_bitmask_par(exec, [(g0, 0), (g1, 1), (g1, 2)], mask)
 
     with pytest.raises(TypeError, match="cannot be converted"):
-        fill_next_token_bitmask_par(exec, [1, g1, g1], mask)  # type: ignore
+        l = [1, (g1, 0), (g1, 1)]
+        fill_next_token_bitmask_par(exec, l, mask)  # type: ignore
+
+    with pytest.raises(TypeError, match="cannot be converted"):
+        l = [(tokenizer(), 0)]
+        fill_next_token_bitmask_par(exec, l, mask)  # type: ignore
+
+    with pytest.raises(ValueError, match=r"Expecting.*tuple"):
+        l = [(tokenizer(), 0, 0)]
+        fill_next_token_bitmask_par(exec, l, mask)  # type: ignore
 
     (three, vocab) = mask.shape
     assert three == 3
     with pytest.raises(ValueError, match="Null pointer"):
-        exec.unsafe_compute_mask_ptr([g0, g1], 0, vocab * 4)
+        exec.unsafe_compute_mask_ptr([(g0, 0), (g1, 1)], 0, vocab * 4, 3)
     with pytest.raises(ValueError, match="Pointer not aligned"):
-        exec.unsafe_compute_mask_ptr([g0, g1], 3, vocab * 4)
+        exec.unsafe_compute_mask_ptr([(g0, 0), (g1, 1)], 3, vocab * 4, 3)
     with pytest.raises(ValueError, match="Invalid buffer size"):
-        exec.unsafe_compute_mask_ptr([g0, g1], 1024, vocab * 4 + 1)
+        exec.unsafe_compute_mask_ptr([(g0, 0), (g1, 1)], 1024, vocab * 4 + 1,
+                                     3)
     with pytest.raises(ValueError, match="Invalid buffer size"):
-        exec.unsafe_compute_mask_ptr([g0, g1], 1024, vocab * 4 - 1)
+        exec.unsafe_compute_mask_ptr([(g0, 0), (g1, 1)], 1024, vocab * 4 - 1,
+                                     3)
 
     # should be OK
-    fill_next_token_bitmask_par(exec, [g0, g1], mask[0:2, :])
+    fill_next_token_bitmask_par(exec, [(g0, 0), (g1, 2)], mask)
     t_a = t.tokenize_str("a")[0]
     t_1 = t.tokenize_str("1")[0]
     assert mask_has(mask[0, :], t_a)
     assert not mask_has(mask[0, :], t_1)
-    assert not mask_has(mask[1, :], t_a)
-    assert mask_has(mask[1, :], t_1)
+    assert not mask_has(mask[2, :], t_a)
+    assert mask_has(mask[2, :], t_1)
 
 
 def consume_tokens(m: llguidance.LLMatcher, tokens: List[int]) -> None:
@@ -240,7 +251,7 @@ def test_fast_forward() -> None:
     assert not m.is_error()
 
 
-def test_try_consume_tokens():
+def test_try_consume_tokens() -> None:
     m = llguidance.LLMatcher(tokenizer(), "start: /(foo[12]23|bar)/")
     tokens = tokenizer().tokenize_str("foo723")
     assert len(tokens) == 6
@@ -249,7 +260,7 @@ def test_try_consume_tokens():
     assert m.is_stopped() and m.is_accepting() and not m.is_error()
 
 
-def test_consume_token_error():
+def test_consume_token_error() -> None:
     m = llguidance.LLMatcher(tokenizer(), "start: /(foo[12]23|bar)/")
     m2 = m.deep_copy()
     m3 = m.deep_copy()
@@ -277,7 +288,7 @@ def test_consume_token_error():
     assert m3.is_error()
     assert "out of range" in m3.get_error()
 
-    r = m4.validate_tokens(tokens[0:3] + [tokenizer().vocab_size + 100])
-    assert r == 0  # questionable
+    n = m4.validate_tokens(tokens[0:3] + [tokenizer().vocab_size + 100])
+    assert n == 0  # questionable
     assert m3.is_error()
     assert "out of range" in m3.get_error()
