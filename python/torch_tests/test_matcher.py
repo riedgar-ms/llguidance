@@ -116,7 +116,8 @@ def test_slices() -> None:
 
 
 def mask_has(mask: NDArray[np.int32], t: int) -> bool:
-    return mask[t // 32] & (1 << (t % 32)) != 0
+    v: int = mask[t // 32]
+    return v & (1 << (t % 32)) != 0
 
 
 def test_par_errors() -> None:
