@@ -88,10 +88,16 @@ pub trait Recognizer {
     fn save_stats(&mut self, _nodes_walked: usize) {}
 }
 
+#[derive(Clone, Copy)]
+pub struct TokDesc {
+    pub len: u32,
+    pub off: u32,
+}
+
 #[derive(Clone)]
 pub struct TokTrie {
     info: TokRxInfo,
-    token_offsets: Vec<u32>,
+    token_offsets: Vec<TokDesc>,
     token_data: Vec<u8>,
     nodes: Vec<TrieNode>,
     max_token_len: usize,
@@ -143,9 +149,6 @@ impl TrieNode {
     }
 }
 
-// max length of token is 255 bytes
-const LEN_BITS: u32 = 8;
-
 impl TokTrie {
     // see https://github.com/microsoft/llguidance/blob/main/docs/special_tokens.md
     pub const SPECIAL_TOKEN_MARKER: u8 = 0xff;
@@ -161,9 +164,10 @@ impl TokTrie {
                 trie.insert(word, idx as u32);
                 max_token_len = std::cmp::max(max_token_len, word.len());
             }
-            assert!(word.len() < (1 << LEN_BITS));
-            assert!(token_data.len() < (1 << (32 - LEN_BITS)));
-            let desc = (word.len() as u32) | ((token_data.len() as u32) << LEN_BITS);
+            let desc = TokDesc {
+                len: word.len().try_into().unwrap(),
+                off: token_data.len().try_into().unwrap(),
+            };
             token_offsets.push(desc);
             token_data.extend_from_slice(word);
         }
@@ -360,10 +364,10 @@ impl TokTrie {
         if idx >= self.token_offsets.len() as u32 {
             return &[];
         }
-        let off = self.token_offsets[idx as usize];
-        let len = off & ((1 << LEN_BITS) - 1);
-        let off = (off >> LEN_BITS) as usize;
-        &self.token_data[off..(off + len as usize)]
+        let desc = self.token_offsets[idx as usize];
+        let len = desc.len as usize;
+        let off = desc.off as usize;
+        &self.token_data[off..(off + len)]
     }
 
     pub fn decode(&self, tokens: &[TokenId]) -> Vec<u8> {
