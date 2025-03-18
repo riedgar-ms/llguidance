@@ -354,7 +354,7 @@ class JsonCompiler:
     def compile(
         self,
         schema: str,
-        check=True,
+        check: bool = True,
     ) -> str:
         """
         Similar to:
@@ -377,7 +377,7 @@ class LarkCompiler:
     def compile(
         self,
         lark: str,
-        check=True,
+        check: bool = True,
     ) -> str:
         """
         Equivalent to (with an empty tokenizer):
@@ -400,7 +400,7 @@ class RegexCompiler:
     def compile(
         self,
         regex: str,
-        check=True,
+        check: bool = True,
     ) -> str:
         """
         Equivalent to:
