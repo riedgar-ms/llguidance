@@ -1,6 +1,7 @@
 from ._lib import LLMatcher
-from typing import Literal
+from typing import Literal, List
 from .gbnf_to_lark import any_to_lark
+import json
 
 GrammarFormat = Literal[
     "lark",
@@ -11,6 +12,7 @@ GrammarFormat = Literal[
     "json_schema",
     "json",
     "regex",
+    "choice",
     "llguidance",
 ]
 
@@ -26,6 +28,7 @@ def grammar_from(format: GrammarFormat, text: str) -> str:
             "gbnf", "ebnf", "cfg", "grammar": Lark grammar or GBNF grammar, see https://github.com/ggml-org/llama.cpp/blob/master/grammars/README.md
             "json_schema", "json": JSON schema, see https://github.com/guidance-ai/llguidance/blob/main/docs/json_schema.md
             "regex": Regular expression, see https://docs.rs/regex/latest/regex/#syntax
+            "choice": JSON-formatted list of strings, e.g. '["a", "b", "c"]'
             "llguidance": JSON object like: {"grammars": [{"lark_grammar": "..."},{"json_schema": {...}}]}
         text: The grammar text
 
@@ -49,6 +52,13 @@ def grammar_from(format: GrammarFormat, text: str) -> str:
         return LLMatcher.grammar_from_json_schema(text)
     if format == "regex":
         return LLMatcher.grammar_from_regex(text)
+    if format == "choice":
+        if isinstance(text, str):
+            lst: List[str] = json.loads(text)
+        else:
+            lst = text
+        lark = "start: " + " | ".join(json.dumps(x) for x in lst)
+        return LLMatcher.grammar_from_lark(lark)
     if format == "llguidance":
         return text
     raise ValueError(f"Unknown grammar type: {format}")
