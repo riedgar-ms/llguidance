@@ -1,6 +1,6 @@
-from typing import Tuple, List
+from typing import Tuple, List, Union
 import torch
-from ._lib import LLMatcher, LLExecutor
+from ._lib import LLMatcher, LLExecutor, LLInterpreter
 
 
 def get_bitmask_shape(batch_size: int, vocab_size: int) -> Tuple[int, int]:
@@ -45,7 +45,7 @@ def apply_token_bitmask_inplace(logits: torch.Tensor,
     apply_token_bitmask_inplace_kernel(logits, mask)
 
 
-def fill_next_token_bitmask(interp: LLMatcher,
+def fill_next_token_bitmask(interp: Union[LLMatcher, LLInterpreter],
                             bitmask: torch.Tensor,
                             index: int = 0) -> None:
     assert bitmask.dtype == torch.int32, "Mask must be int32"
