@@ -123,11 +123,19 @@ impl LLMatcher {
         trg_slice.copy_from_slice(&src[0..trg_slice.len()]);
     }
 
+    fn eos_token_set(&self) -> SimpleVob {
+        let trie = self.tok_env.tok_trie();
+        trie.singleton_token_set(trie.eos_token())
+    }
+
     fn compute_mask_or_eos(&mut self) -> SimpleVob {
-        self.inner.compute_mask().unwrap_or_else(|_| {
-            let trie = self.tok_env.tok_trie();
-            trie.singleton_token_set(trie.eos_token())
-        })
+        if self.inner.is_stopped() {
+            self.eos_token_set()
+        } else {
+            self.inner
+                .compute_mask()
+                .unwrap_or_else(|_| self.eos_token_set())
+        }
     }
 }
 
@@ -277,7 +285,11 @@ impl LLMatcher {
     }
 
     fn consume_token(&mut self, sampled_token: TokenId) -> bool {
-        self.inner.consume_tokens(&[sampled_token]).is_ok()
+        if self.inner.is_stopped() && sampled_token == self.tok_env.tok_trie().eos_token() {
+            true
+        } else {
+            self.inner.consume_tokens(&[sampled_token]).is_ok()
+        }
     }
 
     fn consume_tokens(&mut self, tokens: Vec<TokenId>) -> bool {

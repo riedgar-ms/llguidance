@@ -217,6 +217,12 @@ def test_rollback() -> None:
     assert m.is_stopped() and m.is_accepting()
     assert not m.is_error()
 
+    mask = m.compute_logit_bias()
+    assert mask[tokenizer().eos_token] == 200
+    assert not m.is_error()
+    m.consume_token(tokenizer().eos_token)
+    assert not m.is_error()
+
     consume_tokens(m2, t)
     assert m2.is_stopped() and m2.is_accepting() and not m2.is_error()
 
