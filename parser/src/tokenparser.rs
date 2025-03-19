@@ -322,6 +322,10 @@ impl TokenParser {
         self.validate_tokens_raw(&[token]).map(|n| n > 0)
     }
 
+    pub fn reset(&mut self) -> Result<()> {
+        self.rollback(self.llm_tokens.len())
+    }
+
     pub fn rollback(&mut self, n_tokens: usize) -> Result<()> {
         if n_tokens == 0 {
             return Ok(());

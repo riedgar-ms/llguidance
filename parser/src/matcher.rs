@@ -75,6 +75,10 @@ impl Matcher {
         self.with_inner(|inner| inner.parser.rollback(num_tokens))
     }
 
+    pub fn reset(&mut self) -> Result<()> {
+        self.with_inner(|inner| inner.parser.reset())
+    }
+
     /// Compute which tokens can be consumed in the current state.
     pub fn compute_mask(&mut self) -> Result<SimpleVob> {
         self.with_inner(|inner| inner.parser.compute_mask())

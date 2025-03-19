@@ -300,6 +300,10 @@ impl LLMatcher {
         self.inner.rollback(num_tokens).is_ok()
     }
 
+    fn reset(&mut self) -> bool {
+        self.inner.reset().is_ok()
+    }
+
     fn compute_ff_tokens(&mut self) -> Vec<TokenId> {
         self.inner.compute_ff_tokens()
     }

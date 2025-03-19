@@ -290,9 +290,15 @@ class LLMatcher:
         May return "NotStopped" if the matcher is not stopped.
         """
 
-    def rollback(self, num_tokens: int) -> None:
+    def rollback(self, num_tokens: int) -> bool:
         """
         Rollback the last num_tokens consumed.
+        """
+
+    def reset(self) -> bool:
+        """
+        Reset the matcher to the initial state.
+        Equivalent to rolling back all tokens.
         """
 
     def compute_ff_tokens(self) -> List[TokenId]:
