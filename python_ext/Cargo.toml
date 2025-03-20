@@ -23,5 +23,5 @@ crate-type = ["cdylib"]
 path = "src/lib.rs"
 
 [features]
-default = []
+default = ["tokenizers"]
 tokenizers = ["toktrie_hf_tokenizers"]

@@ -6,6 +6,7 @@ from ._tokenizer import TokenizerWrapper
 class LLTokenizer:
     vocab_size: int
     eos_token: TokenId
+    is_canonical: bool
 
     def __new__(
         cls,

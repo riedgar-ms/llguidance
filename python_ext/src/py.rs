@@ -8,7 +8,7 @@ use llguidance::toktrie::{
     TokenizerEnv,
 };
 use llguidance::{api::TopLevelGrammar, output::ParserOutput};
-use llguidance::{token_bytes_from_tokenizer_json, JsonCompileOptions, ParserFactory};
+use llguidance::{JsonCompileOptions, ParserFactory};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -47,51 +47,61 @@ impl LLTokenizer {
             if tokenizer_str == "byte" {
                 let tok = ApproximateTokEnv::single_byte();
                 Arc::new(tok)
-            } else if tokenizer_str.starts_with("{") {
-                let val = serde_json::from_str(&tokenizer_str).map_err(val_error)?;
-                let mut tokens = token_bytes_from_tokenizer_json(&val).map_err(val_error)?;
-                if let Some(n_vocab) = n_vocab {
-                    while tokens.len() < n_vocab {
-                        tokens.push(vec![]);
-                    }
-                }
-                let trie = TokTrie::from(&TokRxInfo::new(tokens.len() as u32, 0), &tokens);
-                let candidates = &[
-                    "<|im_end|>",
-                    "<|eot_id|>",
-                    "<|end_of_text|>",
-                    "<｜end▁of▁sentence｜>", // deepseek-v3 - weird Unicode bars
-                    "</s>",
-                    "<|endoftext|>",
-                ];
-                let eos_token = if let Some(eos_token) = eos_token {
-                    eos_token
-                } else {
-                    candidates
-                        .iter()
-                        .filter_map(|s| trie.get_special_token(s))
-                        .next()
-                        .ok_or_else(|| {
-                            PyValueError::new_err(
-                                "Expecting a tokenizer with an EOS token, but none was found"
-                                    .to_string(),
-                            )
-                        })?
-                };
-                let trie = trie.with_eos_token(eos_token);
-                Arc::new(ApproximateTokEnv::new(trie))
             } else {
                 #[cfg(feature = "tokenizers")]
                 {
-                    let tok =
-                        toktrie_hf_tokenizers::ByteTokenizerEnv::from_name(&tokenizer_str, n_vocab)
-                            .map_err(val_error)?;
-                    tok.to_env()
+                    let mut tok = if tokenizer_str.starts_with("{") {
+                        toktrie_hf_tokenizers::ByteTokenizer::from_str(&tokenizer_str)
+                            .map_err(val_error)?
+                    } else {
+                        toktrie_hf_tokenizers::ByteTokenizer::from_name(&tokenizer_str)
+                            .map_err(val_error)?
+                    };
+                    if let Some(eos_token) = eos_token {
+                        tok.set_eos_token(eos_token);
+                    }
+                    toktrie_hf_tokenizers::ByteTokenizerEnv::new(tok, n_vocab)
+                        .map_err(val_error)?
+                        .to_env()
                 }
 
                 #[cfg(not(feature = "tokenizers"))]
-                {
-                    let _ = n_vocab;
+                if tokenizer_str.starts_with("{") {
+                    use llguidance::token_bytes_from_tokenizer_json;
+
+                    let val = serde_json::from_str(&tokenizer_str).map_err(val_error)?;
+                    let mut tokens = token_bytes_from_tokenizer_json(&val).map_err(val_error)?;
+                    if let Some(n_vocab) = n_vocab {
+                        while tokens.len() < n_vocab {
+                            tokens.push(vec![]);
+                        }
+                    }
+                    let trie = TokTrie::from(&TokRxInfo::new(tokens.len() as u32, 0), &tokens);
+                    let candidates = &[
+                        "<|im_end|>",
+                        "<|eot_id|>",
+                        "<|end_of_text|>",
+                        "<｜end▁of▁sentence｜>", // deepseek-v3 - weird Unicode bars
+                        "</s>",
+                        "<|endoftext|>",
+                    ];
+                    let eos_token = if let Some(eos_token) = eos_token {
+                        eos_token
+                    } else {
+                        candidates
+                            .iter()
+                            .filter_map(|s| trie.get_special_token(s))
+                            .next()
+                            .ok_or_else(|| {
+                                PyValueError::new_err(
+                                    "Expecting a tokenizer with an EOS token, but none was found"
+                                        .to_string(),
+                                )
+                            })?
+                    };
+                    let trie = trie.with_eos_token(eos_token);
+                    Arc::new(ApproximateTokEnv::new(trie))
+                } else {
                     return Err(PyValueError::new_err(
                         "Expecting a TokenizerWrapper() class or encoded HF-tokenizers JSON file",
                     ));
@@ -121,6 +131,11 @@ impl LLTokenizer {
 
     fn tokenize_bytes(&self, utf8bytes: &[u8]) -> Vec<TokenId> {
         self.tok_env().tokenize_bytes(utf8bytes)
+    }
+
+    #[getter]
+    fn is_canonical(&self) -> bool {
+        self.tok_env().tokenize_is_canonical()
     }
 
     #[staticmethod]

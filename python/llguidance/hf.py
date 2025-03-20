@@ -11,7 +11,7 @@ def from_tokenizer(
     slices: Optional[List[str]] = None,
 ) -> LLTokenizer:
     """
-    Create a new tokenizer from a Hugging Face tokenizer.
+    Create a new tokenizer from a fast Hugging Face tokenizer.
     This is an expensive operation (~1s), so the result should be cached.
     It also currently creates a non-canonical tokenizer, which means it cannot
     produce fast-forward tokens (though it can produce fast-forward bytes).
@@ -25,7 +25,9 @@ def from_tokenizer(
     """
 
     if isinstance(hf_tokenizer, transformers.PreTrainedTokenizerFast):
-        # this is not ideal...
+        # this will JSON-serialize the Rust impl of the tokenizer,
+        # including added tokens from tokenizer_config.json
+        # (which may be missing from tokenizer.json)
         s = hf_tokenizer.backend_tokenizer.to_str()
         if n_vocab is None:
             n_vocab = hf_tokenizer.vocab_size
