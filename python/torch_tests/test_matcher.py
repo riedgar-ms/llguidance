@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Tuple
 import llguidance
 from llguidance.numpy import fill_next_token_bitmask_par, allocate_token_bitmask
+from llguidance import LLMatcher, LLTokenizer
 import pytest
 from numpy.typing import NDArray
 import numpy as np
@@ -8,15 +9,15 @@ import numpy as np
 _tokenizer = None
 
 
-def tokenizer() -> llguidance.LLTokenizer:
+def tokenizer() -> LLTokenizer:
     global _tokenizer
     if _tokenizer is None:
-        _tokenizer = llguidance.LLTokenizer("byte")
+        _tokenizer = LLTokenizer("byte")
     return _tokenizer
 
 
-def matcher(grm: str) -> llguidance.LLMatcher:
-    return llguidance.LLMatcher(tokenizer(), grm, log_level=1)
+def matcher(grm: str) -> LLMatcher:
+    return LLMatcher(tokenizer(), grm, log_level=1)
 
 
 def check_one_grammar(grm: str, s: str, passing: bool) -> None:
@@ -63,11 +64,11 @@ def check_grammar(grm: str, passing: List[str], failing: List[str]) -> None:
 
 
 def test_json() -> None:
-    grm = llguidance.LLMatcher.grammar_from_json_schema(
-        {"type": "object"}, {"whitespace_flexible": False})
+    grm = LLMatcher.grammar_from_json_schema({"type": "object"},
+                                             {"whitespace_flexible": False})
     check_grammar(grm, ["{}", '{"foo":1}'], ["FINAL_REJECT:{", " {}", "{ }"])
 
-    grm = llguidance.LLMatcher.grammar_from_json_schema({
+    grm = LLMatcher.grammar_from_json_schema({
         "type": "object",
         "properties": {
             "foo": {
@@ -101,20 +102,30 @@ def test_lark() -> None:
 
 
 def test_regex_grammar() -> None:
-    grm = llguidance.LLMatcher.grammar_from_regex(r"\d+")
+    grm = LLMatcher.grammar_from_regex(r"\d+")
     check_grammar(grm, ["123", "456"], ["abc", "1a2"])
 
 
 def test_lark_syntax() -> None:
-    with pytest.raises(ValueError, match="no_such_rule"):
-        matcher('start: /.../ no_such_rule')
+    m = matcher('start: /.../ no_such_rule')
+    assert m.is_error()
+    assert "no_such_rule" in m.get_error()
+
+    e = LLMatcher.validate_grammar(tokenizer(), 'start: /.../ no_such_rule')
+    assert "no_such_rule" in e
+
+
+def test_regex_syntax() -> None:
+    g = LLMatcher.grammar_from_regex(r"missing close paren (")
+    e = LLMatcher.validate_grammar(tokenizer(), g)
+    assert "invalid regex" in e
 
 
 def test_slices() -> None:
     t = tokenizer()
-    gen_slices = llguidance.LLTokenizer.general_slices()
+    gen_slices = LLTokenizer.general_slices()
     assert len(gen_slices) > 0
-    json_slices = llguidance.LLTokenizer.json_slices()
+    json_slices = LLTokenizer.json_slices()
     assert len(json_slices) > 0
     t2 = t.with_slices(json_slices)
     assert t.tokenize_str("Hello, world!") == t2.tokenize_str("Hello, world!")
@@ -173,7 +184,7 @@ def test_par_errors() -> None:
     assert mask_has(mask[2, :], t_1)
 
 
-def consume_tokens(m: llguidance.LLMatcher, tokens: List[int]) -> None:
+def consume_tokens(m: LLMatcher, tokens: List[int]) -> None:
     print("Consume", tokenizer().dbg_tokens(tokens))
     assert m.stop_reason() == "NotStopped"
     assert not m.is_stopped()
@@ -192,7 +203,7 @@ def consume_tokens(m: llguidance.LLMatcher, tokens: List[int]) -> None:
 
 
 def test_stopping_conditions() -> None:
-    m = llguidance.LLMatcher(tokenizer(), "start: /[aA][bB][cC]/")
+    m = LLMatcher(tokenizer(), "start: /[aA][bB][cC]/")
     consume_tokens(m, tokenizer().tokenize_str("abc"))
     assert m.is_accepting()
     assert m.is_stopped()
@@ -200,7 +211,7 @@ def test_stopping_conditions() -> None:
 
 
 def test_rollback() -> None:
-    m = llguidance.LLMatcher(tokenizer(), "start: /[aA] [bB] [cC] [dD] [eE]/")
+    m = LLMatcher(tokenizer(), "start: /[aA] [bB] [cC] [dD] [eE]/")
     m2 = m.deep_copy()
     t = tokenizer().tokenize_str("a b c d e")
     consume_tokens(m, t[0:3])
@@ -230,13 +241,13 @@ def test_rollback() -> None:
     assert m2.is_stopped() and m2.is_accepting() and not m2.is_error()
 
 
-def check_ff(m: llguidance.LLMatcher, expected: str) -> None:
+def check_ff(m: LLMatcher, expected: str) -> None:
     assert m.compute_ff_bytes() == expected.encode(), "FF bytes mismatch"
     assert m.compute_ff_tokens() == tokenizer().tokenize_str(expected)
 
 
 def test_fast_forward() -> None:
-    m = llguidance.LLMatcher(tokenizer(), "start: /(foo[12]23|bar)/")
+    m = LLMatcher(tokenizer(), "start: /(foo[12]23|bar)/")
     toks = tokenizer().tokenize_str("foo123")
     assert len(toks) == 6
     check_ff(m, "")
@@ -258,7 +269,7 @@ def test_fast_forward() -> None:
 
 
 def test_try_consume_tokens() -> None:
-    m = llguidance.LLMatcher(tokenizer(), "start: /(foo[12]23|bar)/")
+    m = LLMatcher(tokenizer(), "start: /(foo[12]23|bar)/")
     tokens = tokenizer().tokenize_str("foo723")
     assert len(tokens) == 6
     assert m.try_consume_tokens(tokens) == 3
@@ -267,7 +278,7 @@ def test_try_consume_tokens() -> None:
 
 
 def test_consume_token_error() -> None:
-    m = llguidance.LLMatcher(tokenizer(), "start: /(foo[12]23|bar)/")
+    m = LLMatcher(tokenizer(), "start: /(foo[12]23|bar)/")
     m2 = m.deep_copy()
     m3 = m.deep_copy()
     m4 = m.deep_copy()

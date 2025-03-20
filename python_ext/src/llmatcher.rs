@@ -2,10 +2,11 @@ use std::borrow::Cow;
 use std::fmt::Display;
 use std::ops::DerefMut;
 
+use anyhow::Result;
 use llguidance::api::ParserLimits;
 use llguidance::toktrie::{InferenceCapabilities, SimpleVob, TokEnv, TokenId};
 use llguidance::{api::TopLevelGrammar, TokenParser};
-use llguidance::{json_merge, Logger, Matcher};
+use llguidance::{json_merge, Logger, Matcher, ParserFactory};
 use pyo3::types::{PyList, PyTuple};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use serde_json::json;
@@ -139,6 +140,41 @@ impl LLMatcher {
     }
 }
 
+fn new_matcher(
+    fact: &ParserFactory,
+    grammar: TopLevelGrammar,
+    log_level: isize,
+    py: Python<'_>,
+) -> Matcher {
+    let logger = Logger::new(0, std::cmp::max(0, log_level) as u32);
+    // constructing a grammar can take on the order of 100ms
+    // for very large grammars, so we drop the GIL here
+    let inner = py
+        .allow_threads(|| {
+            TokenParser::from_grammar(
+                fact.tok_env().clone(),
+                grammar,
+                logger,
+                InferenceCapabilities::default(),
+                ParserLimits::default(),
+                fact.extra_lexemes(),
+            )
+        })
+        .map(|mut r| {
+            fact.post_process_parser(&mut r);
+            r
+        });
+    Matcher::new(inner)
+}
+
+fn extract_grammar(grammar: Bound<'_, PyAny>) -> Result<TopLevelGrammar> {
+    if let Ok(s) = grammar.extract::<String>() {
+        TopLevelGrammar::from_lark_or_grammar_list(&s)
+    } else {
+        Ok(serde_json::from_value(to_json_value(grammar)?)?)
+    }
+}
+
 // This is the interface from llguidance to the LLM's.
 #[pymethods]
 impl LLMatcher {
@@ -149,35 +185,26 @@ impl LLMatcher {
         grammar: Bound<'_, PyAny>,
         log_level: Option<isize>,
         py: Python<'_>,
-    ) -> PyResult<Self> {
+    ) -> Self {
         let fact = tokenizer.factory();
-        let arg = if let Ok(s) = grammar.extract::<String>() {
-            TopLevelGrammar::from_lark_or_grammar_list(&s).map_err(val_error)?
-        } else {
-            serde_json::from_value(to_json_value(grammar)?).map_err(val_error)?
+        let inner = match extract_grammar(grammar) {
+            Ok(grammar) => new_matcher(fact, grammar, log_level.unwrap_or(1), py),
+            Err(e) => Matcher::new(Err(e)),
         };
-        let log_level = log_level.unwrap_or(1);
-        let logger = Logger::new(0, std::cmp::max(0, log_level) as u32);
-        // constructing a grammar can take on the order of 100ms
-        // for very large grammars, so we drop the GIL here
-        let mut inner = py
-            .allow_threads(|| {
-                TokenParser::from_grammar(
-                    fact.tok_env().clone(),
-                    arg,
-                    logger,
-                    InferenceCapabilities::default(),
-                    ParserLimits::default(),
-                    fact.extra_lexemes(),
-                )
-            })
-            .map_err(val_error)?;
-        fact.post_process_parser(&mut inner);
-        let inner = Matcher::new(Ok(inner));
-        Ok(LLMatcher {
+        LLMatcher {
             inner,
             tok_env: fact.tok_env().clone(),
-        })
+        }
+    }
+
+    #[staticmethod]
+    fn validate_grammar(
+        tokenizer: &LLTokenizer,
+        grammar: Bound<'_, PyAny>,
+        py: Python<'_>,
+    ) -> String {
+        let matcher = Self::py_new(tokenizer, grammar, Some(0), py);
+        matcher.get_error()
     }
 
     #[staticmethod]

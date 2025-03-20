@@ -206,18 +206,29 @@ class LLMatcher:
             grammar: str - either a Lark grammar or stringified JSON representation of LLGuidance grammar
             log_level: int - verbosity level (0: silent, 1: warnings, 2: verbose)
         Raises:
-            ValueError: if the grammar is invalid.
+            Never.
 
         Note:
-            Other methods in this class do not raise exceptions for user (grammar) errors,
+            All methods in this class, including this one, do not raise exceptions for user (grammar) errors,
             resource limits, or when an invalid token is consumed.
             In such cases, the matcher will enter an error state, and never leave it.
             You can use is_error() and get_error() to check for the error.
-            Methods will raise exceptions when misused at the API level.
+
+            Methods will raise exceptions when misused at the API level
+            (eg., you pass an invalid pointer or wrong mask size).
 
         Note:
             This drops the GIL for the duration of the grammar construction, which can be
             100-1000ms for extremely complex grammars.
+        """
+
+    @staticmethod
+    def validate_grammar(tokenizer: LLTokenizer, grammar: str) -> str:
+        """
+        Validate the grammar, for example one returned by LLMatcher.grammar_from_*().
+        Returns None if the grammar is valid, otherwise an error message.
+
+        Currently, this is equivalent to LLMatcher(tokenizer, grammar).get_error().
         """
 
     @staticmethod
