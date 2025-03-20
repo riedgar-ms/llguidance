@@ -8,7 +8,7 @@ repository = "https://github.com/guidance-ai/llguidance"
 
 [dependencies]
 llguidance = { workspace = true }
-toktrie_hf_tokenizers = { workspace = true, optional = true }
+toktrie_hf_tokenizers = { workspace = true }
 bytemuck = "1.21.0"
 pyo3 = {version = "0.23.4", features = ["extension-module", "abi3-py39", "anyhow"]}
 serde = { version = "1.0.217", features = ["derive"] }
@@ -21,7 +21,3 @@ anyhow = "1.0.95"
 name = "_lib"
 crate-type = ["cdylib"]
 path = "src/lib.rs"
-
-[features]
-default = ["tokenizers"]
-tokenizers = ["toktrie_hf_tokenizers"]

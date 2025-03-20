@@ -29,8 +29,9 @@ def from_tokenizer(
         # including added tokens from tokenizer_config.json
         # (which may be missing from tokenizer.json)
         s = hf_tokenizer.backend_tokenizer.to_str()
-        if n_vocab is None:
-            n_vocab = hf_tokenizer.vocab_size
+        # This is probably not needed - it should figure it out by itself
+        # if n_vocab is None:
+        #     n_vocab = hf_tokenizer.backend_tokenizer.get_vocab_size(with_added_tokens=True)
         if eos_token is None:
             eos_token = hf_tokenizer.eos_token_id
         return LLTokenizer(s,
