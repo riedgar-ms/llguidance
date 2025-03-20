@@ -316,7 +316,7 @@ class GrammarParser:
 
     @staticmethod
     def _is_word_char(c: str) -> bool:
-        return c.isalnum() or c == "-"
+        return c.isalnum() or c == "-" or c == "_"
 
     def _parse_rule(self, pos: Position) -> Tuple[RuleNode, Position]:
         name, pos = self._parse_name(pos)
