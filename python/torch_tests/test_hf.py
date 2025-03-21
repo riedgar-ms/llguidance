@@ -85,7 +85,7 @@ def test_par_grammar() -> None:
 
 
 @pytest.mark.parametrize("recent_tokens", [[], [1000, 3003]])
-def test_tokenize_partial(recent_tokens: List[int]) -> None:
+def test_tokenize_partial_basic(recent_tokens: List[int]) -> None:
     """Test tokenize_partial with a simple sentence."""
     ll_tok = tokenizer()
     assert ll_tok.is_canonical
@@ -98,6 +98,20 @@ def test_tokenize_partial(recent_tokens: List[int]) -> None:
     for suff in ["", "r", "!", " "]:
         tok2 = ll_tok.tokenize_str(" How are you" + suff)
         assert tok2[0:len(new_tokens)] == new_tokens
+
+
+def test_tokenize_partial_docs() -> None:
+    ll = tokenizer()
+    new_tok, leftover = ll.tokenize_partial(b'order')
+    assert len(new_tok) == 0
+    assert leftover == b'order'
+
+    recent = ll.tokenize_bytes(b'{"')
+    new_tok, leftover = ll.tokenize_partial(b'name_of_the_person"',
+                                            recent_tokens=recent)
+    print(ll.dbg_tokens(new_tok))
+    assert leftover == b'"'
+    assert ll.decode_str(new_tok) == "name_of_the_person"
 
 
 if __name__ == "__main__":
