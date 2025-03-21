@@ -8,7 +8,6 @@ fn main() {
         "CARGO_MANIFEST_PATH",
         "CARGO_PKG_NAME",
         "CARGO_PKG_VERSION",
-        "RUST_VERSION",
         "OUT_DIR",
     ];
 
