@@ -9,7 +9,7 @@ mod toktree;
 
 pub use svob::{SimpleVob, SimpleVobIter};
 pub use tokenv::{parse_numeric_token, ApproximateTokEnv, TokEnv, TokEnvWithTrie, TokenizerEnv};
-pub use toktree::{Recognizer, TokRxInfo, TokTrie, TokenId, TrieNode, INVALID_TOKEN};
+pub use toktree::{AnythingGoes, Recognizer, TokRxInfo, TokTrie, TokenId, TrieNode, INVALID_TOKEN};
 
 /// Defines what is allowed in Branch
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]

@@ -92,6 +92,28 @@ class LLTokenizer:
         Check if the token is a special token.
         """
 
+    def tokenize_partial(self,
+                         new_bytes: bytes,
+                         recent_tokens: Optional[List[int]] = None
+                         ) -> Tuple[List[int], bytes]:
+        """
+        Tokenize a prefix of new_bytes that is unambiguous.
+
+        Args:
+            new_bytes: bytes - the bytes to tokenize
+            recent_tokens: List[int] - the tokens just before new_bytes;
+                this is a hint and is not returned in the result
+
+        Returns:
+            Tuple[List[int], bytes
+                - the tokens and the remaining bytes
+
+        Note: It should hold that:
+            tokens, suffix = t.tokenize_partial(new_bytes, recent_tokens = ...)
+            assert t.decode_bytes(tokens) + suffix == new_bytes
+            assert t.tokenize_bytes(new_bytes + ...)[0:len(tokens)] == tokens
+        """
+
 
 class LLInterpreter:
 

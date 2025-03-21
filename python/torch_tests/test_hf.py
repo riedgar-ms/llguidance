@@ -84,14 +84,20 @@ def test_par_grammar() -> None:
     print(f"Parallel: {par_time} us, Sequential: {seq_time} us")
 
 
-def asserts(msg: str, fn: Callable[..., Any], *args: Any) -> None:
-    try:
-        fn(*args)
-        raise Exception("OK")
-    except Exception as e:
-        if msg in str(e):
-            return
-        raise AssertionError(f"Expected {msg}, got {e}")
+@pytest.mark.parametrize("recent_tokens", [[], [1000, 3003]])
+def test_tokenize_partial(recent_tokens: List[int]) -> None:
+    """Test tokenize_partial with a simple sentence."""
+    ll_tok = tokenizer()
+    assert ll_tok.is_canonical
+    new_tokens, leftover = ll_tok.tokenize_partial(b" How are you",
+                                                   recent_tokens=recent_tokens)
+    assert isinstance(new_tokens, list)
+    assert isinstance(leftover, bytes)
+    assert len(new_tokens) >= 2
+    assert ll_tok.decode_bytes(new_tokens) + leftover == b" How are you"
+    for suff in ["", "r", "!", " "]:
+        tok2 = ll_tok.tokenize_str(" How are you" + suff)
+        assert tok2[0:len(new_tokens)] == new_tokens
 
 
 if __name__ == "__main__":

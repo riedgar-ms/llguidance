@@ -1047,3 +1047,14 @@ impl Recognizer for FixedRecognizer {
         }
     }
 }
+
+pub struct AnythingGoes;
+
+impl Recognizer for AnythingGoes {
+    fn collapse(&mut self) {}
+    fn trie_finished(&mut self) {}
+    fn pop_bytes(&mut self, _num: usize) {}
+    fn try_push_byte(&mut self, _byte: u8) -> bool {
+        true
+    }
+}
