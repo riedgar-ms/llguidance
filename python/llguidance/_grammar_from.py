@@ -47,7 +47,11 @@ def grammar_from(format: GrammarFormat, text: str) -> str:
     if format == "lark":
         return LLMatcher.grammar_from_lark(text)
     if format in ("gbnf", "ebnf", "cfg", "grammar"):
-        return LLMatcher.grammar_from_lark(any_to_lark(text))
+        try:
+            text = any_to_lark(text)
+        except Exception as e:
+            raise ValueError(f"Failed to convert the grammar from GBNF to Lark: {e}")
+        return LLMatcher.grammar_from_lark(text)
     if format in ("json_schema", "json"):
         return LLMatcher.grammar_from_json_schema(text)
     if format == "regex":

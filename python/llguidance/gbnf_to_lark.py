@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 from dataclasses import dataclass
-from enum import Enum, auto
-from typing import Optional, List, Dict, Tuple, Iterator
+from typing import Optional, List, Tuple, Iterator
 from abc import ABC, abstractmethod
 import re
 
@@ -30,7 +29,7 @@ class Position:
         return f"line {line_no}, {repr(pref)} ^ {repr(suff)}"
 
 
-class ParseError(Exception):
+class GbnfToLarkError(Exception):
     def __init__(self, pos: Position, message: str):
         self.pos = pos
         super().__init__(f"{message} at {pos}")
@@ -202,7 +201,7 @@ class GrammarParser:
 
         if pos.current() == "\\":
             if not pos.peek(2)[1]:
-                raise ParseError(pos, "Incomplete escape sequence")
+                raise GbnfToLarkError(pos, "Incomplete escape sequence")
             pos = pos.advance()
             c = pos.current()
             if c in '"\\[]nrt':
@@ -210,7 +209,7 @@ class GrammarParser:
             elif c == "x":
                 hex_value = pos.peek(3)[1:3]
                 if len(hex_value) != 2 or not is_all_hex(hex_value):
-                    raise ParseError(
+                    raise GbnfToLarkError(
                         pos, f"Invalid \\x escape sequence: \\x{hex_value}"
                     )
                 pos = pos.advance(3)
@@ -218,7 +217,7 @@ class GrammarParser:
             elif c == "u":
                 hex_value = pos.peek(5)[1:5]
                 if len(hex_value) != 4 or not is_all_hex(hex_value):
-                    raise ParseError(
+                    raise GbnfToLarkError(
                         pos, f"Invalid \\u escape sequence: \\u{hex_value}"
                     )
                 pos = pos.advance(5)
@@ -226,21 +225,21 @@ class GrammarParser:
             elif c == "U":
                 hex_value = pos.peek(9)[1:9]
                 if len(hex_value) != 8 or not is_all_hex(hex_value):
-                    raise ParseError(
+                    raise GbnfToLarkError(
                         pos, f"Invalid \\U escape sequence: \\U{hex_value}"
                     )
                 pos = pos.advance(9)
                 return f"\\U{hex_value.lstrip('0')}", pos
             else:
-                raise ParseError(pos, f"Invalid escape sequence \\{c}")
+                raise GbnfToLarkError(pos, f"Invalid escape sequence \\{c}")
         elif pos.current() == "":
-            raise ParseError(pos, "Unexpected end of input")
+            raise GbnfToLarkError(pos, "Unexpected end of input")
 
         return pos.current(), pos.advance()
 
     def _parse_char_class(self, pos: Position) -> Tuple[ASTNode, Position]:
         if pos.current() != "[":
-            raise ParseError(pos, "Expected '['")
+            raise GbnfToLarkError(pos, "Expected '['")
         r = "["
         pos = pos.advance()
 
@@ -257,7 +256,7 @@ class GrammarParser:
 
     def _parse_literal(self, pos: Position) -> Tuple[ASTNode, Position]:
         if pos.current() != '"':
-            raise ParseError(pos, "Expected '\"'")
+            raise GbnfToLarkError(pos, "Expected '\"'")
         pos = pos.advance()
         r = ""
 
@@ -275,7 +274,7 @@ class GrammarParser:
         while GrammarParser._is_word_char(pos.current()):
             pos = pos.advance()
         if pos.pos == start:
-            raise ParseError(pos, "Expected name")
+            raise GbnfToLarkError(pos, "Expected name")
         return pos.text[start : pos.pos], pos
 
     @staticmethod
@@ -284,7 +283,7 @@ class GrammarParser:
         while pos.current().isdigit():
             pos = pos.advance()
         if pos.pos == start:
-            raise ParseError(pos, "Expected integer")
+            raise GbnfToLarkError(pos, "Expected integer")
         return int(pos.text[start : pos.pos]), pos
 
     def _skip_space(self, pos: Position, allow_newlines: bool) -> Position:
@@ -323,7 +322,7 @@ class GrammarParser:
         pos = self._skip_space(pos, allow_newlines=False)
 
         if pos.peek(3) != "::=":
-            raise ParseError(pos, "Expected ::=")
+            raise GbnfToLarkError(pos, "Expected ::=")
         pos = pos.advance(3)
 
         pos = self._skip_space(pos, allow_newlines=True)
@@ -388,14 +387,14 @@ class GrammarParser:
 
     def _parse_group(self, pos: Position, is_nested: bool) -> Tuple[ASTNode, Position]:
         if pos.current() != "(":
-            raise ParseError(pos, "Expected '('")
+            raise GbnfToLarkError(pos, "Expected '('")
         pos = pos.advance()
         pos = self._skip_space(pos, True)
 
         alternatives, pos = self._parse_alternatives(pos, is_nested=True)
 
         if pos.current() != ")":
-            raise ParseError(pos, "Expected ')'")
+            raise GbnfToLarkError(pos, "Expected ')'")
         pos = pos.advance()
 
         return alternatives, self._skip_space(pos, is_nested)
@@ -429,11 +428,11 @@ class GrammarParser:
                     max_times, pos = self._parse_int(pos)
                 pos = self._skip_space(pos, True)
                 if pos.current() != "}":
-                    raise ParseError(pos, "Expected '}'")
+                    raise GbnfToLarkError(pos, "Expected '}'")
                 nodes[-1] = RepetitionNode(nodes[-1], min_times, max_times)
                 return pos.advance()
             else:
-                raise ParseError(pos, "Expected ',' or '}'")
+                raise GbnfToLarkError(pos, "Expected ',' or '}'")
 
         return pos
 

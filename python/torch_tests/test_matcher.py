@@ -111,13 +111,18 @@ def test_lark_syntax() -> None:
     assert m.is_error()
     assert "no_such_rule" in m.get_error()
 
-    e = LLMatcher.validate_grammar(tokenizer(), 'start: /.../ no_such_rule')
+    e = LLMatcher.validate_grammar('start: /.../ no_such_rule')
+    assert "no_such_rule" in e
+
+    e = LLMatcher.validate_grammar('start: /.../ no_such_rule', tokenizer())
     assert "no_such_rule" in e
 
 
 def test_regex_syntax() -> None:
     g = LLMatcher.grammar_from_regex(r"missing close paren (")
-    e = LLMatcher.validate_grammar(tokenizer(), g)
+    e = LLMatcher.validate_grammar(g)
+    assert "invalid regex" in e
+    e = LLMatcher.validate_grammar(g, tokenizer())
     assert "invalid regex" in e
 
 

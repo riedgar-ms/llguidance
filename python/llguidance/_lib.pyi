@@ -246,12 +246,10 @@ class LLMatcher:
         """
 
     @staticmethod
-    def validate_grammar(tokenizer: LLTokenizer, grammar: str) -> str:
+    def validate_grammar(grammar: str, tokenizer: Optional[LLTokenizer] = None) -> str:
         """
         Validate the grammar, for example one returned by LLMatcher.grammar_from_*().
-        Returns None if the grammar is valid, otherwise an error message.
-
-        Currently, this is equivalent to LLMatcher(tokenizer, grammar).get_error().
+        Returns empty string if the grammar is valid, otherwise an error message.
         """
 
     @staticmethod

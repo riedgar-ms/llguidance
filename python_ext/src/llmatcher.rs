@@ -3,7 +3,7 @@ use std::fmt::Display;
 use std::ops::DerefMut;
 
 use anyhow::Result;
-use llguidance::api::ParserLimits;
+use llguidance::api::{GrammarInit, ParserLimits};
 use llguidance::toktrie::{InferenceCapabilities, SimpleVob, TokEnv, TokenId};
 use llguidance::{api::TopLevelGrammar, TokenParser};
 use llguidance::{json_merge, Logger, Matcher, ParserFactory};
@@ -198,13 +198,25 @@ impl LLMatcher {
     }
 
     #[staticmethod]
+    #[pyo3(signature = (grammar, tokenizer=None))]
     fn validate_grammar(
-        tokenizer: &LLTokenizer,
         grammar: Bound<'_, PyAny>,
+        tokenizer: Option<&LLTokenizer>,
         py: Python<'_>,
     ) -> String {
-        let matcher = Self::py_new(tokenizer, grammar, Some(0), py);
-        matcher.get_error()
+        match extract_grammar(grammar) {
+            Ok(grammar) => py.allow_threads(|| {
+                GrammarInit::Serialized(grammar)
+                    .to_internal(
+                        tokenizer.map(|t| t.factory().tok_env().clone()),
+                        ParserLimits::default(),
+                    )
+                    .err()
+                    .map(|e| e.to_string())
+                    .unwrap_or_default()
+            }),
+            Err(e) => e.to_string(),
+        }
     }
 
     #[staticmethod]
