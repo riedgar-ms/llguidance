@@ -56,6 +56,41 @@ Number features (for both integer and number):
 - order of object properties is fixed, see below
 - string `format` is enforced by default, with unrecognized or unimplemented formats returning errors
 
+## Whitespace handling
+
+By default any whitespace is allowed inside of the JSON object.
+Whitespace is not allowed before the first `{` or after the last `}`.
+You can modify your grammar easily to allow initial or trailing whitespace.
+
+You can set top-level `"x-guidance"` key to control this.
+Following keys are available inside of it:
+
+- `item_separator`, defaults to `":"`
+- `key_separator`, defaults to `","`
+- `whitespace_flexible`, defaults to `true`; set to `false` to enforce compact JSON representation
+- `whitespace_pattern`, optional string, overrides `whitespace_flexible`;
+  `whitespace_flexible: true` is equivalent to `whitespace_pattern: r"[\x20\x0A\x0D\x09]+"`
+- `coerce_one_of`, defaults to `false`; when set to `true`, the `"oneOf"` will be treated as `"anyOf"`
+
+For example:
+
+```json
+{
+   "x-guidance": {
+      "whitespace_flexible": false
+   },
+   "type": "object",
+   "properties": {
+      "a": {
+         "type": "string"
+      }
+   }
+}
+```
+
+The `"x-guidance"` key is only recognized at the top level of the schema.
+
+
 ## Property order
 
 ### TL;DR

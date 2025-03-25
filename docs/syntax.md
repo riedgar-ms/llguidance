@@ -221,8 +221,6 @@ Additionally, "structured" regex nodes can be defined using `%regex { ... }` syn
 
 #### Substring
 
-**The syntax is not stable yet!**
-
 `%regex { "substring_chunks": lst }` will match `lst[n:m].join("")` for some `n <= m <= len(lst)`.
 Additionally `substring_words` or `substring_chars` can be specified.
 For example:
