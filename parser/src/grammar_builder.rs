@@ -6,10 +6,10 @@ use crate::{
     },
     HashMap,
 };
-use anyhow::{anyhow, bail, ensure, Result};
+use anyhow::{bail, ensure, Result};
 use derivre::{ExprRef, RegexAst};
 use std::ops::RangeInclusive;
-use toktrie::{bytes::limit_str, TokEnv};
+use toktrie::{bytes::limit_str, TokEnv, INVALID_TOKEN};
 
 use crate::api::{GenGrammarOptions, GenOptions, NodeProps};
 
@@ -232,25 +232,21 @@ impl GrammarBuilder {
         r
     }
 
-    fn tok_env(&self, reason: &str) -> Result<&TokEnv> {
-        self.tok_env
-            .as_ref()
-            .ok_or(anyhow!("tokenizer required for {}", reason))
-    }
-
     pub fn token_ranges(&mut self, token_ranges: Vec<RangeInclusive<u32>>) -> Result<NodeRef> {
         self.check_limits()?;
 
         let name = token_ranges_to_string(&token_ranges);
 
-        let trie = self.tok_env("token ranges")?.tok_trie();
+        let trie = self.tok_env.as_ref().map(|t| t.tok_trie());
         for r in &token_ranges {
             ensure!(r.start() <= r.end(), "Invalid token range: {:?}", r);
-            ensure!(
-                *r.end() < trie.vocab_size() as u32,
-                "Token range end too large: {:?}",
-                r.end()
-            );
+            if let Some(trie) = &trie {
+                ensure!(
+                    *r.end() < trie.vocab_size() as u32,
+                    "Token range end too large: {:?}",
+                    r.end()
+                );
+            }
         }
 
         let id = self.regex.spec.add_special_token(name, token_ranges)?;
@@ -260,21 +256,27 @@ impl GrammarBuilder {
     pub fn special_token(&mut self, token: &str) -> Result<NodeRef> {
         self.check_limits()?;
 
-        let trie = self.tok_env("special token")?.tok_trie();
-        if let Some(tok_id) = trie.get_special_token(token) {
-            let idx = self
-                .regex
-                .spec
-                .add_special_token(token.to_string(), vec![tok_id..=tok_id])?;
-            Ok(self.lexeme_to_node(idx))
+        let tok_id = if let Some(te) = &self.tok_env {
+            let trie = te.tok_trie();
+            if let Some(tok_id) = trie.get_special_token(token) {
+                tok_id
+            } else {
+                let spec = trie.get_special_tokens();
+                bail!(
+                    "unknown special token: {:?}; following special tokens are available: {}",
+                    token,
+                    trie.tokens_dbg(&spec)
+                );
+            }
         } else {
-            let spec = trie.get_special_tokens();
-            bail!(
-                "unknown special token: {:?}; following special tokens are available: {}",
-                token,
-                trie.tokens_dbg(&spec)
-            );
-        }
+            INVALID_TOKEN
+        };
+
+        let idx = self
+            .regex
+            .spec
+            .add_special_token(token.to_string(), vec![tok_id..=tok_id])?;
+        Ok(self.lexeme_to_node(idx))
     }
 
     pub fn gen_grammar(&mut self, data: GenGrammarOptions, props: NodeProps) -> NodeRef {
