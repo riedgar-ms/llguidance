@@ -1,10 +1,22 @@
 # Low-level Guidance (llguidance)
 
+---
+
+* 2025-03-25 integration [merged](https://github.com/vllm-project/vllm/pull/14779) into vLLM (v0.8.2)
+* 2025-02-26 integration [merged](https://github.com/sgl-project/sglang/pull/3298) into SGLang (v0.4.4)
+* 2025-02-01 integration [merged](https://github.com/ggml-org/llama.cpp/pull/10224) into llama.cpp (b4613)
+* 2025-01-21 [JSONSchemaBench](https://github.com/guidance-ai/jsonschemabench) released, including [paper](https://arxiv.org/abs/2501.10868) and [MaskBench](https://github.com/guidance-ai/jsonschemabench/tree/main/maskbench)
+* 2025-01-07 Guidance [v0.2.0](https://github.com/guidance-ai/guidance/releases/tag/0.2.0) released, using llguidance as the grammar engine
+
+---
+
 <p align="center">
     <img src="https://github.com/guidance-ai/jsonschemabench/raw/main/maskbench/plots/hero.png" width="700">
     <br/>
     <em>Performance results from <a href ="https://github.com/guidance-ai/jsonschemabench/tree/main/maskbench">MaskBench</a></em>
 </p>
+
+## About
 
 This library implements constrained decoding (also called constrained sampling or
 structured outputs) for Large Langauge Models (LLMs).
@@ -40,7 +52,7 @@ The library is currently integrated in:
 - [SGLang](https://github.com/sgl-project/sglang/pull/3298) -
   use `--grammar-backend llguidance`; when passing Lark grammar make
   sure to prefix them with `%llguidance {}`, just as in llama.cpp
-- vLLM - [merged V0 PR](https://github.com/vllm-project/vllm/pull/14589) and [pending V1 PR](https://github.com/vllm-project/vllm/pull/14779)
+- vLLM - [V0 PR](https://github.com/vllm-project/vllm/pull/14589) and [V1 PR](https://github.com/vllm-project/vllm/pull/14779)
 - [LLGTRT](https://github.com/guidance-ai/llgtrt) - OpenAI-compatible REST server using NVIDIA's [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM)
 - [mistral.rs](https://github.com/EricLBuehler/mistral.rs/pull/899)
 
