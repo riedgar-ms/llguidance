@@ -1,6 +1,6 @@
 [package]
 name = "toktrie_hf_downloader"
-version = "0.7.9"
+version = "0.7.10"
 edition = "2021"
 license = "MIT"
 description = "HuggingFace Hub download library support for toktrie and llguidance"
