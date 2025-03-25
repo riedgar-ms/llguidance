@@ -7,7 +7,15 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#define LLG_DECODE_NONE 0
+
+#define LLG_DECODE_INCLUDE_SPECIAL 1
+
+#define LLG_DECODE_VALID_UTF8 2
+
 typedef struct LlgConstraint LlgConstraint;
+
+typedef struct LlgMatcher LlgMatcher;
 
 typedef struct LlgStopController LlgStopController;
 
@@ -223,7 +231,7 @@ void llg_constraint_init_set_defaults(struct LlgConstraintInit *init,
  * Always returns a non-null value. Call llg_get_error() on the result to check for errors.
  */
 struct LlgConstraint *llg_new_constraint(const struct LlgConstraintInit *init,
-                                         const char *grammar_json);
+                                         const char *llguidance);
 
 /**
  * Create a new constraint from a given regular expression
@@ -291,8 +299,6 @@ int32_t llg_commit_token(struct LlgConstraint *cc, LlgToken token, struct LlgCom
 
 /**
  * Compute mask for several constraints in parallel.
- * # Safety
- * This function should only be called from C code.
  */
 void llg_par_compute_mask(const struct LlgConstraintStep *steps,
                           size_t n_steps,
@@ -321,8 +327,6 @@ struct LlgTokenizer *llg_clone_tokenizer(const struct LlgTokenizer *tok);
  * Tokenize the given bytes and return the tokens.
  * Always returns the number of tokens that would be written to output_tokens
  * if output_tokens_len was large enough.
- * # Safety
- * This function should only be called from C code.
  */
 size_t llg_tokenize_bytes(const struct LlgTokenizer *tok,
                           const uint8_t *bytes,
@@ -335,8 +339,6 @@ size_t llg_tokenize_bytes(const struct LlgTokenizer *tok,
  * Special tokens will be tokenized, if they follow 0xFF byte prefix.
  * Always returns the number of tokens that would be written to output_tokens
  * if output_tokens_len was large enough.
- * # Safety
- * This function should only be called from C code.
  */
 size_t llg_tokenize_bytes_marker(const struct LlgTokenizer *tok,
                                  const uint8_t *bytes,
@@ -346,10 +348,8 @@ size_t llg_tokenize_bytes_marker(const struct LlgTokenizer *tok,
 
 /**
  * Return a string representation of the tokens, useful for debugging.
- * The output is null-terminated.
+ * The output is NUL-terminated.
  * Returns the number of bytes that would be written to output if output_len was large enough.
- * # Safety
- * This function should only be called from C code.
  */
 size_t llg_stringify_tokens(const struct LlgTokenizer *tok,
                             const uint32_t *tokens,
@@ -358,16 +358,25 @@ size_t llg_stringify_tokens(const struct LlgTokenizer *tok,
                             size_t output_len);
 
 /**
+ * Return a string representation of the tokens, useful for debugging.
+ * The output is NUL-terminated.
+ * Returns the number of bytes that would be written to output if output_len was large enough.
+ * flags is one of LLG_DECODE_*
+ */
+size_t llg_decode_tokens(const struct LlgTokenizer *tok,
+                         const uint32_t *tokens,
+                         size_t n_tokens,
+                         char *output,
+                         size_t output_len,
+                         uint32_t flags);
+
+/**
  * Free the tokenizer. Should *NOT* be called while there are still constraints using it.
- * # Safety
- * This function should only be called from C code.
  */
 void llg_free_tokenizer(struct LlgTokenizer *tok);
 
 /**
  * Free the constraint
- * # Safety
- * This function should only be called from C code.
  */
 void llg_free_constraint(struct LlgConstraint *cc);
 
@@ -381,8 +390,6 @@ const char *llg_flush_logs(struct LlgConstraint *cc);
 
 /**
  * Create a new stop-sequence controller
- * # Safety
- * This function should only be called from C code.
  */
 struct LlgStopController *llg_new_stop_controller(const struct LlgTokenizer *tokenizer,
                                                   const uint32_t *stop_tokens,
@@ -404,10 +411,131 @@ const char *llg_stop_commit_token(struct LlgStopController *stop_ctrl,
 
 /**
  * Free the stop-sequence controller
- * # Safety
- * This function should only be called from C code.
  */
 void llg_free_stop_controller(struct LlgStopController *stop_ctrl);
+
+/**
+ * Create a new matcher from the given ConstraintInit
+ * Always returns a non-null value. Call llg_matcher_get_error() on the result to check for errors.
+ * init.ff_tokens_ok and init.backtrack_ok are ignored
+ * (backtracking is always disabled, and ff_tokens can be retrieved using llg_matcher_compute_ff_tokens()).
+ * The data is of different format, depending on constraint_type:
+ * - "regex" - data is regular expression in rust regex format
+ *   see https://docs.rs/regex/latest/regex/#syntax
+ * - "json" or "json_schema" - data is (stringifed) JSON schema
+ *   see https://github.com/guidance-ai/llguidance/blob/main/docs/json_schema.md
+ * - "json_object" - equivalent to JSON schema: {"type":"object"}
+ * - "lark" - data is grammar in a variant of Lark syntax
+ *   see https://github.com/guidance-ai/llguidance/blob/main/docs/syntax.md
+ * - "llguidance" or "guidance" - data is a list of Lark or JSON schemas in JSON format
+ */
+struct LlgMatcher *llg_new_matcher(const struct LlgConstraintInit *init,
+                                   const char *constraint_type,
+                                   const char *data);
+
+/**
+ * Compute the set of allowed tokens for the current state.
+ * The result is written to mask_dest.
+ * mask_byte_len must be equal to llg_matcher_get_mask_byte_size().
+ * Returns 0 on success and -1 on error.
+ */
+int32_t llg_matcher_compute_mask_into(struct LlgMatcher *matcher,
+                                      uint32_t *mask_dest,
+                                      size_t mask_byte_len);
+
+/**
+ * Compute the set of allowed tokens for the current state.
+ * The pointer to the result is written to mask_dest.
+ * Returns 0 on success and -1 on error.
+ */
+int32_t llg_matcher_compute_mask(struct LlgMatcher *matcher);
+
+/**
+ * Return pointer to the mask computed by llg_matcher_compute_mask(), if any.
+ */
+const uint32_t *llg_matcher_get_mask(struct LlgMatcher *matcher);
+
+/**
+ * Return pointer to the mask computed by llg_matcher_compute_mask(), if any.
+ */
+size_t llg_matcher_get_mask_byte_size(struct LlgMatcher *matcher);
+
+/**
+ * Advance the matcher by one token.
+ * Returns 0 on success and -1 on error.
+ */
+int32_t llg_matcher_consume_token(struct LlgMatcher *matcher, uint32_t token);
+
+/**
+ * Advance the matcher by several tokens.
+ * Returns 0 on success and -1 on error.
+ */
+int32_t llg_matcher_consume_tokens(struct LlgMatcher *matcher,
+                                   const uint32_t *tokens,
+                                   size_t n_tokens);
+
+/**
+ * Get the error message from the matcher or null if there is no error.
+ * After it returns a non-null value, it will always return it until the matcher is freed
+ * using llg_free_matcher() (at which point the pointer will be invalid).
+ */
+const char *llg_matcher_get_error(struct LlgMatcher *matcher);
+
+/**
+ * Check if the matcher is in an error state.
+ */
+bool llg_matcher_is_error(struct LlgMatcher *matcher);
+
+/**
+ * Free the matcher.
+ */
+void llg_free_matcher(struct LlgMatcher *matcher);
+
+/**
+ * Backtracks the matcher states by num_tokens.
+ * Returns 0 on success and -1 on error.
+ */
+int32_t llg_matcher_rollback(struct LlgMatcher *matcher, size_t num_tokens);
+
+/**
+ * Resets the matcher to the initial state.
+ * A matcher in error state cannot be reset.
+ * Returns 0 on success and -1 on error.
+ */
+int32_t llg_matcher_reset(struct LlgMatcher *matcher);
+
+/**
+ * Check if the grammar can fully accept the input.
+ */
+bool llg_matcher_is_accepting(struct LlgMatcher *matcher);
+
+/**
+ * Check if the matcher will force EOS token.
+ * This returns true also in error state, as that is a forced stop.
+ */
+bool llg_matcher_is_stopped(const struct LlgMatcher *matcher);
+
+/**
+ * Check how many tokens can be consumed from the given tokens.
+ * Returns the number of tokens that can be consumed, or -1 on error.
+ */
+int32_t llg_matcher_validate_tokens(struct LlgMatcher *matcher,
+                                    const uint32_t *tokens,
+                                    size_t n_tokens);
+
+/**
+ * Compute the fast-forward (forced) tokens for the current state.
+ * The result is written to output.
+ * Returns the number of tokens written to output (which can be 0) or -1 on error.
+ */
+int32_t llg_matcher_compute_ff_tokens(struct LlgMatcher *matcher,
+                                      uint32_t *output,
+                                      size_t output_len);
+
+/**
+ * Clone the matcher.
+ */
+struct LlgMatcher *llg_clone_matcher(const struct LlgMatcher *matcher);
 
 #ifdef __cplusplus
 }  // extern "C"
