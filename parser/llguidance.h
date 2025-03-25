@@ -7,10 +7,20 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+/**
+ * Do not include special tokens, and keep invalid UTF-8 as is.
+ */
 #define LLG_DECODE_NONE 0
 
+/**
+ * Include special tokens in the output.
+ * They may look like <|something|>, <something_else>, or <[12345]> if they don't have a name.
+ */
 #define LLG_DECODE_INCLUDE_SPECIAL 1
 
+/**
+ * Replace invalid UTF-8 with the replacement character.
+ */
 #define LLG_DECODE_VALID_UTF8 2
 
 typedef struct LlgConstraint LlgConstraint;
