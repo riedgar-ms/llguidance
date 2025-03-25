@@ -1,14 +1,10 @@
 # Low-level Guidance (llguidance)
 
----
-
 * 2025-03-25 integration [merged](https://github.com/vllm-project/vllm/pull/14779) into vLLM (v0.8.2)
 * 2025-02-26 integration [merged](https://github.com/sgl-project/sglang/pull/3298) into SGLang (v0.4.4)
 * 2025-02-01 integration [merged](https://github.com/ggml-org/llama.cpp/pull/10224) into llama.cpp (b4613)
 * 2025-01-21 [JSONSchemaBench](https://github.com/guidance-ai/jsonschemabench) released, including [paper](https://arxiv.org/abs/2501.10868) and [MaskBench](https://github.com/guidance-ai/jsonschemabench/tree/main/maskbench)
 * 2025-01-07 Guidance [v0.2.0](https://github.com/guidance-ai/guidance/releases/tag/0.2.0) released, using llguidance as the grammar engine
-
----
 
 <p align="center">
     <img src="https://github.com/guidance-ai/jsonschemabench/raw/main/maskbench/plots/hero.png" width="700">
