@@ -4,6 +4,8 @@ import re
 import subprocess
 import sys
 import os
+from datetime import datetime
+
 
 pyproject_path = "pyproject.toml"
 cargo_paths = [
@@ -77,8 +79,9 @@ def generate_changelog(version: str) -> str:
         if start == -1:
             return ""
         trimmed = text[start:]
+        date_str = datetime.utcnow().strftime("%Y-%m-%d")
         replaced = re.sub(r"\[Unreleased\]", f"[{version}]", trimmed)
-        replaced = re.sub(r"\.\.\.HEAD\)", f"...{version})", replaced)
+        replaced = re.sub(r"\.\.\.HEAD\)", f"...{version}) {date_str}", replaced)
         return replaced
     except FileNotFoundError:
         return "auto-changelog is not installed. Run `npm install -g auto-changelog` to install it."
