@@ -62,6 +62,28 @@ def ensure_clean_working_tree():
         sys.exit(1)
 
 
+def generate_changelog(version: str) -> str:
+    try:
+        result = subprocess.run([
+            "auto-changelog", "--stdout", "--commit-limit", "false",
+            "--unreleased-only"
+        ],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                check=True,
+                                text=True)
+        text = result.stdout
+        start = text.find("#### [Unreleased]")
+        if start == -1:
+            return ""
+        trimmed = text[start:]
+        replaced = re.sub(r"\[Unreleased\]", f"[{version}]", trimmed)
+        replaced = re.sub(r"\.\.\.HEAD\)", f"...{version})", replaced)
+        return replaced
+    except FileNotFoundError:
+        return "auto-changelog is not installed. Run `npm install -g auto-changelog` to install it."
+
+
 def main():
     #subprocess.run(["python3", "./scripts/update-git.py"], check=True)
 
@@ -69,6 +91,9 @@ def main():
 
     current_version = get_current_version(pyproject_path)
     suggested_version = bump_patch_version(current_version)
+
+    changelog = generate_changelog(suggested_version)
+    print("\n\n" + changelog + "\n\n")
 
     print(f"Current version: {current_version}")
     new_version = (input(f"Enter new version (default: {suggested_version}): ")
