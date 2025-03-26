@@ -721,8 +721,9 @@ impl ParserState {
         let toks = computer
             .trie()
             .greedy_tokenize(&[TokTrie::SPECIAL_TOKEN_MARKER]);
-        assert!(toks.len() == 1);
-        set.disallow_token(toks[0]);
+        if toks.len() == 1 {
+            set.disallow_token(toks[0]);
+        }
 
         if start.is_empty() {
             self.run_speculative("token_ranges", |state| {

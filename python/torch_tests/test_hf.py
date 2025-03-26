@@ -114,5 +114,26 @@ def test_tokenize_partial_docs() -> None:
     assert ll.decode_str(new_tok) == "name_of_the_person"
 
 
+def test_incomplete_tokenizer() -> None:
+    hf_tok = transformers.AutoTokenizer.from_pretrained(
+        "HuggingFaceTB/SmolLM-135M-Instruct")
+    ll_tok = llguidance.hf.from_tokenizer(hf_tok)
+
+    # unknown bytes are to be skipped
+    # see https://github.com/guidance-ai/llguidance/issues/138
+    assert len(ll_tok.tokenize_bytes(b"\xFF")) == 0
+    assert len(ll_tok.tokenize_bytes(b"\xFF\x80")) == 1
+    # make sure the special markers still work
+    assert ll_tok.tokenize_partial(b"\xFF[1234]") == ([1234], b"")
+
+    tt = ll_tok.tokenize_str("\U00042000")
+    tt2 = ll_tok.tokenize_bytes("\U00042000".encode()[1:])
+    assert tt == tt2
+
+    matcher = llguidance.LLMatcher(ll_tok, "start: /a.*/")
+    matcher.compute_bitmask()
+    assert matcher.get_error() == ""
+
+
 if __name__ == "__main__":
-    test_par_grammar()
+    test_incomplete_tokenizer()

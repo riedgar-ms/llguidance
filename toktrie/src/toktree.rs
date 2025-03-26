@@ -491,7 +491,13 @@ impl TokTrie {
                     break;
                 }
             }
-            tokens.push(last_tok.expect("No valid token found at position"));
+            if let Some(t) = last_tok {
+                tokens.push(t);
+            } else {
+                // whoops, there is a byte missing from the tokenizer
+                // just carry on...
+                // https://github.com/guidance-ai/llguidance/issues/138
+            }
             i = last_idx + 1;
         }
         tokens
