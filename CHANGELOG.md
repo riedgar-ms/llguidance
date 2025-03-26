@@ -7,7 +7,7 @@ If a release doesn't introduce any interesting changes (build fixes etc.), it's 
 
 #### [v0.7.10](https://github.com/guidance-ai/llguidance/compare/v0.7.9...v0.7.10) 2025-03-25
 
-- add `llg_macher_*()` functions to C interface [`#145`](https://github.com/guidance-ai/llguidance/pull/145)
+- add `llg_matcher_*()` functions to C interface [`#145`](https://github.com/guidance-ai/llguidance/pull/145)
 - always pass validation of grammars with special tokens without tokenizer [`0892a2a`](https://github.com/guidance-ai/llguidance/commit/0892a2adb5c8d818c025fe554bd67f05a5770aa7)
 
 #### [v0.7.9](https://github.com/guidance-ai/llguidance/compare/v0.7.8...v0.7.9) 2025-03-24
