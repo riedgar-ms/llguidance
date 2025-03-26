@@ -21,7 +21,7 @@ If a release doesn't introduce any interesting changes (build fixes etc.), it's 
 
 - improve Python `LLMatcher.validate_grammar()` [`6b5f5ed`](https://github.com/microsoft/llguidance/commit/6b5f5eda7ca85ae2ca9a76c3813a0162a8b99b45)
 
-#### [v0.7.8](https://github.com/microsoft/llguidance/compare/v0.7.5...v0.7.8)
+#### [v0.7.6](https://github.com/microsoft/llguidance/compare/v0.7.5...v0.7.6)
 
 > 21 March 2025
 
@@ -58,6 +58,8 @@ If a release doesn't introduce any interesting changes (build fixes etc.), it's 
 
 > 18 March 2025
 
+- add `LLMatcher` interface in python
+- add  whitespace_pattern to JsonCompileOptions [`04a5491`](https://github.com/microsoft/llguidance/commit/04a54912cf6d082669674340833f06385f7b66f8)
 - enable mypy in CI [`#140`](https://github.com/microsoft/llguidance/pull/140)
 - add py.typed for annotations information [`#139`](https://github.com/microsoft/llguidance/pull/139)
 - fix clippy warnings
@@ -88,6 +90,8 @@ If a release doesn't introduce any interesting changes (build fixes etc.), it's 
 
 - support for rollback() [`#126`](https://github.com/microsoft/llguidance/pull/126)
 - allow lexer to produce alternative lexemes [`#124`](https://github.com/microsoft/llguidance/pull/124)
+- make tokenize_with_greedy_fallback() handle invalid UTF not only at the end [`4762895`](https://github.com/microsoft/llguidance/commit/476289558d7d1edefe42eb87a093865debae8129)
+- rise default lexer state limit from 50k to 250k [`202d3d5`](https://github.com/microsoft/llguidance/commit/202d3d545c14c63a62017b228c424a603619eb2a)
 
 #### [v0.6.27](https://github.com/microsoft/llguidance/compare/v0.6.26...v0.6.27)
 
