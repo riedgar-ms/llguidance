@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [0.7.11](https://github.com/guidance-ai/llguidance/compare/v0.7.10...0.7.11) 2025-03-27
+
+- add StructTag python API; fixes [`#146`](https://github.com/guidance-ai/llguidance/issues/146)
+- fix handling of AddedToken.special (gemma tokenizer, fixes [`#147`](https://github.com/guidance-ai/llguidance/issues/147))
+- handle incomplete tokenizers (SmolLM); fixes [`#138`](https://github.com/guidance-ai/llguidance/issues/138)
+- fix `validate_token_raw([EOS])` bug
 
 #### [v0.7.10](https://github.com/guidance-ai/llguidance/compare/v0.7.9...v0.7.10) 2025-03-25
 
