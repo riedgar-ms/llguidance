@@ -1,6 +1,6 @@
 use anyhow::{anyhow, bail, Result};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{HashMap, HashSet},
     path::Path,
     sync::Arc,
 };
@@ -12,7 +12,6 @@ pub struct ByteTokenizer {
     pub hf_tokenizer: Tokenizer,
     info: TokRxInfo,
     token_bytes: Vec<Vec<u8>>,
-    pub special: BTreeMap<String, u32>,
 }
 
 // useful when debugging this: https://www.cogsci.ed.ac.uk/~richard/utf-8.cgi
@@ -108,10 +107,11 @@ impl ByteTokenizer {
         let mut res = ByteTokenizer {
             hf_model: "foobar".to_string(),
             info: TokRxInfo::new(vocab_size, 0),
-            special: BTreeMap::new(),
             token_bytes: (0..vocab_size).map(|_| Vec::new()).collect(),
             hf_tokenizer: hft,
         };
+
+        let mut specials = HashSet::new();
 
         for (id, info) in added.iter() {
             if info.special {
@@ -127,7 +127,7 @@ impl ByteTokenizer {
                     "<pad>" | "<|pad|>" => res.info.tok_pad = Some(*id),
                     _ => {}
                 }
-                res.special.insert(info.content.clone(), *id);
+                specials.insert(*id);
             } else {
                 res.token_bytes[*id as usize] = info.content.clone().into_bytes();
             }
@@ -137,7 +137,7 @@ impl ByteTokenizer {
 
         for tok_id in 0..vocab_size {
             if let Some(tok_name) = res.hf_tokenizer.id_to_token(tok_id) {
-                let bytes = if added.contains_key(&tok_id) {
+                let bytes = if specials.contains(&tok_id) {
                     let mut bytes = tok_name.as_bytes().to_vec();
                     bytes.insert(0, TokTrie::SPECIAL_TOKEN_MARKER);
                     bytes
@@ -191,19 +191,6 @@ impl ByteTokenizer {
 
     pub fn set_eos_token(&mut self, tok_id: u32) {
         self.info.tok_eos = tok_id;
-    }
-
-    pub fn add_missing_tokens(&mut self, vocab_size: usize) {
-        assert!(self.info.vocab_size == self.token_bytes.len() as u32);
-        assert!(vocab_size >= self.token_bytes.len());
-        assert!(vocab_size - self.token_bytes.len() <= 200);
-        while self.token_bytes.len() < vocab_size {
-            let idx = self.token_bytes.len();
-            let name = format!("<AddedToken_{idx}>");
-            self.token_bytes.push(name.as_bytes().to_vec());
-            self.info.vocab_size += 1;
-            self.special.insert(name, idx as u32);
-        }
     }
 
     pub fn into_tok_env(self, n_vocab: Option<usize>) -> Result<TokEnv> {
