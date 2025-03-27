@@ -222,9 +222,11 @@ struct LlgResult {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct JsonTest {
+    #[serde(default)]
     description: String,
     meta: Option<JsonMetaInfo>,
     schema: Value,
+    #[serde(default)]
     tests: Vec<JsonTestSequence>,
 }
 
@@ -249,6 +251,7 @@ struct JsonFileInfo {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct JsonTestSequence {
+    #[serde(default)]
     description: String,
     valid: bool,
     #[serde(skip)]
