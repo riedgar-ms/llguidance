@@ -970,7 +970,7 @@ impl ParserState {
             let mut r = ParserRecognizer { state };
             'token: for (tidx, &tok) in tokens.iter().enumerate() {
                 if tok == eos {
-                    if r.state.is_accepting_inner() {
+                    if applied_idx == r.state.bytes.len() && r.state.is_accepting_inner() {
                         return tidx + 1;
                     } else {
                         return tidx;

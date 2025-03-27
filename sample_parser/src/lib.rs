@@ -113,7 +113,10 @@ fn check_grammar(
 
         if res.is_stop() {
             assert!(idx >= output.len() - 1, "Expected more output at {}", idx);
-            assert!(gen_tokens.is_empty(), "Expected more tokens to generate");
+            assert!(
+                gen_tokens.is_empty(),
+                "Expected more tokens to generate; got stop"
+            );
             break;
         }
 
@@ -136,7 +139,12 @@ fn check_grammar(
                     tok,
                     tok_env.tok_trie().token_dbg(tok)
                 );
-                assert!(constraint.validate_tokens_raw(&[tok]).unwrap() == 0);
+                assert!(
+                    constraint.validate_tokens_raw(&[tok]).unwrap() == 0,
+                    "Token {} {} should not validate",
+                    tok,
+                    tok_env.tok_trie().token_dbg(tok)
+                );
                 gen_tokens.remove(0);
             }
 
@@ -246,7 +254,11 @@ fn check_grammar(
         }
 
         // forced byte checking
-        assert!(gen_tokens.is_empty(), "Expected more tokens to generate");
+        assert!(
+            gen_tokens.is_empty(),
+            "Expected more tokens to generate, got forced {}",
+            tok_env.tok_trie().test_trace_tokens(&toks)
+        );
 
         idx += 1;
         let mut expected = output[idx];

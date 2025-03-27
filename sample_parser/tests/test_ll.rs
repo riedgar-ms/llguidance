@@ -1061,3 +1061,58 @@ fn test_ll_initial_capture() {
     );
     check_capture(&c, "text", "");
 }
+
+const TOOL_STR_GRAMMAR: &str = r#"
+start: ( f1 | f2 )* f_end
+
+// this will just run for as long as it takes
+f_end: TEXT
+
+// <function=name>{ "arg1": ... }</function>
+f1: f1_hd ( f1_foo | f1_bar ) f1_tl
+f1_hd[suffix="<function"]: TEXT
+f1_foo[capture]: "=foo>" /[a-z]+/
+f1_bar[capture]: "=bar>" /[A-Z]+/
+f1_tl: "</function>"
+
+// assume model also does this
+// <tool=name>{ "arg1": ... }</tool>
+f2: f2_hd f2_baz f2_tl
+f2_hd[suffix="<tool"]: TEXT
+f2_baz[capture]: "=baz>" /[0-9]+/
+f2_tl: "</tool>"
+
+TEXT: /(\n|.)*/
+"#;
+
+#[test]
+fn test_ll_tool_str_prototype() {
+    let c = check_lark_grammar(
+        TOOL_STR_GRAMMAR,
+        &[
+            "",
+            "Some‧ text‧<‧function",
+            "=",
+            "✖baz‧foo",
+            ">",
+            "✖≺EOS≻✖7‧abc‧</",
+            "function",
+            "✖7✖≺EOS≻‧>‧Text‧ between‧<‧tool",
+            "=‧baz‧>",
+            "✖abc‧1‧2‧3‧</",
+            "tool",
+            ">‧<‧function",
+            "=",
+            "bar",
+            ">",
+            "ABC‧</",
+            "function",
+            ">‧More‧ text‧≺EOS≻",
+        ],
+    );
+    check_capture(&c, "f1_foo", "=foo>abc");
+    check_capture(&c, "f1_bar", "=bar>ABC");
+    check_capture(&c, "f2_baz", "=baz>123");
+
+    check_lark_grammar(TOOL_STR_GRAMMAR, &["", "More‧ text‧≺EOS≻"]);
+}
