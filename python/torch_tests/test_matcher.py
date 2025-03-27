@@ -1,7 +1,7 @@
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 import llguidance
 from llguidance.numpy import fill_next_token_bitmask_par, allocate_token_bitmask
-from llguidance import LLMatcher, LLTokenizer
+from llguidance import LLMatcher, LLTokenizer, StructTag
 import pytest
 from numpy.typing import NDArray
 import numpy as np
@@ -20,14 +20,31 @@ def matcher(grm: str) -> LLMatcher:
     return LLMatcher(tokenizer(), grm, log_level=1)
 
 
+def check_err(matcher: LLMatcher) -> None:
+    if matcher.is_error():
+        raise ValueError(matcher.get_error())
+
+
 def check_one_grammar(grm: str, s: str, passing: bool) -> None:
     # print("Checking", repr(s))
     interp = matcher(grm)
+    check_err(interp)
     final_reject = False
     if s.startswith("FINAL_REJECT:"):
         final_reject = True
         s = s[len("FINAL_REJECT:"):]
-    tokens = tokenizer().tokenize_str(s)
+
+    if "⁂" in s:
+        b = (s + "⁂[13]").encode().replace("⁂".encode(), b"\xFF")
+        tokens, suffix = tokenizer().tokenize_partial(b)
+        assert not suffix
+        assert tokens[-1] == 13
+        del tokens[-1]
+    else:
+        tokens = tokenizer().tokenize_str(s)
+    
+    print("Check: " + tokenizer().dbg_tokens(tokens))
+
     for i, t in enumerate(tokens):
         next_tokens = tokens[i:]
         if passing or final_reject:
@@ -44,6 +61,7 @@ def check_one_grammar(grm: str, s: str, passing: bool) -> None:
         else:
             assert mask[t] == 200
         interp.consume_token(t)
+        check_err(interp)
     if final_reject:
         if interp.is_accepting():
             print("Expected to fail at the end", s)
@@ -56,7 +74,8 @@ def check_one_grammar(grm: str, s: str, passing: bool) -> None:
     assert interp.is_accepting()
 
 
-def check_grammar(grm: str, passing: List[str], failing: List[str]) -> None:
+def check_grammar(grm: str, passing: List[str],
+                  failing: List[str]) -> None:
     for s in passing:
         check_one_grammar(grm, s, True)
     for s in failing:
@@ -314,3 +333,64 @@ def test_consume_token_error() -> None:
     assert n == 0  # questionable
     assert m3.is_error()
     assert "out of range" in m3.get_error()
+
+
+def test_struct_tag_0() -> None:
+    tags = [
+        StructTag(trigger="<func",
+                  begin="<func=foo>",
+                  grammar={"type": "object"},
+                  end="</func>"),
+        StructTag(trigger="<func",
+                  begin="<func=bar>",
+                  grammar={"type": "object"},
+                  end="</func>")
+    ]
+
+    f_foo = '<func=foo>{}</func>'
+    f_bar = '<func=bar>{"x":1}</func>'
+    inner = f"{f_foo}1\n23{f_bar}"
+
+    for special in [False, True]:
+        if special:
+            tags.append(
+                StructTag(trigger="<|tool|>",
+                          begin="<|tool|>blah(",
+                          grammar='start: /[0-9]+/ ("," /[0-9]+/)*',
+                          end=")"))
+        grm = StructTag.to_grammar(tags)
+
+        check_grammar(grm, [
+            f_foo,
+            f_foo + f_bar,
+            inner,
+            "FO" + inner,
+            inner + "qux",
+            "AAA" + inner + "BBB",
+            "123",
+            "aa<Func=123",
+            "</func>",
+        ], [
+            "FINAL_REJECT:" + f_foo[:-1],
+            '<func= foo>{}</func>',
+            '<func =foo>{}</func>',
+            '<func=foo>1</func>',
+            '<func=foo> {}</func>',
+            '<func=foo>{} </func>',
+        ])
+
+        if special:
+            f_tool = "⁂<|tool|>blah(11,12)"
+
+            check_grammar(
+                grm,
+                [
+                    f_tool,
+                    "foo" + f_tool + f_bar,
+                    f_tool + "qqqq" + f_bar + "mux",
+                    # this should pass since it doesn't actually use special tokens:
+                    '<|tool|>qux(1)',
+                ],
+                [
+                    "⁂<|tool|>qux(11)"
+                ])

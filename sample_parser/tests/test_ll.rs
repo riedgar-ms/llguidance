@@ -1068,51 +1068,170 @@ start: ( f1 | f2 )* f_end
 // this will just run for as long as it takes
 f_end: TEXT
 
-// <function=name>{ "arg1": ... }</function>
-f1: f1_hd ( f1_foo | f1_bar ) f1_tl
-f1_hd[suffix="<function"]: TEXT
+// <function=name>..args..</function>
+f1: f1_hd ( f1_foo | f1_bar ) "</function>"
+f1_hd[lazy]: TEXT "<function"
 f1_foo[capture]: "=foo>" /[a-z]+/
 f1_bar[capture]: "=bar>" /[A-Z]+/
-f1_tl: "</function>"
 
 // assume model also does this
-// <tool=name>{ "arg1": ... }</tool>
-f2: f2_hd f2_baz f2_tl
-f2_hd[suffix="<tool"]: TEXT
+// <tool=name>..args..</tool>
+f2: f2_hd f2_baz "</tool>"
+f2_hd[lazy]: TEXT "<tool"
 f2_baz[capture]: "=baz>" /[0-9]+/
-f2_tl: "</tool>"
+
+TEXT: /(\n|.)*/
+"#;
+
+const TOOL_STR_GRAMMAR_2: &str = r#"
+start: ( f_foo | f_bar | f_baz )* f_end
+
+// this will just run for as long as it takes
+f_end: TEXT
+
+f_foo_hd[lazy]: TEXT "<function"
+f_foo: f_foo_hd "=foo>" /[a-z]+/ "</function>"
+
+f_bar_hd[lazy]: TEXT "<function"
+f_bar: f_bar_hd "=bar>" /[A-Z]+/ "</function>"
+
+f_baz_hd[lazy]: TEXT "<tool"
+f_baz: f_baz_hd "=baz>" /[0-9]+/ "</tool>"
 
 TEXT: /(\n|.)*/
 "#;
 
 #[test]
 fn test_ll_tool_str_prototype() {
-    let c = check_lark_grammar(
-        TOOL_STR_GRAMMAR,
-        &[
-            "",
-            "Some‧ text‧<‧function",
-            "=",
-            "✖baz‧foo",
-            ">",
-            "✖≺EOS≻✖7‧abc‧</",
-            "function",
-            "✖7✖≺EOS≻‧>‧Text‧ between‧<‧tool",
-            "=‧baz‧>",
-            "✖abc‧1‧2‧3‧</",
-            "tool",
-            ">‧<‧function",
-            "=",
-            "bar",
-            ">",
-            "ABC‧</",
-            "function",
-            ">‧More‧ text‧≺EOS≻",
-        ],
-    );
+    let tool_chk = &[
+        "",
+        "Some‧ text‧<‧function",
+        "=",
+        "✖baz‧foo",
+        ">",
+        "✖≺EOS≻✖7‧abc‧</",
+        "function",
+        "✖7✖≺EOS≻‧>‧Text‧ between‧<‧tool",
+        "=‧baz‧>",
+        "✖abc‧1‧2‧3‧</",
+        "tool",
+        ">‧<‧function",
+        "=",
+        "bar",
+        ">",
+        "ABC‧</",
+        "function",
+        ">‧More‧ text‧≺EOS≻",
+    ];
+
+    let mut tool_chk2 = tool_chk.to_vec();
+    tool_chk2.pop();
+    tool_chk2.push(">‧≺EOS≻");
+
+    let c = check_lark_grammar(TOOL_STR_GRAMMAR, tool_chk);
     check_capture(&c, "f1_foo", "=foo>abc");
     check_capture(&c, "f1_bar", "=bar>ABC");
     check_capture(&c, "f2_baz", "=baz>123");
 
+    check_lark_grammar(TOOL_STR_GRAMMAR, &tool_chk2);
+
     check_lark_grammar(TOOL_STR_GRAMMAR, &["", "More‧ text‧≺EOS≻"]);
+
+    check_lark_grammar(TOOL_STR_GRAMMAR_2, tool_chk);
+    check_lark_grammar(TOOL_STR_GRAMMAR_2, &tool_chk2);
+    check_lark_grammar(TOOL_STR_GRAMMAR_2, &["", "More‧ text‧≺EOS≻"]);
+}
+
+const TOOL_STR_GRAMMAR_JSON: &str = r#"
+start: ( f_foo | f_bar | f_baz )* f_end
+
+// this will just run for as long as it takes
+f_end: TEXT
+
+f_foo_hd[lazy]: TEXT "<function"
+f_foo: f_foo_hd "=foo>" %json { "type": "object" } "</function>"
+
+f_bar_hd[lazy]: TEXT "<function"
+f_bar: f_bar_hd "=bar>" /[A-Z]+/ "</function>"
+
+f_baz_hd[lazy]: TEXT "<tool"
+f_baz: f_baz_hd "=baz>" /[0-9]+/ "</tool>"
+
+TEXT: /(\n|.)*/
+"#;
+
+#[test]
+fn test_ll_tool_str_json() {
+    let tool_chk = &[
+        "",
+        "Some‧ text‧<‧function",
+        "=",
+        // we do not allow whitespace in front of json
+        // we do allow it inside
+        "✖baz‧foo‧>✖≺EOS≻✖7✖ ‧{‧ ✖7‧}",
+        // we do not allow it after
+        "</‧function",
+        "✖7✖≺EOS≻‧>‧Text‧ between‧<‧tool",
+        "=‧baz‧>",
+        "✖abc‧1‧2‧3‧</",
+        "tool",
+        ">‧<‧function",
+        "=",
+        "bar",
+        ">",
+        "ABC‧</",
+        "function",
+        ">‧More‧ text‧≺EOS≻",
+    ];
+
+    check_lark_grammar(TOOL_STR_GRAMMAR_JSON, tool_chk);
+}
+
+const TOOL_STR_SPEC_GRAMMAR: &str = r#"
+start: ( f_foo | f_bar | f_baz | f_qux | f_mux )* f_end
+
+// this will just run for as long as it takes
+f_end: TEXT
+
+f_foo_hd[lazy]: TEXT "<function"
+f_foo: f_foo_hd "=foo>" /[a-z]+/ "</function>"
+
+f_bar_hd[lazy]: TEXT "<function"
+f_bar: f_bar_hd "=bar>" /[A-Z]+/ "</function>"
+
+f_baz_hd[lazy]: TEXT "<tool"
+f_baz: f_baz_hd "=baz>" /[0-9]+/ "</tool>"
+
+f_qux: TEXT <|placeholder1|> "qux(" /[0-9]+/ ")"
+f_mux: TEXT <|placeholder1|> "mux(" /[0-9]+/ ")"
+
+TEXT: /(\n|.)*/
+"#;
+
+#[test]
+fn test_ll_tool_str_spec() {
+    let tool_chk = &[
+        "",
+        "Some‧ text‧<‧function",
+        "=",
+        "✖baz‧foo",
+        ">",
+        "✖≺EOS≻✖7‧abc‧</",
+        "function",
+        "✖7✖≺EOS≻‧>‧Text‧ between‧<‧tool",
+        "=‧baz‧>",
+        "✖abc‧1‧2‧3‧</",
+        "tool",
+        ">‧<‧function",
+        "=",
+        "bar",
+        ">",
+        "ABC‧</",
+        "function",
+        ">‧More‧ text‧<|placeholder1|>‧qu",
+        "x‧(",
+        "1‧7‧)‧≺EOS≻",
+    ];
+
+    check_lark_grammar(TOOL_STR_SPEC_GRAMMAR, tool_chk);
 }

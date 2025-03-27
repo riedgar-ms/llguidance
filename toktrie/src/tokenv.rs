@@ -139,9 +139,16 @@ impl ApproximateTokEnv {
         }
     }
 
+    // this is mostly used for testing
     pub fn single_byte() -> Self {
         let mut words = (0..=255).map(|x| vec![x]).collect::<Vec<_>>();
-        words.push(b"\xFF<eos>".to_vec());
+        // add some special tokens to play with
+        words.push(b"\xFF<|tool|>".to_vec());
+        words.push(b"\xFF<|/tool|>".to_vec());
+        words.push(b"\xFF<|user|>".to_vec());
+        words.push(b"\xFF<|system|>".to_vec());
+        words.push(b"\xFF<|assistant|>".to_vec());
+        words.push(b"\xFF<|end|>".to_vec());
         let info = TokRxInfo {
             vocab_size: words.len() as u32,
             tok_eos: words.len() as u32 - 1,

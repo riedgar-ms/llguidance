@@ -9,6 +9,7 @@ from ._lib import (
 )
 from ._tokenizer import TokenizerWrapper
 from ._grammar_from import GrammarFormat, grammar_from
+from ._struct_tag import StructTag
 
 __all__ = [
     "LLTokenizer",
@@ -21,4 +22,5 @@ __all__ = [
     "TokenizerWrapper",
     "grammar_from",
     "GrammarFormat",
+    "StructTag",
 ]
