@@ -9,6 +9,9 @@ class StructTag:
     Represents a structural tag used for constraining function/tool invocations in the middle
     of running text.
 
+    These tags are just syntactic sugar over lazy lexemes or special tokens.
+    See also https://github.com/guidance-ai/llguidance/blob/main/docs/syntax.md#tool-calling
+
     Attributes:
         trigger (str): A substring or token that signals when to start applying this tag.
             For example "<function" or "<|python_tag|>"

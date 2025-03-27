@@ -116,8 +116,7 @@ Often, the chat format already includes initial `<think>\n` - in these cases
 you can use `start: /(.|\n)*/ </think> json` as the grammar.
 You can also use `/(.|\n){1000,3000}/` to place lower and upper bounds on the thinking amount.
 
-
-This assumes `<think>` is a special token. If it was just a string, you would need 
+This assumes `<think>` is a special token. If it was just a string, you would need
 to use [`suffix="</think>"`](#lazy-lexemes).
 
 ### Lexeme options
@@ -135,7 +134,7 @@ Example: `mygen[stop="\n", max_tokens=10, temperature=0.7]: /.*/`
 The `temperature` alters temperature while sampling tokens inside of the terminal,
 while `max_tokens` limits the number of tokens generated for the terminal.
 
-#### Lazy lexemes
+### Lazy lexemes
 
 Specifying `stop=""` will make the EOS token of the model act as the stop condition.
 This is only useful if there is some other rule following this rule (otherwise the model will stop on EOS anyways),
@@ -187,20 +186,36 @@ If it doesn't, the results may be surprising:
 for example, `foo[lazy]: /.*/` will match only the empty string,
 while `foo[lazy]: /[0-9]+/` will only match a single digit.
 
-Typical use of `suffix` or `lazy` is for models that were finetuned for reasoning or
-tool calling without special tokens, but with special strings. For example:
+### Tool calling
+
+Some models have been finetuned to use normal text, not special tokens, for tool calling.
+Here's an example how `lazy` can be used to allow any text interspersed with
+tool calls:
 
 ```lark
-start: "<tool_name>" name "<tool_data>" data "</tool_data>"
-name[capture, suffix="</tool_name>"]: /.*/
-data[capture]: %json {
-    "properties": {
-        "foo": { "type": "string" }
-    },
-    "required": ["foo"]
-}
+start: ( f_foo | f_bar )* f_end
+f_end: TEXT
+TEXT: /(.|\n)*/
+
+f_foo_hd[lazy]: TEXT "<function"
+f_foo: f_foo_hd "=foo>" %json { "type": "object" } "</function>"
+
+f_bar_hd[lazy]: TEXT "<function"
+f_bar: f_bar_hd "=bar>" /[0-9]+/ "</function>"
 ```
 
+The above allows for anything, until the text `<function` is generated.
+Then it will force the model to choose between `=foo>` or `=bar>`.
+Then we'll either enforce valid JSON or a number, followed by string `</function>`.
+Then again any text is allowed, etc.
+
+Note that the tool call can be missing algtogether, you can change `*` to `+` if you want to enforce at least one tool call.
+You can also change the definition of `TEXT` to limit the free-form text.
+
+See [Special tokens](#special-tokens) if the "trigger" for the tool call is a special token
+like `<|python_tag|>`, not a string like `<function`.
+
+The `llguidance.StructTag` API, [inspired](https://github.com/mlc-ai/xgrammar/blob/fd9ee31/python/xgrammar/grammar.py#L211) by XGrammar, just compiles down to the above.
 
 ### Structured %regex
 
