@@ -18,6 +18,7 @@ struct CTokenizerInner {
     tokenize_user_data: *const c_void,
     tokenize_assumes_string: bool,
 }
+// SAFETY: tokenize_fn is required to be thread-safe
 unsafe impl Send for CTokenizerInner {}
 unsafe impl Sync for CTokenizerInner {}
 
@@ -76,6 +77,21 @@ pub struct LlgTokenizer {
     pub token_env: TokEnv,
 }
 
+unsafe fn slice_from_ptr<'a, T>(data: *const T, len: usize) -> Result<&'a [T]> {
+    if data.is_null() {
+        bail!("Null pointer");
+    }
+    Ok(std::slice::from_raw_parts(data, len))
+}
+
+unsafe fn slice_from_ptr_or_empty<'a, T>(data: *const T, len: usize) -> &'a [T] {
+    if data.is_null() {
+        &[]
+    } else {
+        std::slice::from_raw_parts(data, len)
+    }
+}
+
 impl LlgTokenizer {
     fn from_init(init: &LlgTokenizerInit) -> Result<Self> {
         ensure!(
@@ -87,11 +103,10 @@ impl LlgTokenizer {
                 !init.token_lens.is_null() && !init.token_bytes.is_null(),
                 "token_lens and token_bytes must be set"
             );
-            let token_lens =
-                unsafe { std::slice::from_raw_parts(init.token_lens, init.vocab_size as usize) };
+            // SAFETY: see comments on the struct definition
+            let token_lens = unsafe { slice_from_ptr(init.token_lens, init.vocab_size as usize) }?;
             let total_len = token_lens.iter().sum::<u32>();
-            let token_bytes =
-                unsafe { std::slice::from_raw_parts(init.token_bytes, total_len as usize) };
+            let token_bytes = unsafe { slice_from_ptr(init.token_bytes, total_len as usize) }?;
 
             let mut tokens = vec![];
             let mut ptr = 0;
@@ -231,6 +246,7 @@ impl LlgConstraintInit {
         if self.tokenizer.is_null() {
             bail!("Tokenizer is null");
         }
+        // SAFETY: the C caller needs to ensure that the tokenizer remains valid
         Ok(unsafe { (*self.tokenizer).to_env() })
     }
 
@@ -275,7 +291,8 @@ pub struct LlgConstraintStep {
     /// The length of the mask_dest array in bytes (not elements).
     pub mask_byte_len: usize,
 }
-
+// SAFETY: the caller of llg_par_compute_mask() needs to ensure the pointers remain valid
+#[cfg(feature = "rayon")]
 unsafe impl Send for LlgConstraintStep {}
 
 pub struct LlgConstraint {
@@ -350,6 +367,7 @@ impl LlgCommitResult {
     }
 }
 
+// SAFETY: caller needs to ensure c_str points to a valid C string or is null
 unsafe fn c_str_to_str<'a>(c_str: *const c_char, info: &str) -> Result<&'a str> {
     ensure!(!c_str.is_null(), "{info} is null");
     CStr::from_ptr(c_str)
@@ -584,7 +602,7 @@ pub unsafe extern "C" fn llg_par_compute_mask(
 
     #[cfg(feature = "rayon")]
     {
-        let steps = unsafe { std::slice::from_raw_parts(steps, n_steps).to_vec() };
+        let steps = unsafe { slice_from_ptr(steps, n_steps).unwrap().to_vec() };
         crate::ffi_par::par_compute_mask(steps, user_data, done_cb);
     }
 
@@ -641,9 +659,13 @@ pub unsafe extern "C" fn llg_tokenize_bytes(
 ) -> usize {
     let tokens = tok
         .token_env
-        .tokenize_bytes(unsafe { std::slice::from_raw_parts(bytes, bytes_len) });
+        .tokenize_bytes(unsafe { slice_from_ptr_or_empty(bytes, bytes_len) });
     let n_toks = tokens.len();
+    if output_tokens.is_null() {
+        return n_toks;
+    }
     let to_copy = std::cmp::min(n_toks, output_tokens_len);
+    // SAFETY: tokens is freshly allocated and thus non-overlapping, output_tokens is non-null
     unsafe {
         std::ptr::copy_nonoverlapping(tokens.as_ptr(), output_tokens, to_copy);
     }
@@ -666,10 +688,14 @@ pub unsafe extern "C" fn llg_tokenize_bytes_marker(
 ) -> usize {
     let tokens = tok
         .token_env
-        .tokenize_bytes_marker(unsafe { std::slice::from_raw_parts(bytes, bytes_len) })
+        .tokenize_bytes_marker(unsafe { slice_from_ptr_or_empty(bytes, bytes_len) })
         .0;
     let n_toks = tokens.len();
+    if output_tokens.is_null() {
+        return n_toks;
+    }
     let to_copy = std::cmp::min(n_toks, output_tokens_len);
+    // SAFETY: tokens is freshly allocated and thus non-overlapping, output_tokens is non-null
     unsafe {
         std::ptr::copy_nonoverlapping(tokens.as_ptr(), output_tokens, to_copy);
     }
@@ -690,10 +716,14 @@ pub unsafe extern "C" fn llg_stringify_tokens(
     output_len: usize,
 ) -> usize {
     let trie = tok.token_env.tok_trie();
-    let tokens = unsafe { std::slice::from_raw_parts(tokens, n_tokens) };
+    let tokens = unsafe { slice_from_ptr_or_empty(tokens, n_tokens) };
     let s = trie.tokens_dbg(tokens);
     let s = s.as_bytes();
+    if output.is_null() || output_len == 0 {
+        return s.len() + 1;
+    }
     let len = std::cmp::min(s.len(), output_len - 1);
+    // SAFETY: s is freshly allocated and thus non-overlapping, output is non-null
     unsafe {
         std::ptr::copy_nonoverlapping(s.as_ptr(), output as *mut u8, len);
         *output.add(len) = 0;
@@ -727,14 +757,18 @@ pub unsafe extern "C" fn llg_decode_tokens(
     flags: u32,
 ) -> usize {
     let trie = tok.token_env.tok_trie();
-    let tokens = unsafe { std::slice::from_raw_parts(tokens, n_tokens) };
+    let tokens = { slice_from_ptr_or_empty(tokens, n_tokens) };
     let s = trie.decode_ext(tokens, flags & LLG_DECODE_INCLUDE_SPECIAL != 0);
     let s = if flags & LLG_DECODE_VALID_UTF8 != 0 {
         String::from_utf8_lossy(&s).to_string().into()
     } else {
         s
     };
+    if output.is_null() || output_len == 0 {
+        return s.len() + 1;
+    }
     let len = std::cmp::min(s.len(), output_len - 1);
+    // SAFETY: s is freshly allocated and thus non-overlapping, output is non-null
     unsafe {
         std::ptr::copy_nonoverlapping(s.as_ptr(), output as *mut u8, len);
         *output.add(len) = 0;
@@ -799,10 +833,11 @@ fn build_stop_controller(
 }
 
 fn save_error_string(e: impl Display, error_string: *mut c_char, error_string_len: usize) {
-    if error_string_len > 0 {
+    if !error_string.is_null() && error_string_len > 0 {
         let e = e.to_string();
         let e = e.as_bytes();
         let len = std::cmp::min(e.len(), error_string_len - 1);
+        // SAFETY: e is freshly allocated and thus non-overlapping, error_string is non-null
         unsafe {
             std::ptr::copy_nonoverlapping(e.as_ptr(), error_string as *mut u8, len);
             *error_string.add(len) = 0;
@@ -822,7 +857,7 @@ pub unsafe extern "C" fn llg_new_stop_controller(
     error_string: *mut c_char,
     error_string_len: usize,
 ) -> *mut LlgStopController {
-    let stop_tokens = unsafe { std::slice::from_raw_parts(stop_tokens, stop_tokens_len) };
+    let stop_tokens = unsafe { slice_from_ptr_or_empty(stop_tokens, stop_tokens_len) };
     match build_stop_controller(tokenizer, stop_tokens, stop_rx) {
         Ok(stop_controller) => Box::into_raw(Box::new(LlgStopController {
             stop_controller,
@@ -946,6 +981,8 @@ pub unsafe extern "C" fn llg_matcher_compute_mask_into(
             mask_byte_len,
             std::mem::size_of_val(slc)
         );
+        ensure!(!mask_dest.is_null(), "mask_dest is null");
+        // SAFETY: mask_dest is non-null and has the right size; slc is freshly allocated and thus non-overlapping
         unsafe {
             std::ptr::copy_nonoverlapping(slc.as_ptr(), mask_dest, slc.len());
         }
@@ -1008,7 +1045,7 @@ pub unsafe extern "C" fn llg_matcher_consume_tokens(
     n_tokens: usize,
 ) -> i32 {
     matcher.clear_mask();
-    let tokens = unsafe { std::slice::from_raw_parts(tokens, n_tokens) };
+    let tokens = unsafe { slice_from_ptr_or_empty(tokens, n_tokens) };
     matcher.wrap(|m| {
         m.consume_tokens(tokens)?;
         Ok(0)
@@ -1021,7 +1058,7 @@ pub unsafe extern "C" fn llg_matcher_consume_tokens(
 /// # Safety
 /// This function should only be called from C code.
 #[no_mangle]
-pub unsafe extern "C" fn llg_matcher_get_error(matcher: &mut LlgMatcher) -> *const c_char {
+pub extern "C" fn llg_matcher_get_error(matcher: &mut LlgMatcher) -> *const c_char {
     if !matcher.matcher.is_error() {
         return std::ptr::null();
     }
@@ -1095,7 +1132,7 @@ pub unsafe extern "C" fn llg_matcher_validate_tokens(
     tokens: *const u32,
     n_tokens: usize,
 ) -> i32 {
-    let tokens = unsafe { std::slice::from_raw_parts(tokens, n_tokens) };
+    let tokens = unsafe { slice_from_ptr_or_empty(tokens, n_tokens) };
     matcher.wrap(|m| m.validate_tokens(tokens).map(|v| v.try_into().unwrap()))
 }
 
@@ -1110,6 +1147,9 @@ pub unsafe extern "C" fn llg_matcher_compute_ff_tokens(
     output: *mut u32,
     output_len: usize,
 ) -> i32 {
+    if output.is_null() {
+        return -1;
+    }
     matcher.wrap(|m| {
         let v = m.compute_ff_tokens();
         let v = v.as_slice();
