@@ -644,7 +644,18 @@ impl Compiler {
                 rx_repr
             }
 
-            if min_length != 0 || max_length.is_some() {
+            // special-case literals - the length is easy to check
+            if let RegexAst::Literal(s) = &ast {
+                let l = s.chars().count() as u64;
+
+                if l < min_length || l > max_length.unwrap_or(u64::MAX) {
+                    return Err(anyhow!(UnsatisfiableSchemaError {
+                        message: format!("Constant {:?} doesn't match length constraints", s)
+                    }));
+                }
+
+                positive = true;
+            } else if min_length != 0 || max_length.is_some() {
                 ast = RegexAst::And(vec![
                     ast,
                     RegexAst::Regex(format!(

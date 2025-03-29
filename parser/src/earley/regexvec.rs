@@ -630,7 +630,7 @@ impl RegexVec {
         r.append_state(r.state_descs[0].clone());
         // in fact, transition from MISSING and DEAD should both lead to DEAD
         r.state_table.fill(StateID::DEAD);
-        assert!(r.alpha.len() > 0);
+        assert!(!r.alpha.is_empty());
         Ok(r)
     }
 
