@@ -1291,9 +1291,7 @@
   "Github_easy---o21209.json": {},
   "Github_easy---o21393.json": {},
   "Github_easy---o21455.json": {},
-  "Github_easy---o21456.json": {
-    "json_error": "Unable to determine if regex is empty:  (And (Regex \"([^@^\\\\s]+@[^@^\\\\.^\\\\s]+(\\\\.[^@^\\\\.^\\\\s]*)*.gov.uk).*\") (Regex \"(?s:.{5,254})\"))"
-  },
+  "Github_easy---o21456.json": {},
   "Github_easy---o21458.json": {},
   "Github_easy---o21459.json": {},
   "Github_easy---o21460.json": {},
@@ -5037,7 +5035,7 @@
   "Github_hard---o69969.json": {},
   "Github_hard---o69970.json": {},
   "Github_hard---o69972.json": {
-    "json_error": "Unable to determine if regex is empty:  (And (And (Regex \"(\\\\w+([\\\\.-]?\\\\w+)*@\\\\w+([\\\\.-]?\\\\w+)*(\\\\.\\\\w{2,})+)\") (Regex \"((?P<local_part>(?P<dot_string>[^\\\\s@\\\\.]+(\\\\.[^\\\\s@\\\\.]+)*))@((?P<domain>(?P<sub_domain>[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)(\\\\.(?P<sub_domain2>[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?))*)|\\\\[(?P<ipv4>((([0-9])|(([1-9])[0-9]|(25[0-5]|(2[0-4]|(1)[0-9])[0-9])))\\\\.){3}(([0-9])|(([1-9])[0-9]|(25[0-5]|(2[0-4]|(1)[0-9])[0-9]))))\\\\]))\")) (Regex \"(?s:.{6,})\"))"
+    "validation_error": "test #0: token not accepted at ⟦loc‧-‧1‧\",\"‧code‧\":\"‧LOC‧-‧1‧\",\"‧name‧\":\"‧Main‧ Library‧\",\"‧library‧\":{\"‧$‧ref‧\":\"‧https‧://‧ils‧.r‧ero‧.ch‧/api‧/lib‧raries‧/lib‧-‧1‧\"},\"‧allow‧_request‧\":‧true‧,\"‧send‧_notification‧\":‧true‧,\"‧notification‧_email‧\":\"‧library‧@example‧.com‧\",\"⟧ * ⟦is⟧ * ⟦_online‧\":‧false‧,\"⟧ forced tokens \"⟦restrict‧_pick‧up‧_to⟧\" != \"⟦is‧_online‧\\\":‧false⟧\""
   },
   "Github_hard---o69976.json": {},
   "Github_hard---o70037.json": {},
@@ -7356,9 +7354,7 @@
   "Github_medium---o6378.json": {},
   "Github_medium---o63935.json": {},
   "Github_medium---o63937.json": {},
-  "Github_medium---o63939.json": {
-    "json_error": "Unable to determine if regex is empty:  (And (Regex \"([\\\\w\\\\-\\\\./]+\\\\.php+)\") (Regex \"(?s:.{16,1024})\"))"
-  },
+  "Github_medium---o63939.json": {},
   "Github_medium---o63941.json": {},
   "Github_medium---o63945.json": {},
   "Github_medium---o63998.json": {},

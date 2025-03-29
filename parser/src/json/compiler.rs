@@ -664,6 +664,13 @@ impl Compiler {
                 let expr = builder.mk(&ast)?;
                 // if regex is not positive, do the more expensive non-emptiness check
                 if !builder.exprset().is_positive(expr) {
+                    // in JSB, 13 cases above 2000;
+                    // 1 case above 5000:
+                    // "format": "email",
+                    // "pattern": "^\\w+([\\.-]?\\w+)*@\\w+([\\.-]?\\w+)*(\\.\\w{2,})+$",
+                    // "minLength": 6,
+                    //
+                    // (excluding two handwritten examples with minLength:10000)
                     let mut regex = builder.to_regex_limited(expr, 10_000).map_err(|_| {
                         anyhow!(
                             "Unable to determine if regex is empty: {}",
