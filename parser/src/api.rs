@@ -42,6 +42,7 @@ pub struct LLGuidanceOptions {
 
     /// If set, the grammar will allow invalid utf8 byte sequences.
     /// Any Unicode regex will cause an error.
+    /// This is very unlikely what you need.
     #[serde(default)]
     pub allow_invalid_utf8: bool,
 }

@@ -16,13 +16,13 @@ use crate::api::{GenGrammarOptions, GenOptions, NodeProps};
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub struct NodeRef {
     idx: SymIdx,
-    grammar_id: LexemeClass,
+    grammar_id: usize,
 }
 
 impl NodeRef {
     pub const BOGUS: NodeRef = NodeRef {
         idx: SymIdx::BOGUS,
-        grammar_id: LexemeClass::ROOT,
+        grammar_id: usize::MAX,
     };
 }
 
@@ -30,7 +30,10 @@ const K: usize = 4;
 
 pub struct GrammarBuilder {
     pub(crate) grammar: Grammar,
-    curr_grammar_id: LexemeClass,
+    // this is only used for validation of NodeRef's
+    // we could drop it if needed
+    curr_grammar_idx: usize,
+    curr_lexeme_class: LexemeClass,
     curr_start_idx: NodeRef,
     pub regex: RegexBuilder,
     tok_env: Option<TokEnv>,
@@ -140,7 +143,8 @@ impl GrammarBuilder {
     pub fn new(tok_env: Option<TokEnv>, limits: ParserLimits) -> Self {
         Self {
             grammar: Grammar::new(None),
-            curr_grammar_id: LexemeClass::ROOT,
+            curr_grammar_idx: 0,
+            curr_lexeme_class: LexemeClass::ROOT,
             curr_start_idx: NodeRef::BOGUS,
             strings: HashMap::default(),
             regex: RegexBuilder::new(),
@@ -171,18 +175,21 @@ impl GrammarBuilder {
     pub fn add_grammar(&mut self, options: LLGuidanceOptions, skip: RegexAst) -> Result<SymIdx> {
         self.check_limits()?;
 
-        let grammar_id = self.regex.spec.new_lexeme_class(skip)?;
+        self.curr_lexeme_class = self.regex.spec.setup_lexeme_class(skip)?;
 
         self.strings.clear();
         self.at_most_cache.clear();
         self.repeat_exact_cache.clear();
 
-        self.curr_grammar_id = grammar_id;
+        self.curr_grammar_idx += 1;
 
+        // We'll swap these as we add more grammars,
+        // so this setting is local to the grammar
         let utf8 = !options.allow_invalid_utf8;
         self.regex.spec.regex_builder.unicode(utf8);
         self.regex.spec.regex_builder.utf8(utf8);
 
+        // if any grammar sets it, it is inherited by the lexer
         if options.no_forcing {
             self.regex.spec.no_forcing = true;
         }
@@ -283,6 +290,9 @@ impl GrammarBuilder {
         if props.max_tokens.is_some() {
             self.regex.spec.has_max_tokens = true;
         }
+        if data.temperature.is_some() {
+            self.regex.spec.has_temperature = true;
+        }
         let r = self.new_node("gg");
         self.grammar.apply_node_props(r.idx, props);
         self.grammar.make_gen_grammar(r.idx, data).unwrap();
@@ -355,7 +365,7 @@ impl GrammarBuilder {
         options
             .iter()
             .map(|e| {
-                assert!(e.grammar_id == self.curr_grammar_id);
+                assert!(e.grammar_id == self.curr_grammar_idx);
                 e.idx
             })
             .collect()
@@ -375,16 +385,6 @@ impl GrammarBuilder {
         r
     }
 
-    pub fn max_tokens(&mut self, node: NodeRef, max_tokens: usize) -> NodeRef {
-        self.join_props(
-            &[node],
-            NodeProps {
-                max_tokens: Some(max_tokens),
-                ..Default::default()
-            },
-        )
-    }
-
     pub fn join(&mut self, values: &[NodeRef]) -> NodeRef {
         self.join_props(values, NodeProps::default())
     }
@@ -399,7 +399,7 @@ impl GrammarBuilder {
         if ch.len() == 1 && props == NodeProps::default() {
             return NodeRef {
                 idx: ch[0],
-                grammar_id: self.curr_grammar_id,
+                grammar_id: self.curr_grammar_idx,
             };
         }
         let r = self.new_node("");
@@ -607,13 +607,13 @@ impl GrammarBuilder {
         let id = self.grammar.fresh_symbol_ext(
             name,
             SymbolProps {
-                grammar_id: self.curr_grammar_id,
+                grammar_id: self.curr_lexeme_class,
                 ..Default::default()
             },
         );
         NodeRef {
             idx: id,
-            grammar_id: self.curr_grammar_id,
+            grammar_id: self.curr_grammar_idx,
         }
     }
 

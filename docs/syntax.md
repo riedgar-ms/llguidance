@@ -293,12 +293,13 @@ that llguidance should be used to process the grammar.
 ### Multiple grammars
 
 The input to LLGuidance consists of a list of grammars. This can be accessed via
-[LLGuidance API](../parser/src/api.rs). Each of these can be a Lark grammar, a JSON schema,
-or a grammar in the API format. With the introduction of `%json` in Lark syntax
+[LLGuidance API](../parser/src/api.rs). Each of these can be a Lark grammar or a JSON schema.
+With the introduction of `%json` in Lark syntax
 there is less need now for using multiple grammars, but it is still supported.
+We may add nested lark grammars in future.
 
 Inside of Lark grammar, you can reference other grammars using syntax like `@my_grammar`,
-refering to grammar with `"name": "my_grammar"` (numeric reference like `@17` are no longer supported).
+refering to grammar with `"name": "my_grammar"` (numeric reference like `@17` are **no longer supported**).
 The top-level grammar is at index 0.
 
 You can specify temperature for subgrammar by referencing it via
@@ -316,6 +317,42 @@ Example:
   ]
 }
 ```
+
+#### Subgrammar details
+
+Generally, subgrammars share the same context-free grammar but have a separate
+set of lexemes (lexeme class).
+The parser keeps track of a stack of lexeme classes, and considers the top one
+to be the current lexeme class.
+The `%ignore` is applied based on the top lexeme class.
+
+Temperature and `max_tokens` can be applied to the current lexeme class as well.
+
+There may be issues with subgrammars spanning LLM token boundaries.
+
+If two lexeme classes share the `%ignore` regex, and `max_tokens=` and `temperature=`
+are not used, the lexeme classes are merged, which generally allows for parsing
+of more grammars.
+For example, consider:
+
+```lark
+start: a | b
+a: %json { A }
+b: %json { B }
+```
+
+Normally, the parser would have to pick between lexeme class for either A or B
+at the first `{` (it would always pick A since it comes first in the grammar).
+However, if the classes for A and B are merged, the grammar will be equivalent to
+`start: %json { "anyOf": [A, B] }` which is generally what the
+[users expect](https://github.com/guidance-ai/llguidance/issues/113).
+
+
+### Features to avoid
+
+- `stop=...` - use `suffix=...` or just `lazy`
+- `max_tokens=...` - any use of `max_tokens` will disable rollback, which is needed for spec-decoding; it also makes the parser slower and prevents subgrammar merging
+- `temperature=...` - this is not supported in most server side integrations and prevents subgrammar merging
 
 ### Unsupported Lark features
 

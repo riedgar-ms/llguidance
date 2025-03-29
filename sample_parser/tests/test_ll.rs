@@ -916,8 +916,7 @@ obj2: %json {
 "#;
 
     check_lark_grammar(grm, &["JSON", "{\"‧tp‧\":‧ ‧1‧}"]);
-    // This should pass but doesn't, see https://github.com/guidance-ai/llguidance/issues/113
-    // check_lark_grammar(grm, &["JSON", "{\"‧tp‧\":‧ ‧2‧}"]);
+    check_lark_grammar(grm, &["JSON", "{\"‧tp‧\":‧ ‧2‧}"]);
 
     // workaround
     let grm = r#"

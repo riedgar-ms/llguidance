@@ -166,7 +166,7 @@ pub fn lex_lark(input: &str) -> Result<Vec<Lexeme>> {
     let comment_or_ws = r"((#|//)[^\n]*)|[ \t]+".to_string();
     let mut spec = LexerSpec::new().unwrap();
     let cls = spec
-        .new_lexeme_class(RegexAst::Regex(comment_or_ws))
+        .setup_lexeme_class(RegexAst::Regex(comment_or_ws))
         .unwrap();
     let mut lexeme_idx_to_token = HashMap::default();
     lexeme_idx_to_token.insert(spec.skip_id(cls), Token::SKIP);

@@ -1,5 +1,5 @@
 use anyhow::{ensure, Result};
-use derivre::{raw::ExprSet, ExprRef, JsonQuoteOptions, RegexAst, RegexBuilder};
+use derivre::{raw::ExprSet, ExprRef, HashMap, JsonQuoteOptions, RegexAst, RegexBuilder};
 use std::{fmt::Debug, hash::Hash, ops::RangeInclusive};
 use toktrie::{bytes::limit_bytes, SimpleVob, TokTrie, TokenId};
 
@@ -18,11 +18,13 @@ pub struct LexerSpec {
     pub allow_initial_skip: bool,
     pub num_extra_lexemes: usize,
     pub skip_by_class: Vec<LexemeIdx>,
+    class_by_skip: HashMap<ExprRef, LexemeClass>,
     pub current_class: LexemeClass,
     // regex for \xFF \[ [0-9]+ \]
     pub special_token_rx: Option<ExprRef>,
     pub has_stop: bool,
     pub has_max_tokens: bool,
+    pub has_temperature: bool,
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
@@ -132,8 +134,10 @@ impl LexerSpec {
             num_extra_lexemes: 0,
             skip_by_class: Vec::new(),
             current_class: LexemeClass(0),
+            class_by_skip: HashMap::default(),
             has_stop: false,
             has_max_tokens: false,
+            has_temperature: false,
         })
     }
 
@@ -156,9 +160,19 @@ impl LexerSpec {
             .has_simply_forced_bytes(lex_spec.compiled_rx, bytes)
     }
 
-    pub fn new_lexeme_class(&mut self, skip: RegexAst) -> Result<LexemeClass> {
-        let _ = self.regex_builder.mk(&skip)?; // validate first
+    pub fn setup_lexeme_class(&mut self, skip: RegexAst) -> Result<LexemeClass> {
+        let skip_node = self.regex_builder.mk(&skip)?; // validate first
+
+        if !self.has_max_tokens && !self.has_temperature {
+            if let Some(&cls) = self.class_by_skip.get(&skip_node) {
+                // re-use existing
+                self.current_class = cls;
+                return Ok(cls);
+            }
+        }
+
         self.current_class = LexemeClass::new(self.skip_by_class.len());
+        self.class_by_skip.insert(skip_node, self.current_class);
         self.skip_by_class.push(LexemeIdx(0)); // avoid assert in empty_spec()
         let idx = self
             .add_lexeme_spec(LexemeSpec {
