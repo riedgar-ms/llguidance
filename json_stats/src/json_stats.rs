@@ -60,6 +60,10 @@ pub struct CliOptions {
     #[arg(long)]
     llg_no_forcing: bool,
 
+    /// Set stderr log level; implies --num-threads 1
+    #[arg(long, default_value = "0")]
+    llg_log_level: u32,
+
     /// Test the slicer optimization against un-sliced parser
     #[arg(long)]
     llg_test_slicer: bool,
@@ -79,6 +83,10 @@ pub struct CliOptions {
     /// Print out CSV mask computation histogram
     #[arg(long)]
     csv: bool,
+
+    /// Don't print JSON output and perf counters
+    #[arg(long)]
+    quiet: bool,
 
     /// Test rollback mechanism for speculative decoding
     #[arg(long)]
@@ -702,8 +710,10 @@ impl TestEnv {
             Ok(schema) => schema,
             Err(e) => {
                 res.json_error = Some(format!("{e}"));
+                if self.cli.llg_log_level > 0 {
+                    eprintln!("{} Error JSON: {}", self.file_name, e);
+                }
                 limit_string(&mut res.json_error);
-                // eprintln!("{} Error Compile: {}", file, e);
                 return res;
             }
         };
@@ -743,6 +753,9 @@ impl TestEnv {
             Err(e) => {
                 // eprintln!("{} Error Parser: {}", self.file_name, e);
                 res.parser_error = Some(format!("{e}"));
+                if self.cli.llg_log_level > 0 {
+                    eprintln!("{} Error JSON: {}", self.file_name, e);
+                }
                 limit_string(&mut res.parser_error);
                 return res;
             }
@@ -757,6 +770,9 @@ impl TestEnv {
                 if let Err(e) = self.run_llg_test(&mut res, &parser, ref_parser.as_ref(), t) {
                     if res.validation_error.is_none() {
                         res.validation_error = Some(format!("test #{idx}: {e}"));
+                        if self.cli.llg_log_level > 0 {
+                            eprintln!("{} Error Validating: {}", self.file_name, e);
+                        }
                         limit_string(&mut res.validation_error);
                     }
                 } else if t.valid {
@@ -905,6 +921,9 @@ fn main() {
     if options.llg_validate_tokens {
         options.llg_compile = true;
     }
+    if options.llg_log_level > 0 {
+        options.num_threads = Some(1);
+    }
 
     // set max thread numbers
     let num_cores = std::thread::available_parallelism().unwrap().get();
@@ -961,8 +980,9 @@ fn main() {
     };
 
     let mut factory = ParserFactory::new(&tok_env, caps.clone(), &slices).unwrap();
-    factory.quiet();
-    // factory.set_stderr_log_level(2);
+    factory.set_buffer_log_level(0);
+    factory.set_stderr_log_level(options.llg_log_level);
+
     // factory.limits_mut().step_lexer_fuel = 10_000_000;
 
     let mut ref_factory = ParserFactory::new(&tok_env, caps.clone(), &[]).unwrap();
@@ -1131,10 +1151,15 @@ fn main() {
     total.llg.mask_ms_total_a /= 1000;
 
     total.llg_json = llg_totals.clone();
-    eprintln!("{}", serde_json::to_string_pretty(&total).unwrap());
+    if !options.quiet {
+        eprintln!(
+            "{}\n{}",
+            serde_json::to_string_pretty(&total).unwrap(),
+            perf_counters
+        );
+    }
     eprintln!(
-        "{}Total time: {}ms TTFM {}μs, mask {}μs, ff {}μs, mask+ff {}ms + compile {}ms",
-        perf_counters,
+        "Total time: {}ms TTFM {}μs, mask {}μs, ff {}μs, mask+ff {}ms + compile {}ms",
         t0.elapsed().as_millis(),
         total.llg.ttfm_us,
         total.llg.mask_us,
