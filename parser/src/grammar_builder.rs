@@ -343,10 +343,7 @@ impl GrammarBuilder {
             .regex
             .spec
             .add_greedy_lexeme(
-                props
-                    .capture_name
-                    .clone()
-                    .unwrap_or_else(|| "lx".to_string()),
+                props.capture_name.clone().unwrap_or_default(),
                 RegexAst::ExprRef(rx),
                 false,
                 None,

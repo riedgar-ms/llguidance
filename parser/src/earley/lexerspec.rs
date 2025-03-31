@@ -307,6 +307,9 @@ impl LexerSpec {
         spec.idx = idx;
         spec.single_set = MatchingLexemes::One(idx);
         spec.compiled_rx = compiled;
+        if spec.name.is_empty() {
+            spec.name = format!("[{}]", idx.as_usize());
+        }
         self.lexemes.push(spec);
         Ok(idx)
     }

@@ -1,4 +1,5 @@
 #![allow(clippy::comparison_chain)]
+#![allow(clippy::needless_range_loop)]
 
 /// This is the primary interface for llguidance -- the one on which the others
 /// (FFI and LLInterpreter) are built.  While not cleanest of these interfaces,

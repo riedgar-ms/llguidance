@@ -1,6 +1,6 @@
 use super::lexerspec::{LexemeClass, LexemeIdx, LexerSpec};
 use crate::api::{GenGrammarOptions, GrammarId, NodeProps};
-use crate::HashMap;
+use crate::{HashMap, HashSet};
 use anyhow::{bail, ensure, Result};
 use std::fmt::Display;
 use std::{fmt::Debug, hash::Hash};
@@ -312,7 +312,17 @@ impl Grammar {
 
         uf_compress_all(&mut definition);
 
-        let mut use_count = vec![0; self.symbols.len()];
+        // println!(
+        //     "symbols: {:?}",
+        //     self.symbols
+        //         .iter()
+        //         .map(|s| (s.idx, &s.name))
+        //         .collect::<Vec<_>>()
+        // );
+
+        // println!("definition: {:?}", definition);
+
+        let mut the_user_of = vec![None; self.symbols.len()];
         for sym in &self.symbols {
             if definition[sym.idx.as_usize()].is_some() {
                 continue;
@@ -320,10 +330,29 @@ impl Grammar {
             for r in sym.rules.iter() {
                 for s in &r.rhs {
                     let s = definition[s.as_usize()].unwrap_or(*s);
-                    use_count[s.0 as usize] += 1;
+                    let idx = s.as_usize();
+                    if the_user_of[idx].is_none() {
+                        the_user_of[idx] = Some(r.lhs);
+                    } else {
+                        // use self-loop to indicate there are multiple users
+                        the_user_of[idx] = Some(s);
+                    }
                 }
             }
         }
+
+        // println!("the_user_of: {:?}", the_user_of);
+
+        // clean up self loops to None
+        for idx in 0..the_user_of.len() {
+            if let Some(sym) = the_user_of[idx] {
+                if sym.as_usize() == idx {
+                    the_user_of[idx] = None;
+                }
+            }
+        }
+
+        // println!("the_user_of: {:?}", the_user_of);
 
         let mut repl = crate::HashMap::default();
 
@@ -331,8 +360,8 @@ impl Grammar {
             if self.is_special_symbol(sym) {
                 continue;
             }
-            if sym.rules.len() == 1 && use_count[sym.idx.0 as usize] == 1 {
-                // eliminate sym.idx
+            if sym.rules.len() == 1 && the_user_of[sym.idx.as_usize()].is_some() {
+                // we will eliminate sym.idx
                 repl.insert(
                     sym.idx,
                     sym.rules[0]
@@ -344,38 +373,56 @@ impl Grammar {
             }
         }
 
+        // println!("repl: {:?}", repl);
+
+        // these are keys of repl that may need to be used outside of repl itself
+        let repl_roots = repl
+            .keys()
+            .filter(|s| !repl.contains_key(the_user_of[s.as_usize()].as_ref().unwrap()))
+            .cloned()
+            .collect::<Vec<_>>();
+
+        // println!("repl_roots: {:?}", repl_roots);
+
+        let mut to_eliminate = HashSet::from_iter(repl.keys().copied());
         for (idx, m) in definition.iter().enumerate() {
-            if let Some(r) = m {
-                repl.insert(SymIdx(idx as u32), vec![*r]);
+            if m.is_some() {
+                let src = SymIdx(idx as u32);
+                to_eliminate.insert(src);
             }
         }
 
-        let mut simple_repl = HashMap::default();
-        while !repl.is_empty() {
-            let mut new_repl = HashMap::default();
-            for (k, v) in repl.iter() {
-                let v2 = v
-                    .iter()
-                    .flat_map(|s| {
-                        simple_repl
-                            .get(s)
-                            .cloned()
-                            .unwrap_or_else(|| repl.get(s).cloned().unwrap_or_else(|| vec![*s]))
-                    })
-                    .collect::<Vec<_>>();
-                if *v == v2 {
-                    simple_repl.insert(*k, v2);
-                } else {
-                    new_repl.insert(*k, v2);
+        let mut new_repl = HashMap::default();
+
+        let mut stack = vec![];
+        for sym in repl_roots {
+            stack.push(vec![sym]);
+            let mut res = vec![];
+            while let Some(mut lst) = stack.pop() {
+                while let Some(e) = lst.pop() {
+                    if let Some(mut lst2) = repl.remove(&e) {
+                        lst2.reverse();
+                        if !lst.is_empty() {
+                            stack.push(lst);
+                        }
+                        stack.push(lst2);
+                        break;
+                    }
+                    assert!(!to_eliminate.contains(&e));
+                    res.push(e);
                 }
             }
-            repl = new_repl;
+            // println!("res: {:?} -> {:?}", sym, res);
+            new_repl.insert(sym, res);
         }
-        repl = simple_repl;
 
-        for (k, v) in repl.iter() {
-            if let Some(p) = v.iter().find(|e| repl.contains_key(*e)) {
-                panic!("loop at {:?} ({:?})", k, p);
+        repl = new_repl;
+
+        for (idx, m) in definition.iter().enumerate() {
+            if let Some(trg) = m {
+                if !to_eliminate.contains(trg) {
+                    repl.insert(SymIdx(idx as u32), vec![*trg]);
+                }
             }
         }
 
@@ -403,12 +450,14 @@ impl Grammar {
             }
             let lhs = outp.copy_from(self, sym.idx);
             for rule in &sym.rules {
-                let rhs = rule
-                    .rhs
-                    .iter()
-                    .flat_map(|s| repl.get(s).cloned().unwrap_or_else(|| vec![*s]))
-                    .map(|s| outp.copy_from(self, s))
-                    .collect();
+                let mut rhs = Vec::with_capacity(rule.rhs.len());
+                for s in &rule.rhs {
+                    if let Some(repl) = repl.get(s) {
+                        rhs.extend(repl.iter().map(|s| outp.copy_from(self, *s)));
+                    } else {
+                        rhs.push(outp.copy_from(self, *s));
+                    }
+                }
                 outp.add_rule(lhs, rhs).unwrap();
             }
         }
@@ -489,7 +538,8 @@ impl Grammar {
     pub fn fresh_symbol_ext(&mut self, name0: &str, symprops: SymbolProps) -> SymIdx {
         let mut name = name0.to_string();
         let mut idx = self.symbol_count_cache.get(&name).cloned().unwrap_or(2);
-        while self.symbol_by_name.contains_key(&name) {
+        // don't allow empty names
+        while name.is_empty() || self.symbol_by_name.contains_key(&name) {
             name = format!("{}#{}", name0, idx);
             idx += 1;
         }
