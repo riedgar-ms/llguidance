@@ -13,7 +13,7 @@ use std::{
 
 use crate::{earley::lexer::MatchingLexemesIdx, HashMap, HashSet, Instant};
 use anyhow::{bail, ensure, Result};
-use derivre::{AlphabetInfo, NextByte, RegexAst, StateID};
+use derivre::{NextByte, RegexAst, StateID};
 use serde::{Deserialize, Serialize};
 use toktrie::{
     parse_numeric_token, Recognizer, SimpleVob, TokEnv, TokTrie, TokenId, INVALID_TOKEN,
@@ -2620,12 +2620,6 @@ impl Parser {
 
     pub fn lexer_stats(&self) -> LexerStats {
         self.shared.lock().unwrap().lexer().dfa.stats()
-    }
-
-    pub fn with_alphabet_info<T>(&self, f: impl FnOnce(&AlphabetInfo) -> T) -> T {
-        let a = self.shared.lock().unwrap();
-        let a = a.lexer().dfa.alpha();
-        f(a)
     }
 
     pub fn get_error(&self) -> Option<ParserError> {

@@ -100,23 +100,6 @@ impl ParserFactory {
         rng.clone()
     }
 
-    #[allow(dead_code)]
-    fn post_process_parser(&self, parser: &mut TokenParser) {
-        if false {
-            // this only reduces the nodes walked by about 20%, but is quite
-            // expensive to compute
-            let slicer = parser
-                .parser
-                .with_alphabet_info(|a| self.slicer.compress(a));
-            parser.bias_computer = Arc::new(slicer);
-        } else {
-            parser.bias_computer = self.slicer.clone();
-        }
-        let mut rng = self.seed.lock().unwrap();
-        rng.next_alt();
-        parser.parser.metrics_mut().rand = rng.clone();
-    }
-
     pub fn create_parser(&self, grammar: TopLevelGrammar) -> Result<TokenParser> {
         self.create_parser_from_init_default(GrammarInit::Serialized(grammar))
     }

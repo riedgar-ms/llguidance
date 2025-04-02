@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use derivre::AlphabetInfo;
 
 use crate::{
     derivre::Regex,
@@ -142,43 +141,6 @@ impl SlicedBiasComputer {
     pub fn extra_lexemes(&self) -> Vec<String> {
         self.slices.iter().map(|s| s.regex.clone()).collect()
     }
-
-    pub fn compress(&self, ai: &AlphabetInfo) -> Self {
-        let slices = self
-            .slices
-            .iter()
-            .map(|s| TokenizerSlice {
-                idx: s.idx,
-                regex: s.regex.clone(),
-                trie: compress_trie(&s.trie, ai),
-                mask: s.mask.clone(),
-            })
-            .collect();
-        SlicedBiasComputer {
-            wildcard_slice: compress_trie(&self.wildcard_slice, ai),
-            slices: Arc::new(slices),
-            tok_env: self.tok_env.clone(),
-        }
-    }
-}
-
-fn compress_trie(trie: &TokTrie, ai: &AlphabetInfo) -> TokTrie {
-    let mut tokens = trie.all_tokens();
-    let mut repr = vec![None; 256];
-    let repr2 = (0..=255)
-        .map(|b| {
-            if repr[ai.map(b)].is_none() {
-                repr[ai.map(b)] = Some(b);
-            }
-            repr[ai.map(b)].unwrap()
-        })
-        .collect::<Vec<u8>>();
-    for t in tokens.iter_mut() {
-        for i in 0..t.len() {
-            t[i] = repr2[t[i] as usize];
-        }
-    }
-    TokTrie::from(trie.info(), &tokens)
 }
 
 impl BiasComputer for SlicedBiasComputer {
