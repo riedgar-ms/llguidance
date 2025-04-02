@@ -53,6 +53,7 @@ pub struct LexemeSpec {
     lazy: bool,
     contextual: bool,
     max_tokens: usize,
+    pub(crate) is_extra: bool,
     pub(crate) is_suffix: bool,
     pub(crate) is_skip: bool,
     json_options: Option<JsonQuoteOptions>,
@@ -103,6 +104,9 @@ impl LexemeSpec {
         }
         if self.contextual {
             f.push_str(" contextual");
+        }
+        if self.is_extra {
+            f.push_str(" extra");
         }
         if !self.token_ranges.is_empty() {
             write!(f, " tokens={}", token_ranges_to_string(&self.token_ranges)).unwrap();
@@ -300,6 +304,7 @@ impl LexerSpec {
                 && lex.class == spec.class
                 && lex.max_tokens == spec.max_tokens
                 && lex.token_ranges == spec.token_ranges
+                && lex.is_extra == spec.is_extra
         }) {
             return Ok(LexemeIdx::new(idx));
         }
@@ -330,6 +335,7 @@ impl LexerSpec {
             ends_at_eos: false,
             is_skip: false,
             is_suffix: false,
+            is_extra: false,
             json_options: None,
             class: self.current_class,
             max_tokens: usize::MAX,
@@ -409,16 +415,20 @@ impl LexerSpec {
     pub fn add_extra_lexemes(&mut self, extra_lexemes: &[String]) {
         assert!(self.num_extra_lexemes == 0);
         self.num_extra_lexemes = extra_lexemes.len();
+        let lex0 = self.lexemes.len();
         for (idx, added) in extra_lexemes.iter().enumerate() {
-            self.add_greedy_lexeme(
-                format!("$extra_{}", idx),
-                RegexAst::Regex(added.clone()),
-                false,
-                None,
-                usize::MAX,
-            )
+            self.add_lexeme_spec(LexemeSpec {
+                name: format!("$extra_{}", idx),
+                rx: RegexAst::Regex(added.clone()),
+                is_extra: true,
+                ..self.empty_spec()
+            })
             .expect("adding lexeme");
         }
+        assert!(
+            self.lexemes.len() - lex0 == self.num_extra_lexemes,
+            "repeating slices?"
+        );
     }
 
     pub fn extra_lexeme(&self, idx: usize) -> LexemeIdx {

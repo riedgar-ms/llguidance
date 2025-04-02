@@ -70,14 +70,20 @@ impl TokenizerSlice {
     }
 
     fn matches(&self, rec: &mut ParserRecognizer<'_>) -> bool {
+        if self.regex.is_empty() {
+            return false;
+        }
         // set to at least 500
         let budget = 1000;
         let lexer_state = rec.lexer_state();
-        !self.regex.is_empty()
-            && rec
-                .lexer_mut()
-                .check_subsume(lexer_state, self.idx, budget)
-                .unwrap_or(false)
+        let res = rec
+            .lexer_mut()
+            .check_subsume(lexer_state, self.idx, budget)
+            .unwrap_or(false);
+        if false {
+            println!("slice{} {}", self.idx, res);
+        }
+        res
     }
     /*
     force = false
@@ -258,6 +264,8 @@ fn topological_sort2(num_nodes: usize, edges: &HashSet<(usize, usize)>) -> Vec<T
 impl SlicedBiasComputer {
     pub fn json_slices() -> Vec<String> {
         vec![
+            r#"[\x20\x0A\x0D\x09]+"#.to_string(),
+            r#"[1-9][0-9]*"#.to_string(),
             r#"[^"\\\x00-\x1F\x7F]{1,10}"#.to_string(),
             r#"[^"\\\x00-\x1F\x7F]{1,30}"#.to_string(),
             r#"[^"\\\x00-\x1F\x7F]+"#.to_string(),

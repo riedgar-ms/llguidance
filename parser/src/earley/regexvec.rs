@@ -355,6 +355,11 @@ impl RegexVec {
                     cache_failures,
                 )
                 .unwrap_or(false);
+            // println!("chk: {} in {} -> {}",
+            //     self.exprs.expr_to_string(small),
+            //     self.exprs.expr_to_string(e),
+            //     is_contained
+            // );
             if is_contained {
                 res = true;
                 break;
