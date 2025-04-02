@@ -1,6 +1,7 @@
-use std::sync::Arc;
+use std::{collections::VecDeque, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{ensure, Result};
+use derivre::{HashMap, HashSet, RegexBuilder};
 
 use crate::{
     derivre::Regex,
@@ -13,13 +14,135 @@ use super::parser::ITEM_TRACE;
 struct TokenizerSlice {
     idx: usize,
     regex: String,
-    trie: TokTrie,
-    mask: SimpleVob,
+    trie_with_children: TokTrie,
+    trie_without_children: TokTrie,
+    mask_with_children: SimpleVob,
+    mask_trimmed: SimpleVob,
+    // each of these is a subset of the current one
+    subslices: Vec<TokenizerSlice>,
+}
+
+impl TokenizerSlice {
+    fn from_topo_node(node: &TopoNode, trie: &TokTrie, regexes: &[String]) -> Result<Self> {
+        let regex = regexes[node.value].clone();
+        let n_vocab = trie.vocab_size() as TokenId;
+        let mut subslices = vec![];
+
+        let mut mask_with_children = trie.alloc_token_set();
+        if regex.is_empty() {
+            mask_with_children.set_all(true);
+        } else {
+            let mut rx = Regex::new(&regex)
+                .map_err(|e| anyhow::anyhow!("invalid regex: {:?}: {}", regex, e))?;
+            for tok_idx in 0..n_vocab {
+                let b = trie.token(tok_idx);
+                if !b.is_empty() && rx.is_match_bytes(b) {
+                    mask_with_children.allow_token(tok_idx);
+                }
+            }
+        }
+
+        let mut mask_without_children = mask_with_children.clone();
+
+        for c in &node.children {
+            let t = TokenizerSlice::from_topo_node(c, trie, regexes)?;
+            mask_without_children.sub(&t.mask_with_children);
+            subslices.push(t);
+        }
+
+        let trie_with_children = trie.filter(&mask_with_children);
+        let trie_without_children = trie.filter(&mask_without_children);
+
+        // we Or this mask with result; it's possible it's quite a bit shorter
+        // than the full tokenizer size (esp. if there's lots of special tokens)
+        let mut mask_trimmed = mask_with_children.clone();
+        mask_trimmed.trim_trailing_zeros();
+
+        Ok(TokenizerSlice {
+            idx: node.value,
+            regex,
+            trie_with_children,
+            trie_without_children,
+            mask_with_children,
+            mask_trimmed,
+            subslices,
+        })
+    }
+
+    fn matches(&self, rec: &mut ParserRecognizer<'_>) -> bool {
+        // set to at least 500
+        let budget = 1000;
+        let lexer_state = rec.lexer_state();
+        !self.regex.is_empty()
+            && rec
+                .lexer_mut()
+                .check_subsume(lexer_state, self.idx, budget)
+                .unwrap_or(false)
+    }
+    /*
+    force = false
+    for idx, c in children:
+        if force:
+            c.apply(force=true)
+        else:
+            if c.apply(force=false):
+                force = true
+                if idx > 0:
+                    for j < idx:
+                        children[j].toktrie_apply()
+    if not force:
+        self.toktrie_apply()
+     */
+
+    fn trie_apply(&self, rec: &mut ParserRecognizer<'_>, trg: &mut SimpleVob) {
+        let t0 = crate::Instant::now();
+        self.trie_with_children.add_bias(rec, trg, &[]);
+        let us = t0.elapsed().as_micros() as usize;
+        rec.metrics_mut().slicer_leftover_us += us;
+    }
+
+    // possibly sets bits corresponding to matching tokens in the current slice
+    // returns true if it did
+    fn apply(&self, rec: &mut ParserRecognizer<'_>, trg: &mut SimpleVob) -> bool {
+        if self.matches(rec) {
+            rec.stats_mut().slices_applied += 1;
+            trg.or(&self.mask_trimmed);
+            true
+        } else {
+            let mut something_applied = false;
+            for (idx, c) in self.subslices.iter().enumerate() {
+                if c.apply(rec, trg) {
+                    if !something_applied {
+                        something_applied = true;
+                        for k in 0..idx {
+                            // need to recover state from previous slices
+                            self.subslices[k].trie_apply(rec, trg);
+                        }
+                    }
+                } else {
+                    // we are in a mixed state - need to apply
+                    if something_applied {
+                        c.trie_apply(rec, trg);
+                    }
+                }
+            }
+
+            if something_applied {
+                // if we applied some subslices, we also need to apply ourselves
+                let t0 = crate::Instant::now();
+                self.trie_without_children.add_bias(rec, trg, &[]);
+                let us = t0.elapsed().as_micros() as usize;
+                rec.metrics_mut().slicer_leftover_us += us;
+            }
+
+            something_applied
+        }
+    }
 }
 
 pub struct SlicedBiasComputer {
-    wildcard_slice: TokTrie,
-    slices: Arc<Vec<TokenizerSlice>>,
+    top_slice: Arc<TokenizerSlice>,
+    slice_regexes: Vec<String>,
     tok_env: TokEnv,
 }
 
@@ -31,6 +154,105 @@ macro_rules! debug {
             eprintln!($($arg)*);
         }
     };
+}
+
+#[derive(Debug)]
+struct TopoNode {
+    value: usize,
+    children: Vec<TopoNode>,
+}
+
+// TODO this is stupid, but there is just a few nodes in num_nodes
+// and this only runs once
+// complexity O(num_nodes^3)
+fn topological_sort(num_nodes: usize, edges: &HashSet<(usize, usize)>) -> Vec<TopoNode> {
+    fn build_tree(
+        node: usize,
+        num_nodes: usize,
+        edges: &HashSet<(usize, usize)>,
+        visited: &mut HashSet<usize>,
+    ) -> TopoNode {
+        visited.insert(node);
+        let children = (0..num_nodes)
+            .filter(|&child| {
+                edges.contains(&(child, node))
+                    && !visited.contains(&child)
+                    && !(0..num_nodes).any(|desc| {
+                        desc != node && !visited.contains(&desc) && edges.contains(&(child, desc))
+                    })
+            })
+            .collect::<Vec<_>>();
+
+        TopoNode {
+            value: node,
+            children: children
+                .iter()
+                .map(|&child| build_tree(child, num_nodes, edges, visited))
+                .collect(),
+        }
+    }
+
+    let roots: Vec<usize> = (0..num_nodes)
+        .filter(|&node| !edges.iter().any(|&(desc, _)| desc == node))
+        .collect();
+
+    let mut visited = HashSet::default();
+    roots
+        .iter()
+        .map(|&root| build_tree(root, num_nodes, edges, &mut visited))
+        .collect()
+}
+
+#[allow(dead_code)]
+fn topological_sort2(num_nodes: usize, edges: &HashSet<(usize, usize)>) -> Vec<TopoNode> {
+    let mut children_map: HashMap<usize, Vec<usize>> = HashMap::default();
+    let mut indegree = vec![0; num_nodes];
+
+    for &(desc, anc) in edges {
+        children_map.entry(anc).or_default().push(desc);
+        indegree[desc] += 1;
+    }
+
+    let mut queue = VecDeque::new();
+    for node in 0..num_nodes {
+        if indegree[node] == 0 {
+            queue.push_back(node);
+        }
+    }
+
+    let mut topo_order = vec![];
+    while let Some(node) = queue.pop_front() {
+        topo_order.push(node);
+        for &child in children_map.get(&node).unwrap_or(&vec![]) {
+            indegree[child] -= 1;
+            if indegree[child] == 0 {
+                queue.push_back(child);
+            }
+        }
+    }
+
+    let mut built_nodes: HashMap<usize, TopoNode> = HashMap::default();
+    for &node in topo_order.iter().rev() {
+        let children = children_map
+            .get(&node)
+            .unwrap_or(&vec![])
+            .iter()
+            .filter_map(|child| built_nodes.remove(child))
+            .collect();
+        built_nodes.insert(
+            node,
+            TopoNode {
+                value: node,
+                children,
+            },
+        );
+    }
+
+    topo_order
+        .iter()
+        .filter(|&&n| edges.iter().all(|&(desc, _)| desc != n))
+        .filter_map(|root| built_nodes.remove(root))
+        .collect()
 }
 
 impl SlicedBiasComputer {
@@ -48,61 +270,35 @@ impl SlicedBiasComputer {
     }
 
     pub fn new(tok_env: &TokEnv, regexes: &[String]) -> Result<Self> {
-        let mut slices = vec![];
-
-        let trie = tok_env.tok_trie();
-        let n_vocab = trie.vocab_size() as TokenId;
-        let mut covered = trie.alloc_token_set();
+        let slice_regexes = regexes.to_vec();
         let mut regexes = regexes.to_vec();
-        if !regexes.is_empty() {
-            regexes.push("".to_string()); // catch-all
-        }
+        regexes.push("".to_string());
 
-        for (idx, rx_str) in regexes.into_iter().enumerate() {
-            let mut tokens = vec![];
-            let mut mask = trie.alloc_token_set();
-            if rx_str.is_empty() {
-                for tok_idx in 0..n_vocab {
-                    if covered.is_allowed(tok_idx) {
-                        tokens.push(vec![]);
-                    } else {
-                        let b = trie.token(tok_idx);
-                        tokens.push(b.to_vec());
-                        mask.allow_token(tok_idx);
+        let roots = {
+            let mut edges = HashSet::default();
+            let max_fuel = 100_000;
+            let mut builder = RegexBuilder::new();
+            for i in 0..regexes.len() {
+                for j in 0..regexes.len() {
+                    if i != j
+                        && (regexes[j].is_empty()
+                            || builder.is_contained_in(&regexes[i], &regexes[j], max_fuel)?)
+                    {
+                        edges.insert((i, j));
+                        // println!("edge {} {:?} ⊆ {} {:?}", i, regexes[i], j, regexes[j]);
                     }
                 }
-            } else {
-                let mut rx = Regex::new(&rx_str)
-                    .map_err(|e| anyhow::anyhow!("invalid regex: {:?}: {}", rx_str, e))?;
-                for tok_idx in 0..n_vocab {
-                    let b = trie.token(tok_idx);
-                    if b.is_empty() {
-                        tokens.push(vec![]);
-                    } else if rx.is_match_bytes(b) && !covered.is_allowed(tok_idx) {
-                        covered.allow_token(tok_idx);
-                        mask.allow_token(tok_idx);
-                        tokens.push(b.to_vec());
-                    } else {
-                        tokens.push(vec![]);
-                    }
-                }
-                mask.trim_trailing_zeros();
             }
+            topological_sort(regexes.len(), &edges)
+        };
+        ensure!(roots.len() == 1, "expected only one top-slice");
 
-            let entry = TokenizerSlice {
-                idx,
-                regex: rx_str,
-                trie: TokTrie::from(trie.info(), &tokens),
-                mask,
-            };
-
-            slices.push(entry);
-        }
+        let root = TokenizerSlice::from_topo_node(&roots[0], tok_env.tok_trie(), &regexes)?;
 
         let r = SlicedBiasComputer {
-            slices: Arc::new(slices),
-            wildcard_slice: trie.clone(),
+            top_slice: Arc::new(root),
             tok_env: tok_env.clone(),
+            slice_regexes,
         };
 
         debug!("slicer:\n{}", r.stats(false));
@@ -113,33 +309,38 @@ impl SlicedBiasComputer {
     pub fn stats(&self, include_tokens: bool) -> String {
         let mut total_nodes = 0;
         let mut s = String::new();
-        for (i, slice) in self.slices.iter().enumerate() {
-            total_nodes += slice.trie.root().subtree_size();
+        let mut todo = vec![self.top_slice.as_ref()];
+
+        while let Some(slice) = todo.pop() {
+            let trie = &slice.trie_without_children;
+            total_nodes += trie.root().subtree_size();
             s.push_str(&format!(
-                "slice{}: /{}/ -> {}\n",
-                i,
+                "slice{}: ch:{:?} /{}/ -> {}\n",
+                slice.idx,
+                slice.subslices.iter().map(|s| s.idx).collect::<Vec<_>>(),
                 slice.regex,
-                slice.trie.trie_stats()
+                trie.trie_stats()
             ));
             if include_tokens {
-                for (tok_idx, b) in slice.trie.sorted_tokens() {
+                for (tok_idx, b) in trie.sorted_tokens() {
                     if !b.is_empty() {
-                        s.push_str(&format!(
-                            "  tok{}-> {}\n",
-                            tok_idx,
-                            slice.trie.token_dbg(tok_idx)
-                        ));
+                        s.push_str(&format!("  tok{}-> {}\n", tok_idx, trie.token_dbg(tok_idx)));
                     }
                 }
             }
+            todo.extend(slice.subslices.iter());
         }
+
         s.push_str(&format!("total_nodes: {}\n", total_nodes));
-        s.push_str(&format!("WILDCARD: {}\n", self.wildcard_slice.trie_stats()));
+        s.push_str(&format!(
+            "WILDCARD: {}\n",
+            self.top_slice.trie_with_children.trie_stats()
+        ));
         s
     }
 
     pub fn extra_lexemes(&self) -> Vec<String> {
-        self.slices.iter().map(|s| s.regex.clone()).collect()
+        self.slice_regexes.clone()
     }
 }
 
@@ -147,56 +348,17 @@ impl BiasComputer for SlicedBiasComputer {
     fn compute_bias(&self, rec: &mut ParserRecognizer<'_>, start: &[u8]) -> SimpleVob {
         let mut set = self.trie().alloc_token_set();
         let lexer_state = rec.lexer_state();
-        if self.slices.len() > 0
+        if !self.top_slice.subslices.is_empty()
             && start.is_empty()
             && rec.lexer_mut().subsume_possible(lexer_state)
+            && self.top_slice.apply(rec, &mut set)
         {
-            // set to at least 500
-            let budget = 1000;
-            let slice_matches = self
-                .slices
-                .iter()
-                .map(|slice| {
-                    !slice.regex.is_empty()
-                        && rec
-                            .lexer_mut()
-                            .check_subsume(lexer_state, slice.idx, budget)
-                            .unwrap_or(false)
-                })
-                .collect::<Vec<bool>>();
-
-            if slice_matches.iter().all(|&x| !x) {
-                // if nothing matches, just run the full trie
-                self.wildcard_slice.add_bias(rec, &mut set, start);
-                debug!("no slice matches; {} tokens", set.num_set());
-            } else {
-                // otherwise, apply the matching slices, and compute the rest
-                for (i, slice) in self.slices.iter().enumerate() {
-                    if slice_matches[i] {
-                        rec.stats_mut().slices_applied += 1;
-                        set.or(&slice.mask);
-                    } else {
-                        // assert!(slice.regex == "");
-                        let c0 = if DEBUG { set.num_set() } else { 0 };
-                        let t0 = crate::Instant::now();
-                        slice.trie.add_bias(rec, &mut set, start);
-                        let us = t0.elapsed().as_micros() as usize;
-                        rec.metrics_mut().slicer_leftover_us += us;
-                        debug!("slice matches #{}; {} tokens", i, set.num_set() - c0);
-                        // if slice.regex != "" && set.num_set() > 120_000 {
-                        //     if rec.metrics_mut().rand.one_in(500) {
-                        //         let pos = rec.lexer().possible_lexemes(lexer_state);
-                        //         let spec = rec.lexer().lexer_spec();
-                        //         let msg = format!("{}", spec.dbg_lexeme_set_ext(&pos));
-                        //         println!("{}", msg);
-                        //         rec.metrics_mut().message = msg;
-                        //     }
-                        // }
-                    }
-                }
-            }
+            // OK! applied
         } else {
-            self.wildcard_slice.add_bias(rec, &mut set, start);
+            // if not top-level applied, or cannot apply, do it by hand
+            self.top_slice
+                .trie_with_children
+                .add_bias(rec, &mut set, start);
             debug!("slicer disabled; {} tokens", set.num_set());
         }
 

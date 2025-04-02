@@ -184,6 +184,19 @@ impl TokTrie {
         r
     }
 
+    pub fn filter(&self, filter: &SimpleVob) -> Self {
+        let mut words = vec![];
+        for n in 0..(self.vocab_size() as TokenId) {
+            let b = if filter.is_allowed(n) {
+                self.token(n)
+            } else {
+                &[]
+            };
+            words.push(b.to_vec());
+        }
+        Self::from(self.info(), &words)
+    }
+
     pub fn with_eos_token(&self, eos_token: TokenId) -> Self {
         self.with_info(TokRxInfo {
             tok_eos: eos_token,
