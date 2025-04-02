@@ -37,6 +37,14 @@ impl ParserFactory {
         })
     }
 
+    pub fn new_simple(tok_env: &TokEnv) -> Result<Self> {
+        Self::new(
+            tok_env,
+            InferenceCapabilities::default(),
+            &SlicedBiasComputer::general_slices(),
+        )
+    }
+
     pub fn with_slices(&self, slices: &[String]) -> Result<Self> {
         let slicer = Arc::new(SlicedBiasComputer::new(&self.tok_env, slices)?);
         Ok(ParserFactory {
@@ -86,7 +94,14 @@ impl ParserFactory {
         self.slicer.clone()
     }
 
-    pub fn post_process_parser(&self, parser: &mut TokenParser) {
+    pub(crate) fn next_rng(&self) -> XorShift {
+        let mut rng = self.seed.lock().unwrap();
+        rng.next_alt();
+        rng.clone()
+    }
+
+    #[allow(dead_code)]
+    fn post_process_parser(&self, parser: &mut TokenParser) {
         if false {
             // this only reduces the nodes walked by about 20%, but is quite
             // expensive to compute
@@ -103,32 +118,21 @@ impl ParserFactory {
     }
 
     pub fn create_parser(&self, grammar: TopLevelGrammar) -> Result<TokenParser> {
-        self.create_parser_ext2(grammar, self.buffer_log_level, self.stderr_log_level)
-    }
-
-    pub fn create_parser_ext(
-        &self,
-        grammar: TopLevelGrammar,
-        buffer_log_level: u32,
-    ) -> Result<TokenParser> {
-        self.create_parser_ext2(grammar, buffer_log_level, self.stderr_log_level)
-    }
-
-    pub fn create_parser_ext2(
-        &self,
-        grammar: TopLevelGrammar,
-        buffer_log_level: u32,
-        stderr_log_level: u32,
-    ) -> Result<TokenParser> {
-        self.create_parser_from_init(
-            GrammarInit::Serialized(grammar),
-            buffer_log_level,
-            stderr_log_level,
-        )
+        self.create_parser_from_init_default(GrammarInit::Serialized(grammar))
     }
 
     pub fn create_parser_from_init_default(&self, init: GrammarInit) -> Result<TokenParser> {
         self.create_parser_from_init(init, self.buffer_log_level, self.stderr_log_level)
+    }
+
+    pub fn create_parser_from_init_ext(
+        &self,
+        grammar_init: GrammarInit,
+        logger: Logger,
+        inference_caps: InferenceCapabilities,
+        limits: ParserLimits,
+    ) -> Result<TokenParser> {
+        TokenParser::from_init(self, grammar_init, logger, inference_caps, limits)
     }
 
     pub fn create_parser_from_init(
@@ -137,15 +141,11 @@ impl ParserFactory {
         buffer_log_level: u32,
         stderr_log_level: u32,
     ) -> Result<TokenParser> {
-        let mut parser = TokenParser::from_init(
-            self.tok_env.clone(),
+        self.create_parser_from_init_ext(
             init,
             Logger::new(buffer_log_level, stderr_log_level),
             self.inference_caps.clone(),
             self.limits.clone(),
-            self.extra_lexemes(),
-        )?;
-        self.post_process_parser(&mut parser);
-        Ok(parser)
+        )
     }
 }

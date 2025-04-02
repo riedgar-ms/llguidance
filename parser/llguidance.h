@@ -219,6 +219,12 @@ typedef struct LlgTokenizerInit {
    * User data to pass to the tokenize_fn
    */
   const void *tokenize_user_data;
+  /**
+   * Tokenizer partitions for the slicer optimization.
+   * This is array of pointers to strings, terminated with NULL (argv style).
+   * Pass NULL to use defaults. Pass empty array to disable.
+   */
+  const char *const *slices;
 } LlgTokenizerInit;
 
 

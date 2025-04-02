@@ -1,14 +1,17 @@
 use anyhow::Result;
 use llguidance::{
-    api::TopLevelGrammar, earley::XorShift, substring::chunk_into_words, toktrie::bytes::limit_str,
+    api::{GrammarInit, TopLevelGrammar},
+    earley::XorShift,
+    substring::chunk_into_words,
+    toktrie::bytes::limit_str,
     TokenParser,
 };
 use sample_parser::*;
 
 fn make_parser(lark: &str, quiet: bool) -> Result<TokenParser> {
     let grm = TopLevelGrammar::from_lark(lark.to_string());
-    let mut parser = get_parser_factory().create_parser_ext2(
-        grm,
+    let mut parser = get_parser_factory().create_parser_from_init(
+        GrammarInit::Serialized(grm),
         if quiet { 0 } else { 2 },
         if quiet { 1 } else { 2 },
     )?;

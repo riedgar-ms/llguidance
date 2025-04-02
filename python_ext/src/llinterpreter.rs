@@ -1,9 +1,9 @@
 use std::borrow::Cow;
 use std::fmt::Display;
 
-use llguidance::api::ParserLimits;
+use llguidance::api::{GrammarInit, ParserLimits};
 use llguidance::toktrie::{InferenceCapabilities, TokenId};
-use llguidance::{api::TopLevelGrammar, output::ParserOutput, TokenParser};
+use llguidance::{api::TopLevelGrammar, output::ParserOutput};
 use llguidance::{Constraint, Logger};
 use pyo3::types::PyByteArray;
 use pyo3::{exceptions::PyValueError, prelude::*};
@@ -66,16 +66,14 @@ impl LLInterpreter {
             fork: false,
         };
         let logger = Logger::new(0, std::cmp::max(0, log_level) as u32);
-        let mut inner = TokenParser::from_grammar(
-            fact.tok_env().clone(),
-            arg,
-            logger,
-            inference_caps,
-            ParserLimits::default(),
-            fact.extra_lexemes(),
-        )
-        .map_err(val_error)?;
-        fact.post_process_parser(&mut inner);
+        let inner = fact
+            .create_parser_from_init_ext(
+                GrammarInit::Serialized(arg),
+                logger,
+                inference_caps,
+                ParserLimits::default(),
+            )
+            .map_err(val_error)?;
         let inner = Constraint::new(inner);
         Ok(LLInterpreter { inner, log_level })
     }

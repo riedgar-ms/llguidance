@@ -161,6 +161,10 @@ impl ApproximateTokEnv {
         r.canonical = true;
         r
     }
+
+    pub fn single_byte_env() -> TokEnv {
+        Arc::new(Self::single_byte())
+    }
 }
 
 impl TokenizerEnv for ApproximateTokEnv {

@@ -1,7 +1,7 @@
 use anyhow::{anyhow, ensure, Result};
 use toktrie::{SimpleVob, TokEnv, TokenId};
 
-use crate::{api::StopReason, panic_utils, TokenParser};
+use crate::{api::StopReason, earley::ParserStats, panic_utils, TokenParser};
 
 #[derive(Clone)]
 struct MatcherInner {
@@ -81,6 +81,10 @@ impl Matcher {
         })
     }
 
+    pub fn consume_token(&mut self, token: TokenId) -> Result<()> {
+        self.consume_tokens(&[token])
+    }
+
     pub fn rollback(&mut self, num_tokens: usize) -> Result<()> {
         self.with_inner(|inner| inner.parser.rollback(num_tokens))
     }
@@ -134,6 +138,14 @@ impl Matcher {
             .unwrap_or_else(|_| vec![])
     }
 
+    pub fn consume_ff_tokens(&mut self) -> Vec<TokenId> {
+        let toks = self.compute_ff_tokens();
+        if !toks.is_empty() {
+            let _ = self.consume_tokens(&toks);
+        }
+        toks
+    }
+
     /// Return any bytes that are forced by the current parser state.
     /// This also works for non-canonical tokenizers.
     pub fn compute_ff_bytes(&mut self) -> Vec<u8> {
@@ -177,6 +189,13 @@ impl Matcher {
     pub fn tok_env(&self) -> Result<TokEnv> {
         match &self.0 {
             MatcherState::Normal(inner) => Ok(inner.parser.token_env.clone()),
+            MatcherState::Error(e) => Err(anyhow!("{}", e)),
+        }
+    }
+
+    pub fn last_step_stats(&self) -> Result<&ParserStats> {
+        match &self.0 {
+            MatcherState::Normal(inner) => Ok(inner.parser.last_step_stats()),
             MatcherState::Error(e) => Err(anyhow!("{}", e)),
         }
     }

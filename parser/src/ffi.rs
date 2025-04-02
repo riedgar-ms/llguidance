@@ -5,10 +5,13 @@ use std::{
 };
 
 use anyhow::{bail, ensure, Result};
-use toktrie::{InferenceCapabilities, SimpleVob, TokEnv, TokRxInfo, TokTrie, TokenizerEnv};
+use toktrie::{
+    ApproximateTokEnv, InferenceCapabilities, SimpleVob, TokEnv, TokRxInfo, TokTrie, TokenizerEnv,
+};
 
 use crate::{
-    api::{ParserLimits, TopLevelGrammar},
+    api::{GrammarInit, ParserLimits, TopLevelGrammar},
+    earley::SlicedBiasComputer,
     CommitResult, Constraint, Logger, Matcher, ParserFactory, StopController, TokenParser,
 };
 
@@ -74,7 +77,7 @@ impl TokenizerEnv for CTokenizerInner {
 
 #[derive(Clone)]
 pub struct LlgTokenizer {
-    pub token_env: TokEnv,
+    factory: Arc<ParserFactory>,
 }
 
 unsafe fn slice_from_ptr<'a, T>(data: *const T, len: usize) -> Result<&'a [T]> {
@@ -133,18 +136,47 @@ impl LlgTokenizer {
 
         let trie = TokTrie::from(&TokRxInfo::new(tokens.len() as u32, init.tok_eos), &tokens);
 
+        let tok_env: TokEnv = Arc::new(CTokenizerInner {
+            trie,
+            tokenize_assumes_string: init.tokenize_assumes_string && init.tokenize_fn.is_some(),
+            tokenize_fn: init.tokenize_fn,
+            tokenize_user_data: init.tokenize_user_data,
+        });
+
+        let slices = if init.slices.is_null() {
+            SlicedBiasComputer::general_slices()
+        } else {
+            let mut slices = vec![];
+            let mut idx = 0;
+            loop {
+                let p = unsafe { *init.slices.add(idx) };
+                if p.is_null() {
+                    break;
+                }
+                let s = unsafe { c_str_to_str(p, "slice") }?;
+                slices.push(s.to_string());
+                idx += 1;
+            }
+            slices
+        };
+
+        let factory = ParserFactory::new(&tok_env, InferenceCapabilities::default(), &slices)?;
+
         Ok(LlgTokenizer {
-            token_env: Arc::new(CTokenizerInner {
-                trie,
-                tokenize_assumes_string: init.tokenize_assumes_string && init.tokenize_fn.is_some(),
-                tokenize_fn: init.tokenize_fn,
-                tokenize_user_data: init.tokenize_user_data,
-            }),
+            factory: Arc::new(factory),
         })
     }
 
     fn to_env(&self) -> TokEnv {
-        self.token_env.clone()
+        self.factory.tok_env().clone()
+    }
+
+    fn tok_env(&self) -> &TokEnv {
+        self.factory.tok_env()
+    }
+
+    fn tok_trie(&self) -> &TokTrie {
+        self.factory.tok_env().tok_trie()
     }
 }
 
@@ -205,6 +237,11 @@ pub struct LlgTokenizerInit {
 
     /// User data to pass to the tokenize_fn
     pub tokenize_user_data: *const c_void,
+
+    /// Tokenizer partitions for the slicer optimization.
+    /// This is array of pointers to strings, terminated with NULL (argv style).
+    /// Pass NULL to use defaults. Pass empty array to disable.
+    pub slices: *const *const c_char,
 }
 
 #[derive(Clone)]
@@ -242,41 +279,25 @@ impl LlgConstraintInit {
         }
     }
 
-    pub fn tok_env(&self) -> Result<TokEnv> {
+    pub fn factory(&self) -> Result<&ParserFactory> {
         if self.tokenizer.is_null() {
             bail!("Tokenizer is null");
         }
         // SAFETY: the C caller needs to ensure that the tokenizer remains valid
-        Ok(unsafe { (*self.tokenizer).to_env() })
+        Ok(unsafe { &(*self.tokenizer).factory })
     }
 
-    pub fn build_parser(
-        &self,
-        grammar: TopLevelGrammar,
-        extra_lexemes: Vec<String>,
-    ) -> Result<TokenParser> {
-        TokenParser::from_grammar(
-            self.tok_env()?,
-            grammar,
+    pub fn build_parser(&self, grammar: TopLevelGrammar) -> Result<TokenParser> {
+        self.factory()?.create_parser_from_init_ext(
+            GrammarInit::Serialized(grammar),
             self.logger(),
             self.inference_capabilities(),
             self.limits.clone(),
-            extra_lexemes,
         )
     }
 
-    pub fn build_parser_from_factory(
-        &self,
-        factory: &ParserFactory,
-        grammar: TopLevelGrammar,
-    ) -> Result<TokenParser> {
-        let mut parser = self.build_parser(grammar, factory.extra_lexemes())?;
-        factory.post_process_parser(&mut parser);
-        Ok(parser)
-    }
-
     pub fn build_constraint(&self, grammar: TopLevelGrammar) -> Result<Constraint> {
-        let parser = self.build_parser(grammar, vec![])?;
+        let parser = self.build_parser(grammar)?;
         Ok(Constraint::new(parser))
     }
 }
@@ -639,9 +660,7 @@ pub extern "C" fn llg_new_tokenizer(
 /// This increments a reference count and does a small allocation.
 #[no_mangle]
 pub extern "C" fn llg_clone_tokenizer(tok: &LlgTokenizer) -> *mut LlgTokenizer {
-    Box::into_raw(Box::new(LlgTokenizer {
-        token_env: tok.token_env.clone(),
-    }))
+    Box::into_raw(Box::new(tok.clone()))
 }
 
 /// Tokenize the given bytes and return the tokens.
@@ -658,7 +677,7 @@ pub unsafe extern "C" fn llg_tokenize_bytes(
     output_tokens_len: usize,
 ) -> usize {
     let tokens = tok
-        .token_env
+        .tok_env()
         .tokenize_bytes(unsafe { slice_from_ptr_or_empty(bytes, bytes_len) });
     let n_toks = tokens.len();
     if output_tokens.is_null() {
@@ -687,7 +706,7 @@ pub unsafe extern "C" fn llg_tokenize_bytes_marker(
     output_tokens_len: usize,
 ) -> usize {
     let tokens = tok
-        .token_env
+        .tok_env()
         .tokenize_bytes_marker(unsafe { slice_from_ptr_or_empty(bytes, bytes_len) })
         .0;
     let n_toks = tokens.len();
@@ -715,7 +734,7 @@ pub unsafe extern "C" fn llg_stringify_tokens(
     output: *mut c_char,
     output_len: usize,
 ) -> usize {
-    let trie = tok.token_env.tok_trie();
+    let trie = tok.tok_trie();
     let tokens = unsafe { slice_from_ptr_or_empty(tokens, n_tokens) };
     let s = trie.tokens_dbg(tokens);
     let s = s.as_bytes();
@@ -756,7 +775,7 @@ pub unsafe extern "C" fn llg_decode_tokens(
     output_len: usize,
     flags: u32,
 ) -> usize {
-    let trie = tok.token_env.tok_trie();
+    let trie = tok.tok_trie();
     let tokens = { slice_from_ptr_or_empty(tokens, n_tokens) };
     let s = trie.decode_ext(tokens, flags & LLG_DECODE_INCLUDE_SPECIAL != 0);
     let s = if flags & LLG_DECODE_VALID_UTF8 != 0 {
@@ -824,12 +843,7 @@ fn build_stop_controller(
     } else {
         Some(unsafe { c_str_to_str(stop_rx, "stop_rx") }?.to_string())
     };
-    StopController::new(
-        tokenizer.token_env.clone(),
-        stop_tokens.to_vec(),
-        stop_rx,
-        vec![],
-    )
+    StopController::new(tokenizer.to_env(), stop_tokens.to_vec(), stop_rx, vec![])
 }
 
 fn save_error_string(e: impl Display, error_string: *mut c_char, error_string_len: usize) {
@@ -943,18 +957,22 @@ pub unsafe extern "C" fn llg_new_matcher(
     constraint_type: *const c_char,
     data: *const c_char,
 ) -> *mut LlgMatcher {
+    let tok_env = init.factory().map_or_else(
+        |_| ApproximateTokEnv::single_byte_env(),
+        |f| f.tok_env().clone(),
+    );
     let parser = || {
         let tp = unsafe { c_str_to_str(constraint_type, "constraint_type") }?;
         let data = unsafe { c_str_to_str(data, "data") }?;
         let grammar = TopLevelGrammar::from_tagged_str(tp, data)?;
-        init.build_parser(grammar, vec![])
+        init.build_parser(grammar)
     };
     let matcher = Matcher::new(parser());
     Box::into_raw(Box::new(LlgMatcher {
         matcher,
         last_error: None,
         saved_mask: None,
-        tok_env: init.tok_env().unwrap(),
+        tok_env,
     }))
 }
 
@@ -1029,7 +1047,7 @@ pub extern "C" fn llg_matcher_get_mask_byte_size(matcher: &mut LlgMatcher) -> us
 pub extern "C" fn llg_matcher_consume_token(matcher: &mut LlgMatcher, token: u32) -> i32 {
     matcher.clear_mask();
     matcher.wrap(|m| {
-        m.consume_tokens(&[token])?;
+        m.consume_token(token)?;
         Ok(0)
     })
 }

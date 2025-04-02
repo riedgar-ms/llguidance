@@ -1,12 +1,7 @@
 use clap::Parser;
-use std::{fs::File, hint::black_box, io::Read, vec};
+use std::{fs::File, io::Read, sync::Arc, vec};
 
-use llguidance::{
-    api::{ParserLimits, TopLevelGrammar},
-    earley::{SlicedBiasComputer, XorShift},
-    toktrie::{InferenceCapabilities, TokEnv},
-    Constraint, TokenParser,
-};
+use llguidance::{api::TopLevelGrammar, earley::XorShift, toktrie::TokEnv, Matcher, ParserFactory};
 use serde_json::json;
 
 fn dump_tokenizer(name: &str) {
@@ -108,42 +103,21 @@ fn main() {
     // see the ByteTokenizerEnv for an example
     let tok_env: TokEnv = toktrie_hf_downloader::tok_env_from_name(&opts.tokenizer).unwrap();
 
-    // set to 2 for more output; 1 is warnings only
-    let stderr_log_level = opts.log_level;
+    let mut factory = ParserFactory::new_simple(&tok_env).unwrap();
 
-    // typically set to 2, to send info-level output to the user
-    let buffer_log_level = 2;
+    factory.set_stderr_log_level(opts.log_level);
+
+    factory.limits_mut().initial_lexer_fuel *= opts.lexer_limit as u64;
+    factory.limits_mut().step_lexer_fuel *= opts.lexer_limit as u64;
+
+    let factory = Arc::new(factory);
 
     let mut t0 = std::time::Instant::now();
 
-    let mut limits = ParserLimits::default();
-    limits.initial_lexer_fuel *= opts.lexer_limit as u64;
-    limits.step_lexer_fuel *= opts.lexer_limit as u64;
-
-    let infer_caps = InferenceCapabilities {
-        ff_tokens: true,  // can the engine append multiple tokens?
-        backtrack: false, // can the engine remove generated tokens?
-
-        conditional_ff_tokens: false, // not used
-        fork: false,                  // not used
-    };
-
-    let parser = TokenParser::from_grammar(
-        tok_env.clone(),
-        grammar.clone(),
-        llguidance::Logger::new(buffer_log_level, stderr_log_level),
-        infer_caps.clone(),
-        limits.clone(),
-        SlicedBiasComputer::general_slices(),
-    )
-    .unwrap();
-    let mut constraint = Constraint::new(parser);
-
-    // enable sending parser results back via the logs (constraint.flush_logs())
-    constraint.log_json_progress = true;
+    let parser = factory.create_parser(grammar.clone());
+    let mut constraint = Matcher::new(parser);
 
     if opts.input.is_none() && opts.rnd.is_none() {
-        constraint.start_without_prompt();
         let _ = constraint.compute_mask().unwrap();
         return;
     }
@@ -151,7 +125,6 @@ fn main() {
     if let Some(max_tokens) = opts.rnd {
         let mut ttfm = vec![];
         for rep in 0..opts.repeat {
-            constraint.start_without_prompt();
             let mut rng = XorShift::new(opts.seed);
             let mut tokens = vec![];
             let mut lens = vec![];
@@ -160,22 +133,23 @@ fn main() {
             let mut times = vec![prev_time.duration_since(t0).as_micros() as u64];
             ttfm.push(times[0]);
             for _ in 0..max_tokens {
-                let r = constraint.compute_mask().unwrap();
+                let mask = constraint.compute_mask().unwrap();
                 times.push(prev_time.elapsed().as_micros() as u64);
                 prev_time = std::time::Instant::now();
-                if r.is_stop() {
+                if constraint.is_stopped() {
                     break;
                 }
-                let mut v = r.sample_mask.clone().unwrap();
+                let mut v = mask.clone();
                 // mostly disallow eos to make it run longer
                 if !rng.one_in(5) {
                     v.disallow_token(trie.eos_token());
                 }
                 let t = rng.sample_from_vob(&v);
-                let r = constraint.commit_token(Some(t)).unwrap();
-                assert_eq!(r.backtrack, 0);
-                tokens.extend_from_slice(&r.ff_tokens);
-                lens.push(r.ff_tokens.len());
+                constraint.consume_token(t).unwrap();
+                tokens.push(t);
+                let ff = constraint.consume_ff_tokens();
+                tokens.extend_from_slice(&ff);
+                lens.push(ff.len());
             }
             if opts.repeat == 1 {
                 eprintln!("Lens: {:?}", lens);
@@ -187,16 +161,7 @@ fn main() {
             }
 
             t0 = std::time::Instant::now();
-            let parser = TokenParser::from_grammar(
-                tok_env.clone(),
-                grammar.clone(),
-                llguidance::Logger::new(buffer_log_level, stderr_log_level),
-                infer_caps.clone(),
-                limits.clone(),
-                SlicedBiasComputer::general_slices(),
-            )
-            .unwrap();
-            constraint = Constraint::new(parser);
+            constraint = Matcher::new(factory.create_parser(grammar.clone()));
         }
         ttfm.sort();
         eprintln!("Min ttfm: {:?}", ttfm[0]);
@@ -215,85 +180,69 @@ fn main() {
 
     let mut idx = 0;
     while idx < tokens.len() {
-        let res = constraint.compute_mask().unwrap();
+        let mask = constraint.compute_mask().unwrap();
 
-        if res.is_stop() {
+        if constraint.is_stopped() {
             // stop sequence
             break;
         }
 
-        let mut is_allowed = true;
+        // Simulate sampling - it should use the mask and temperature
+        let sampled_token = tokens[idx];
 
-        let sampled_token = if let Some(mask) = &res.sample_mask {
-            // Simulate sampling - it should use the mask and temperature
-            let sampled_token = tokens[idx];
-            is_allowed = mask.is_allowed(sampled_token);
-            black_box(mask);
-            black_box(constraint.temperature);
+        let is_allowed = mask.is_allowed(sampled_token);
 
-            let p_stats = constraint.parser.last_step_stats();
-            if opts.verbose {
-                println!(
-                    "SAMPLE {}: {} {}; stats: {} lex, {} items, {} us",
-                    idx,
-                    sampled_token,
-                    tok_env.tok_trie().token_dbg(sampled_token),
-                    p_stats.lexer_cost,
-                    p_stats.all_items,
-                    p_stats.compute_time_us,
-                );
-            }
-            Some(sampled_token)
-        } else {
-            // sampling not required
-            if opts.verbose {
-                println!("NO SAMPLE {}", idx);
-            }
-            None
-        };
+        let p_stats = constraint.last_step_stats().unwrap();
+        if opts.verbose {
+            println!(
+                "SAMPLE {}: {} {}; stats: {} lex, {} items, {} us",
+                idx,
+                sampled_token,
+                tok_env.tok_trie().token_dbg(sampled_token),
+                p_stats.lexer_cost,
+                p_stats.all_items,
+                p_stats.compute_time_us,
+            );
+        }
 
         // run commit_token() before checking the mask - it produces more diagnostics that way
-        let splice = constraint.commit_token(sampled_token).unwrap();
+        constraint.consume_token(sampled_token).unwrap();
 
         if !is_allowed {
             panic!("Sampled token was not allowed by the mask");
         }
 
-        if splice.stop {
+        if constraint.is_stopped() {
             // stop sequence
             break;
         }
 
-        assert!(splice.backtrack == 0); // we didn't allow backtracking in InferenceCaps
+        idx += 1;
+
+        let splice = constraint.compute_ff_tokens();
 
         // The splice contains the tokens (possibly more than one since we enabled ff_tokens
         // in InferenceCaps) that the parser wants to append to the output.
 
         // if this fails, our test data is broken
-        if tokens[idx..idx + splice.ff_tokens.len()] != splice.ff_tokens {
+        if tokens[idx..idx + splice.len()] != splice {
             panic!(
                 "BAD TEST: ff_tokens mismatch:\n{}\n{}",
-                trie.tokens_dbg(&tokens[idx..idx + splice.ff_tokens.len()]),
-                trie.tokens_dbg(&splice.ff_tokens)
+                trie.tokens_dbg(&tokens[idx..idx + splice.len()]),
+                trie.tokens_dbg(&splice)
             );
         }
 
-        if splice.ff_tokens.len() > 1 && opts.verbose {
-            println!("FF: {}", trie.tokens_dbg(&splice.ff_tokens));
+        if splice.len() > 1 && opts.verbose {
+            println!("FF: {}", trie.tokens_dbg(&splice));
         }
 
-        idx += splice.ff_tokens.len();
-
-        // send output to the user
-        send_output(&constraint.flush_logs());
+        constraint.consume_tokens(&splice).unwrap();
+        idx += splice.len();
     }
 
-    // flush any output
-    send_output(&constraint.flush_logs());
     // the stop reason should be likely also sent to the user
-    println!("Stop reason: {:?}", constraint.parser.stop_reason());
-
-    println!("Max step stats: {:?}", constraint.parser.max_step_stats());
+    println!("Stop reason: {:?}", constraint.stop_reason());
 }
 
 fn read_file_to_string(filename: &str) -> String {
@@ -302,11 +251,4 @@ fn read_file_to_string(filename: &str) -> String {
     file.read_to_string(&mut content)
         .expect("Unable to read file");
     content
-}
-
-fn send_output(user_output: &str) {
-    // enable if you want to see the output
-    if false {
-        println!("{}", user_output);
-    }
 }

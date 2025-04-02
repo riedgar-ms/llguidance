@@ -2464,28 +2464,6 @@ pub trait BiasComputer: Send + Sync {
     fn trie(&self) -> &TokTrie;
 }
 
-pub struct DefaultBiasComputer {
-    tok_env: TokEnv,
-}
-
-impl DefaultBiasComputer {
-    pub fn new(tok_env: TokEnv) -> Self {
-        DefaultBiasComputer { tok_env }
-    }
-}
-
-impl BiasComputer for DefaultBiasComputer {
-    fn compute_bias(&self, rec: &mut ParserRecognizer<'_>, start: &[u8]) -> SimpleVob {
-        let mut set = self.trie().alloc_token_set();
-        self.trie().add_bias(rec, &mut set, start);
-        set
-    }
-
-    fn trie(&self) -> &TokTrie {
-        self.tok_env.tok_trie()
-    }
-}
-
 // Processing of the parser and the lexer is heavily interlocked.
 // The 'Recognizer' trait is used as the interface for this.
 // See the documentation for TokTrie in README.md and toktrie.md:

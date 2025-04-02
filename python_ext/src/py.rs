@@ -46,8 +46,7 @@ impl LLTokenizer {
     ) -> PyResult<Self> {
         let tok_env: TokEnv = if let Ok(tokenizer_str) = tokenizer.extract::<String>() {
             if tokenizer_str == "byte" {
-                let tok = ApproximateTokEnv::single_byte();
-                Arc::new(tok)
+                ApproximateTokEnv::single_byte_env()
             } else {
                 let mut tok = if tokenizer_str.starts_with("{") {
                     ByteTokenizer::from_json_bytes(tokenizer_str.as_bytes()).map_err(val_error)?

@@ -1,9 +1,9 @@
 use std::{hint::black_box, panic::AssertUnwindSafe, sync::Arc, time::Duration};
 
 use crate::{
-    api::{GrammarInit, ParserLimits, StopReason, TopLevelGrammar},
-    earley::{BiasComputer, DefaultBiasComputer, Parser, ParserError, ParserStats},
-    infoln, panic_utils, warn, Instant, Logger,
+    api::{GrammarInit, ParserLimits, StopReason},
+    earley::{BiasComputer, Parser, ParserError, ParserStats},
+    infoln, panic_utils, warn, Instant, Logger, ParserFactory,
 };
 use anyhow::{ensure, Result};
 use toktrie::{InferenceCapabilities, SimpleVob, TokEnv, TokenId, INVALID_TOKEN};
@@ -37,52 +37,27 @@ pub struct TokenParser {
 }
 
 impl TokenParser {
-    pub fn from_init(
-        token_env: TokEnv,
+    // use ParserFactory externally
+    pub(crate) fn from_init(
+        factory: &ParserFactory,
         grammar_init: GrammarInit,
         logger: Logger,
         inference_caps: InferenceCapabilities,
         limits: ParserLimits,
-        extra_lexemes: Vec<String>,
     ) -> Result<Self> {
         panic_utils::catch_unwind(AssertUnwindSafe(|| {
-            Self::init_inner(
-                grammar_init,
-                token_env,
-                logger,
-                inference_caps,
-                limits,
-                extra_lexemes,
-            )
+            Self::init_inner(factory, grammar_init, logger, inference_caps, limits)
         }))
     }
 
-    pub fn from_grammar(
-        token_env: TokEnv,
-        top_grammar: TopLevelGrammar,
-        logger: Logger,
-        inference_caps: InferenceCapabilities,
-        limits: ParserLimits,
-        extra_lexemes: Vec<String>,
-    ) -> Result<Self> {
-        Self::from_init(
-            token_env,
-            GrammarInit::Serialized(top_grammar),
-            logger,
-            inference_caps,
-            limits,
-            extra_lexemes,
-        )
-    }
-
     fn init_inner(
+        factory: &ParserFactory,
         grammar_init: GrammarInit,
-        token_env: TokEnv,
         mut logger: Logger,
         inference_caps: InferenceCapabilities,
         limits: ParserLimits,
-        extra_lexemes: Vec<String>,
     ) -> Result<Self> {
+        let token_env = factory.tok_env().clone();
         ensure!(
             token_env.tokenize_is_canonical() || !inference_caps.ff_tokens,
             "ff_tokens requires canonical tokenization"
@@ -103,13 +78,14 @@ impl TokenParser {
             Some(token_env.clone()),
             &mut logger,
             limits.clone(),
-            extra_lexemes,
+            factory.extra_lexemes(),
         )?;
-        let parser = Parser::new(token_env.clone(), compiled_grammar, limits.clone())?;
+        let mut parser = Parser::new(token_env.clone(), compiled_grammar, limits.clone())?;
+        parser.metrics_mut().rand = factory.next_rng();
         let eos_token = token_env.tok_trie().eos_token();
 
         Ok(TokenParser {
-            bias_computer: Arc::new(DefaultBiasComputer::new(token_env.clone())),
+            bias_computer: factory.slicer().clone(),
             logger,
             token_env,
             inference_caps,

@@ -3,9 +3,9 @@ use std::fmt::Display;
 use std::ops::DerefMut;
 
 use anyhow::Result;
+use llguidance::api::TopLevelGrammar;
 use llguidance::api::{GrammarInit, ParserLimits};
 use llguidance::toktrie::{InferenceCapabilities, SimpleVob, TokEnv, TokenId};
-use llguidance::{api::TopLevelGrammar, TokenParser};
 use llguidance::{json_merge, Logger, Matcher, ParserFactory};
 use pyo3::types::{PyList, PyTuple};
 use pyo3::{exceptions::PyValueError, prelude::*};
@@ -149,21 +149,14 @@ fn new_matcher(
     let logger = Logger::new(0, std::cmp::max(0, log_level) as u32);
     // constructing a grammar can take on the order of 100ms
     // for very large grammars, so we drop the GIL here
-    let inner = py
-        .allow_threads(|| {
-            TokenParser::from_grammar(
-                fact.tok_env().clone(),
-                grammar,
-                logger,
-                InferenceCapabilities::default(),
-                ParserLimits::default(),
-                fact.extra_lexemes(),
-            )
-        })
-        .map(|mut r| {
-            fact.post_process_parser(&mut r);
-            r
-        });
+    let inner = py.allow_threads(|| {
+        fact.create_parser_from_init_ext(
+            GrammarInit::Serialized(grammar),
+            logger,
+            InferenceCapabilities::default(),
+            ParserLimits::default(),
+        )
+    });
     Matcher::new(inner)
 }
 
@@ -327,7 +320,7 @@ impl LLMatcher {
         if self.inner.is_stopped() && sampled_token == self.tok_env.tok_trie().eos_token() {
             true
         } else {
-            self.inner.consume_tokens(&[sampled_token]).is_ok()
+            self.inner.consume_token(sampled_token).is_ok()
         }
     }
 

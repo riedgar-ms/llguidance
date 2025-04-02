@@ -11,7 +11,6 @@ pub mod regexvec;
 #[allow(unused_imports)]
 pub use grammar::{CGrammar, CSymIdx, Grammar, SymIdx, SymbolProps};
 pub use parser::{
-    BiasComputer, DefaultBiasComputer, Parser, ParserError, ParserMetrics, ParserRecognizer,
-    ParserStats, XorShift,
+    BiasComputer, Parser, ParserError, ParserMetrics, ParserRecognizer, ParserStats, XorShift,
 };
 pub use slicer::SlicedBiasComputer;
