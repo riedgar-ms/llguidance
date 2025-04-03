@@ -14,19 +14,21 @@ use super::parser::ITEM_TRACE;
 struct TokenizerSlice {
     idx: usize,
     regex: String,
-    trie_with_children: TokTrie,
+    // trie_without_child[child_idx] is a trie for all tokens in this slice, excluding the child
+    trie_without_child: Vec<TokTrie>,
     trie_without_children: TokTrie,
+    trie_with_children: TokTrie,
     mask_with_children: SimpleVob,
     mask_trimmed: SimpleVob,
     // each of these is a subset of the current one
-    subslices: Vec<TokenizerSlice>,
+    children: Vec<TokenizerSlice>,
 }
 
 impl TokenizerSlice {
     fn from_topo_node(node: &TopoNode, trie: &TokTrie, regexes: &[String]) -> Result<Self> {
         let regex = regexes[node.value].clone();
         let n_vocab = trie.vocab_size() as TokenId;
-        let mut subslices = vec![];
+        let mut children = vec![];
 
         let mut mask_with_children = trie.alloc_token_set();
         if regex.is_empty() {
@@ -42,15 +44,22 @@ impl TokenizerSlice {
             }
         }
 
+        let trie_with_children = trie.filter(&mask_with_children);
         let mut mask_without_children = mask_with_children.clone();
+        let mut trie_without_child = vec![];
 
         for c in &node.children {
             let t = TokenizerSlice::from_topo_node(c, trie, regexes)?;
+
+            let mut m = mask_with_children.clone();
+            m.sub(&t.mask_with_children);
+            trie_without_child.push(trie_with_children.filter(&m));
+
             mask_without_children.sub(&t.mask_with_children);
-            subslices.push(t);
+
+            children.push(t);
         }
 
-        let trie_with_children = trie.filter(&mask_with_children);
         let trie_without_children = trie.filter(&mask_without_children);
 
         // we Or this mask with result; it's possible it's quite a bit shorter
@@ -61,11 +70,12 @@ impl TokenizerSlice {
         Ok(TokenizerSlice {
             idx: node.value,
             regex,
-            trie_with_children,
+            trie_without_child,
             trie_without_children,
+            trie_with_children,
             mask_with_children,
             mask_trimmed,
-            subslices,
+            children,
         })
     }
 
@@ -85,20 +95,6 @@ impl TokenizerSlice {
         }
         res
     }
-    /*
-    force = false
-    for idx, c in children:
-        if force:
-            c.apply(force=true)
-        else:
-            if c.apply(force=false):
-                force = true
-                if idx > 0:
-                    for j < idx:
-                        children[j].toktrie_apply()
-    if not force:
-        self.toktrie_apply()
-     */
 
     fn trie_apply(&self, rec: &mut ParserRecognizer<'_>, trg: &mut SimpleVob) {
         let t0 = crate::Instant::now();
@@ -115,33 +111,50 @@ impl TokenizerSlice {
             trg.or(&self.mask_trimmed);
             true
         } else {
-            let mut something_applied = false;
-            for (idx, c) in self.subslices.iter().enumerate() {
+            let mut num_applied = 0;
+            let mut first_applied_idx = None;
+            let mut applied_indices = vec![];
+            for (idx, c) in self.children.iter().enumerate() {
                 if c.apply(rec, trg) {
-                    if !something_applied {
-                        something_applied = true;
-                        for k in 0..idx {
-                            // need to recover state from previous slices
-                            self.subslices[k].trie_apply(rec, trg);
+                    num_applied += 1;
+                    if num_applied == 1 {
+                        first_applied_idx = Some(idx);
+                    } else {
+                        if num_applied == 2 {
+                            // we didn't do this one in the first place (to avoid allocation)
+                            applied_indices.push(first_applied_idx.unwrap());
                         }
-                    }
-                } else {
-                    // we are in a mixed state - need to apply
-                    if something_applied {
-                        c.trie_apply(rec, trg);
+                        applied_indices.push(idx);
                     }
                 }
             }
 
-            if something_applied {
-                // if we applied some subslices, we also need to apply ourselves
-                let t0 = crate::Instant::now();
-                self.trie_without_children.add_bias(rec, trg, &[]);
-                let us = t0.elapsed().as_micros() as usize;
-                rec.metrics_mut().slicer_leftover_us += us;
-            }
+            let to_apply = match num_applied {
+                // no children applied, we leave application to the caller
+                0 => return false,
+                // only one child applied - use the trie built exactly for this purpose
+                1 => &self.trie_without_child[first_applied_idx.unwrap()],
+                // otherwise apply children that have not been applied yet
+                _ => {
+                    // only iterate over children if we didn't apply some
+                    if applied_indices.len() < self.children.len() {
+                        for (idx, c) in self.children.iter().enumerate() {
+                            if !applied_indices.contains(&idx) {
+                                c.trie_apply(rec, trg);
+                            }
+                        }
+                    }
+                    // and then we'll apply nodes for this slice only
+                    &self.trie_without_children
+                }
+            };
 
-            something_applied
+            let t0 = crate::Instant::now();
+            to_apply.add_bias(rec, trg, &[]);
+            let us = t0.elapsed().as_micros() as usize;
+            rec.metrics_mut().slicer_leftover_us += us;
+
+            true
         }
     }
 }
@@ -325,7 +338,7 @@ impl SlicedBiasComputer {
             s.push_str(&format!(
                 "slice{}: ch:{:?} /{}/ -> {}\n",
                 slice.idx,
-                slice.subslices.iter().map(|s| s.idx).collect::<Vec<_>>(),
+                slice.children.iter().map(|s| s.idx).collect::<Vec<_>>(),
                 slice.regex,
                 trie.trie_stats()
             ));
@@ -336,7 +349,7 @@ impl SlicedBiasComputer {
                     }
                 }
             }
-            todo.extend(slice.subslices.iter());
+            todo.extend(slice.children.iter());
         }
 
         s.push_str(&format!("total_nodes: {}\n", total_nodes));
@@ -356,7 +369,7 @@ impl BiasComputer for SlicedBiasComputer {
     fn compute_bias(&self, rec: &mut ParserRecognizer<'_>, start: &[u8]) -> SimpleVob {
         let mut set = self.trie().alloc_token_set();
         let lexer_state = rec.lexer_state();
-        if !self.top_slice.subslices.is_empty()
+        if !self.top_slice.children.is_empty()
             && start.is_empty()
             && rec.lexer_mut().subsume_possible(lexer_state)
             && self.top_slice.apply(rec, &mut set)

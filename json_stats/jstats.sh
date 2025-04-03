@@ -18,6 +18,11 @@ if [ "$1" == "--bench" ] ; then
     done
 fi
 
+if [ "$1" == "--exp" ] ; then
+    shift
+    DEFAULT_ARGS="--expected expected_maskbench.json"
+fi
+
 if [ -z "$PERF" ]; then
     cargo build --release
     ../target/release/json_stats $DEFAULT_ARGS "$@"
