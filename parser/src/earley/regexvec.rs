@@ -208,6 +208,7 @@ pub struct RegexVec {
     #[allow(dead_code)]
     rx_lexemes: Vec<RxLexeme>,
     lazy: LexemeSet,
+    subsumable: LexemeSet,
     rx_list: Vec<ExprRef>,
     special_token_rx: Option<ExprRef>,
     rx_sets: VecHashCons,
@@ -341,7 +342,9 @@ impl RegexVec {
         let small = self.get_rx(lexeme_idx);
         let mut res = false;
         for (idx, e) in iter_state(&self.rx_sets, state) {
-            assert!(!self.lazy.contains(idx));
+            if !self.subsumable.contains(idx) {
+                continue;
+            }
             let c0 = self.exprs.cost();
             let cache_failures = budget > budget0 / 2;
             let is_contained = self
@@ -602,9 +605,14 @@ impl RegexVec {
         }
 
         let mut lazy = LexemeSet::new(rx_lexemes.len());
+        let mut subsumable = LexemeSet::new(rx_lexemes.len());
         for (idx, r) in rx_lexemes.iter().enumerate() {
             if r.lazy {
                 lazy.add(LexemeIdx::new(idx));
+            } else {
+                if exprset.attr_has_repeat(r.rx) {
+                    subsumable.add(LexemeIdx::new(idx));
+                }
             }
         }
 
@@ -615,6 +623,7 @@ impl RegexVec {
             special_token_rx,
             relevance,
             lazy,
+            subsumable,
             rx_lexemes,
             exprs: exprset,
             alpha,
