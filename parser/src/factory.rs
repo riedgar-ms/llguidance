@@ -76,6 +76,14 @@ impl ParserFactory {
         self
     }
 
+    pub fn buffer_log_level(&self) -> u32 {
+        self.buffer_log_level
+    }
+
+    pub fn stderr_log_level(&self) -> u32 {
+        self.stderr_log_level
+    }
+
     pub fn set_buffer_log_level(&mut self, level: u32) -> &mut Self {
         self.buffer_log_level = level;
         self
