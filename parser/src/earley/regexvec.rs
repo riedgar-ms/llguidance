@@ -609,10 +609,8 @@ impl RegexVec {
         for (idx, r) in rx_lexemes.iter().enumerate() {
             if r.lazy {
                 lazy.add(LexemeIdx::new(idx));
-            } else {
-                if exprset.attr_has_repeat(r.rx) {
-                    subsumable.add(LexemeIdx::new(idx));
-                }
+            } else if exprset.attr_has_repeat(r.rx) {
+                subsumable.add(LexemeIdx::new(idx));
             }
         }
 
