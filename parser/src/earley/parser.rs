@@ -406,6 +406,7 @@ struct ParserState {
     trie_lexer_stack: usize,
     trie_grammar_stack: usize,
     captures: Captures,
+    special_token_marker_token: TokenId,
 
     // These are updated also in speculative mode.
     // Both are stacks only in the sense that items can be popped on backtracking
@@ -584,9 +585,18 @@ impl ParserState {
         let lexer = Lexer::from(grammar.lexer_spec(), &mut limits, true)?;
         let scratch = Scratch::new(Arc::clone(&grammar));
         let lexer_state = lexer.a_dead_state(); // placeholder
+        let spec_tok = tok_env
+            .tok_trie()
+            .greedy_tokenize(&[TokTrie::SPECIAL_TOKEN_MARKER]);
+        let special_marker_token = if spec_tok.len() == 1 {
+            spec_tok[0]
+        } else {
+            INVALID_TOKEN
+        };
         let mut r = ParserState {
             grammar,
             tok_env,
+            special_token_marker_token: special_marker_token,
             trie_lexer_stack: usize::MAX,
             rows: vec![],
             rows_valid_end: 0,
@@ -718,11 +728,8 @@ impl ParserState {
         self.stats.lexer_cost = self.lexer().dfa.total_fuel_spent();
 
         // The SPECIAL_TOKEN_MARKER should never be allowed by itself
-        let toks = computer
-            .trie()
-            .greedy_tokenize(&[TokTrie::SPECIAL_TOKEN_MARKER]);
-        if toks.len() == 1 {
-            set.disallow_token(toks[0]);
+        if self.special_token_marker_token != INVALID_TOKEN {
+            set.disallow_token(self.special_token_marker_token);
         }
 
         if start.is_empty() {
