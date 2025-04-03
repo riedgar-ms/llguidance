@@ -81,6 +81,9 @@ pub struct LlgTokenizer {
 }
 
 unsafe fn slice_from_ptr<'a, T>(data: *const T, len: usize) -> Result<&'a [T]> {
+    if len == 0 {
+        return Ok(&[]);
+    }
     if data.is_null() {
         bail!("Null pointer");
     }
@@ -88,7 +91,7 @@ unsafe fn slice_from_ptr<'a, T>(data: *const T, len: usize) -> Result<&'a [T]> {
 }
 
 unsafe fn slice_from_ptr_or_empty<'a, T>(data: *const T, len: usize) -> &'a [T] {
-    if data.is_null() {
+    if len == 0 || data.is_null() {
         &[]
     } else {
         std::slice::from_raw_parts(data, len)
