@@ -121,9 +121,11 @@ class LLInterpreter:
         cls,
         tokenizer: LLTokenizer,
         grammar: str,
+        /,
         enable_backtrack: bool = True,
         enable_ff_tokens: bool = True,
         log_level: int = 1,
+        limits: Optional[LLParserLimits] = None,
     ) -> "LLInterpreter":
         """
         Create a new interpreter.
@@ -218,10 +220,14 @@ class LLInterpreter:
 
 class LLMatcher:
 
-    def __new__(cls,
-                tokenizer: LLTokenizer,
-                grammar: str,
-                log_level: int = 1) -> "LLMatcher":
+    def __new__(
+        cls,
+        tokenizer: LLTokenizer,
+        grammar: str,
+        /,
+        log_level: int = 1,
+        limits: Optional[LLParserLimits] = None,
+    ) -> "LLMatcher":
         """
         Create a new LLMatcher.
         Args:
@@ -246,7 +252,8 @@ class LLMatcher:
         """
 
     @staticmethod
-    def validate_grammar(grammar: str, tokenizer: Optional[LLTokenizer] = None) -> str:
+    def validate_grammar(grammar: str,
+                         tokenizer: Optional[LLTokenizer] = None) -> str:
         """
         Validate the grammar, for example one returned by LLMatcher.grammar_from_*().
         Returns empty string if the grammar is valid, otherwise an error message.
@@ -504,3 +511,77 @@ class JsonCompileOptions(TypedDict, total=False):
     whitespace_flexible: Optional[bool]
     # defaults to false
     coerce_one_of: Optional[bool]
+
+
+class LLParserLimits:
+
+    def __init__(
+        self,
+        max_items_in_row: Optional[int] = None,
+        initial_lexer_fuel: Optional[int] = None,
+        step_lexer_fuel: Optional[int] = None,
+        step_max_items: Optional[int] = None,
+        max_lexer_states: Optional[int] = None,
+        max_grammar_size: Optional[int] = None,
+        precompute_large_lexemes: Optional[bool] = None,
+    ) -> None:
+        """
+    ParserLimits configuration for controlling parser and lexer resource usage.
+
+    Args:
+        max_items_in_row (Optional[int]):
+            Maximum branching factor for a single production row in the grammar.
+            Affects ambiguity and parsing explosion risk. Default: 2000.
+
+        initial_lexer_fuel (Optional[int]):
+            Fuel for building the initial regex ASTs in the lexer.
+            Limits complexity of regex analysis. Speed: ~50k/ms. Default: 1_000_000.
+
+        step_lexer_fuel (Optional[int]):
+            Maximum fuel used during a single lexer mask computation step.
+            Controls performance per token analysis phase. Speed: ~14k/ms. Default: 200_000.
+
+        step_max_items (Optional[int]):
+            Cap on the number of Earley items generated per mask step.
+            Controls parsing granularity and performance. Speed: ~20k/ms. Default: 50_000.
+
+        max_lexer_states (Optional[int]):
+            Maximum number of distinct states the lexer can construct.
+            Affects memory use (approx. 1–2kB per state). Default: 250_000.
+
+        max_grammar_size (Optional[int]):
+            Maximum number of symbols in grammar productions.
+            Acts as a limit on total grammar complexity and size. Default: 500_000.
+
+        precompute_large_lexemes (Optional[bool]):
+            Whether to run large regexes eagerly on the entire token trie during lexer build.
+            Increases lexer construction time, but speeds up mask computation. Default: True.
+    """
+
+    @property
+    def max_items_in_row(self) -> int:
+        """Maximum branching factor for a grammar row. Default: 2000"""
+
+    @property
+    def initial_lexer_fuel(self) -> int:
+        """Fuel used to build initial lexer regex ASTs. Default: 1_000_000"""
+
+    @property
+    def step_lexer_fuel(self) -> int:
+        """Lexer fuel for mask computation steps. Default: 200_000"""
+
+    @property
+    def step_max_items(self) -> int:
+        """Maximum Earley items per step. Default: 50_000"""
+
+    @property
+    def max_lexer_states(self) -> int:
+        """Maximum lexer states (affects memory). Default: 250_000"""
+
+    @property
+    def max_grammar_size(self) -> int:
+        """Maximum grammar size (symbols in productions). Default: 500_000"""
+
+    @property
+    def precompute_large_lexemes(self) -> bool:
+        """Precompute large regexes during lexer construction. Default: True"""

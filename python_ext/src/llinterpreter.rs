@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::fmt::Display;
 
-use llguidance::api::{GrammarInit, ParserLimits};
+use llguidance::api::GrammarInit;
 use llguidance::toktrie::{InferenceCapabilities, TokenId};
 use llguidance::{api::TopLevelGrammar, output::ParserOutput};
 use llguidance::{Constraint, Logger};
@@ -9,6 +9,7 @@ use pyo3::types::PyByteArray;
 use pyo3::{exceptions::PyValueError, prelude::*};
 use serde::{Deserialize, Serialize};
 
+use crate::parserlimits::LLParserLimits;
 use crate::py::LLTokenizer;
 
 // #[derive(Clone)]
@@ -48,13 +49,15 @@ impl LLInterpreter {
 #[pymethods]
 impl LLInterpreter {
     #[new]
-    #[pyo3(signature = (tokenizer, grammar, enable_backtrack=None, enable_ff_tokens=None, log_level=None))]
+    #[pyo3(signature = (tokenizer, grammar, /,
+        enable_backtrack=None, enable_ff_tokens=None, log_level=None, limits=None))]
     fn py_new(
         tokenizer: &LLTokenizer,
         grammar: &str,
         enable_backtrack: Option<bool>,
         enable_ff_tokens: Option<bool>,
         log_level: Option<isize>,
+        limits: Option<&LLParserLimits>,
     ) -> PyResult<Self> {
         let fact = tokenizer.factory();
         let arg = TopLevelGrammar::from_lark_or_grammar_list(grammar).map_err(val_error)?;
@@ -71,7 +74,7 @@ impl LLInterpreter {
                 GrammarInit::Serialized(arg),
                 logger,
                 inference_caps,
-                ParserLimits::default(),
+                LLParserLimits::from_option(limits),
             )
             .map_err(val_error)?;
         let inner = Constraint::new(inner);
