@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [0.7.13](https://github.com/guidance-ai/llguidance/compare/v0.7.12...0.7.13) 2025-04-05
+
+- expose LLParserLimits in Python API [`598dc8f`](https://github.com/guidance-ai/llguidance/commit/598dc8f37f69f51244e54d9885445abf02a515a7)
+- pre-compute lexer states for particularly large regexes (can be disabled in ParserLimits)
+
 #### [0.7.12](https://github.com/guidance-ai/llguidance/compare/v0.7.11...0.7.12) 2025-04-04
 
 - performance optimizations
