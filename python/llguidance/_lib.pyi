@@ -406,6 +406,8 @@ class JsonCompiler:
                 whitespace_pattern: Optional[str] = None) -> "JsonCompiler":
         """
         Create a new JSON compiler.
+        Deprecated. Use grammar_from() or LLMatcher.grammar_from_json_schema() instead,
+        together with LLMatcher.validate_grammar().
         """
 
     def compile(
@@ -418,7 +420,7 @@ class JsonCompiler:
 
             g = LLMatcher.grammar_from_json_schema(schema, overrides=self.options)
             if check:
-                LLMatcher(tokenizer, g)
+                LLMatcher.validate_grammar(g)
 
         Best not use.
         """
@@ -429,6 +431,8 @@ class LarkCompiler:
     def __new__(cls, ) -> "LarkCompiler":
         """
         Create a new Lark compiler.
+        Deprecated. Use grammar_from() or LLMatcher.grammar_from_lark() instead,
+        together with LLMatcher.validate_grammar().
         """
 
     def compile(
@@ -441,7 +445,7 @@ class LarkCompiler:
 
             g = LLMatcher.grammar_from_lark(lark)
             if check:
-                LLMatcher(tokenizer, g)
+                LLMatcher.validate_grammar(g)
 
         Best not use.
         """
@@ -452,6 +456,8 @@ class RegexCompiler:
     def __new__(cls) -> "RegexCompiler":
         """
         Create a new Regex compiler.
+        Deprecated. Use grammar_from() or LLMatcher.grammar_from_regex() instead,
+        together with LLMatcher.validate_grammar().
         """
 
     def compile(
@@ -464,7 +470,7 @@ class RegexCompiler:
 
             g = LLMatcher.grammar_from_regex(regex)
             if check:
-                LLMatcher(tokenizer, g)
+                LLMatcher.validate_grammar(g)
 
         Best not use.
         """
@@ -585,3 +591,15 @@ class LLParserLimits:
     @property
     def precompute_large_lexemes(self) -> bool:
         """Precompute large regexes during lexer construction. Default: True"""
+
+
+def regex_to_lark(regex: str, use_ascii: str = "d") -> str:
+    r"""
+    Make sure given regex can be used inside /.../ in Lark syntax.
+    Also if `use_ascii.contains('d')` replace `\d` with `[0-9]` and `\D` with `[^0-9]`.
+    Similarly for `\w`/`\W` (`[0-9a-zA-Z_]`) and `\s`/`\S` (`[ \t\n\r\f\v]`).
+    For standard Unicode Python3 or Rust regex crate semantics `use_ascii = ""`
+    For JavaScript or JSON Schema semantics `use_ascii = "dw"`
+    For Python2 or byte patters in Python3 semantics `use_ascii = "dws"`
+    More flags may be added in future.
+    """
