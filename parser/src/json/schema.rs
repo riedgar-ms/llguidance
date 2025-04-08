@@ -1,4 +1,4 @@
-use crate::HashMap;
+use crate::{regex_to_lark, HashMap};
 use anyhow::{anyhow, bail, Result};
 use derivre::RegexAst;
 use indexmap::{IndexMap, IndexSet};
@@ -933,14 +933,15 @@ fn pattern_to_regex(pattern: &str) -> RegexAst {
     let trimmed = pattern.trim_start_matches('^').trim_end_matches('$');
     let mut result = String::new();
     if !left_anchored {
-        result.push_str(".*");
+        result.push_str("(?s:.*)");
     }
     // without parens, for a|b we would get .*a|b.* which is (.*a)|(b.*)
     result.push('(');
-    result.push_str(trimmed);
+    let quoted = regex_to_lark(trimmed, "dw");
+    result.push_str(&quoted);
     result.push(')');
     if !right_anchored {
-        result.push_str(".*");
+        result.push_str("(?s:.*)");
     }
     RegexAst::Regex(result)
 }
