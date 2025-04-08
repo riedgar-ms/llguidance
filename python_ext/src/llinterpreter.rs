@@ -37,7 +37,7 @@ impl LLInterpreter {
         if mask_ptr % 4 != 0 {
             return Err(PyValueError::new_err("Pointer not aligned"));
         }
-        let n_words = (self.inner.tok_trie().vocab_size() + 31) / 32;
+        let n_words = self.inner.tok_trie().vocab_size().div_ceil(32);
         if mask_bytes != n_words * 4 {
             return Err(PyValueError::new_err("Invalid buffer size"));
         }
