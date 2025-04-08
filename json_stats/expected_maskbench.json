@@ -1276,7 +1276,7 @@
     "json_error": "Unimplemented keys: [\"minProperties\"]"
   },
   "Github_easy---o21053.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"($|(^(?:\\\\S+\\\\s+){0,99}\\\\S+$))(?s:.*)\""
+    "validation_error": "test #0: lexer error: too many expressions constructed"
   },
   "Github_easy---o21082.json": {},
   "Github_easy---o21083.json": {},
@@ -1319,7 +1319,7 @@
   "Github_easy---o21735.json": {},
   "Github_easy---o21768.json": {},
   "Github_easy---o21833.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"(?s:.*)(\\\\/^[0-9]{4}-[0-9]{2}-[0-9]{2}$\\\\/)(?s:.*)\""
+    "json_error": "lookarounds not supported yet; End in regex /\\/^[0-9]{4}-[0-9]{2}-[0-9]{2}$\\//"
   },
   "Github_easy---o21847.json": {
     "json_error": "Unimplemented keys: [\"patternProperties\"]"
@@ -2110,9 +2110,7 @@
   "Github_easy---o55086.json": {
     "json_error": "Unknown format: uri"
   },
-  "Github_easy---o55159.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"(([^,]|$))(?s:.*)\""
-  },
+  "Github_easy---o55159.json": {},
   "Github_easy---o55173.json": {},
   "Github_easy---o55249.json": {},
   "Github_easy---o55253.json": {
@@ -3576,7 +3574,7 @@
     "json_error": "Unimplemented keys: [\"patternProperties\"]"
   },
   "Github_hard---o2045.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"(?s:.*)((^(([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9])|([0-9]+(\\\\.[0-9]+)?))(-[a-zA-Z][a-zA-Z0-9]*)?$))(?s:.*)\""
+    "json_error": "oneOf constraints are not supported. Enable 'coerce_one_of' option to approximate oneOf with anyOf"
   },
   "Github_hard---o20452.json": {},
   "Github_hard---o20463.json": {},
@@ -3586,21 +3584,11 @@
   "Github_hard---o2070.json": {
     "json_error": "oneOf constraints are not supported. Enable 'coerce_one_of' option to approximate oneOf with anyOf"
   },
-  "Github_hard---o21072.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"($|(^(?:\\\\S+\\\\s+){0,99}\\\\S+$))(?s:.*)\""
-  },
-  "Github_hard---o21073.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"($|(^(?:\\\\S+\\\\s+){0,99}\\\\S+$))(?s:.*)\""
-  },
-  "Github_hard---o21074.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"($|(^(?:\\\\S+\\\\s+){0,99}\\\\S+$))(?s:.*)\""
-  },
-  "Github_hard---o21075.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"($|(^(?:\\\\S+\\\\s+){0,99}\\\\S+$))(?s:.*)\""
-  },
-  "Github_hard---o21076.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"($|(^(?:\\\\S+\\\\s+){0,99}\\\\S+$))(?s:.*)\""
-  },
+  "Github_hard---o21072.json": {},
+  "Github_hard---o21073.json": {},
+  "Github_hard---o21074.json": {},
+  "Github_hard---o21075.json": {},
+  "Github_hard---o21076.json": {},
   "Github_hard---o21156.json": {
     "json_error": "Unimplemented keys: [\"patternProperties\"]"
   },
@@ -4430,9 +4418,7 @@
   "Github_hard---o44196.json": {},
   "Github_hard---o44202.json": {},
   "Github_hard---o44213.json": {},
-  "Github_hard---o44713.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"(([0-9x]+\\\\.[0-9x]+\\\\.*[0-9x]*$|\\\\%VERSION\\\\%))(?s:.*)\""
-  },
+  "Github_hard---o44713.json": {},
   "Github_hard---o44946.json": {},
   "Github_hard---o44959.json": {
     "json_error": "Unimplemented keys: [\"not\"]"
@@ -5136,7 +5122,7 @@
   "Github_hard---o75287.json": {},
   "Github_hard---o75565.json": {},
   "Github_hard---o75605.json": {
-    "json_error": "regex parse error:\n    (\\s*<([A-Za-z]+).+?(\\/>|\\/\\1>)\\s*)\n                              ^^\nerror: backreferences are not supported"
+    "json_error": "regex parse error:\n    ^\\s*<([A-Za-z]+).+?(\\/>|\\/\\1>)\\s*$\n                              ^^\nerror: backreferences are not supported"
   },
   "Github_hard---o7573.json": {
     "json_error": "Unknown format: uri"
@@ -5841,9 +5827,7 @@
   "Github_medium---o15221.json": {
     "json_error": "Unimplemented keys: [\"patternProperties\"]"
   },
-  "Github_medium---o1529.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"(?s:.*)((^[0-9]+\\\\.[0-9]+\\\\.[0-9]+\\\\.[0-9]+$))(?s:.*)\""
-  },
+  "Github_medium---o1529.json": {},
   "Github_medium---o15292.json": {},
   "Github_medium---o15330.json": {},
   "Github_medium---o15711.json": {
@@ -5893,9 +5877,7 @@
     "json_error": "Unknown format: ISO8601"
   },
   "Github_medium---o18353.json": {},
-  "Github_medium---o19005.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"(([0-9]{4}(-[0-9]{2})?(-[0-9]{2})?$)|(^[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9]{2})?(\\\\:[0-9]{2}(\\\\:[0-9]{2}(\\\\.[0-9]+)?)?|Z)?(Z|(-|\\\\+)[0-9]{2}(:[0-9]{2})?)?$))(?s:.*)\""
-  },
+  "Github_medium---o19005.json": {},
   "Github_medium---o19022.json": {},
   "Github_medium---o19057.json": {
     "json_error": "Unimplemented keys: [\"minProperties\"]"
@@ -6073,9 +6055,7 @@
   },
   "Github_medium---o27361.json": {},
   "Github_medium---o27362.json": {},
-  "Github_medium---o27402.json": {
-    "json_error": "lookarounds not supported yet; Start in regex \"(?s:.*)((^gs:\\\\/\\\\/(.+))|(^http:\\\\/\\\\/(.+))|(^https:\\\\/\\\\/(.+)))(?s:.*)\""
-  },
+  "Github_medium---o27402.json": {},
   "Github_medium---o27651.json": {
     "json_error": "Unknown format: uri"
   },
@@ -6463,7 +6443,7 @@
     "json_error": "Unimplemented keys: [\"patternProperties\"]"
   },
   "Github_medium---o4180.json": {
-    "json_error": "lookarounds not supported yet; Start in regex \"(?s:.*)((^Hpt_|^Int_|_Armour_))(?s:.*)\""
+    "validation_error": "test #0: token not accepted at ⟦{\"‧$‧schema‧Ref‧\":\"‧https‧://‧ed‧dn‧.ed‧cd‧.io‧/s‧chemas‧/out‧fit‧ting‧/‧2‧\",\"‧header‧\":{\"⟧ * ⟦uploader⟧ * ⟦ID‧\":\"‧Cmd‧r⟧ mask: TokenSet: 8/128256; ⟨g⟩ ⟨s⟩ ⟨so⟩ ⟨soft⟩ ⟨ga⟩ ⟨gate⟩ ⟨software⟩ ⟨gateway⟩"
   },
   "Github_medium---o41800.json": {},
   "Github_medium---o4181.json": {},
@@ -6910,9 +6890,7 @@
   "Github_medium---o54977.json": {},
   "Github_medium---o55088.json": {},
   "Github_medium---o55102.json": {},
-  "Github_medium---o55162.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"(([^,]|$))(?s:.*)\""
-  },
+  "Github_medium---o55162.json": {},
   "Github_medium---o55244.json": {
     "json_error": "Unimplemented keys: [\"dependencies\"]"
   },
@@ -7546,9 +7524,7 @@
   },
   "Github_medium---o68822.json": {},
   "Github_medium---o69074.json": {},
-  "Github_medium---o69099.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"(?s:.*)((^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}\\\\:[0-9]{2}\\\\:[0-9]{2}[+-][0-9]{2}\\\\:[0-9]{2}$))(?s:.*)\""
-  },
+  "Github_medium---o69099.json": {},
   "Github_medium---o69100.json": {},
   "Github_medium---o69138.json": {},
   "Github_medium---o69158.json": {},
@@ -7776,9 +7752,7 @@
   "Github_medium---o74461.json": {
     "validation_error": "test #0: token not accepted at ⟦{\"⟧ * ⟦id⟧ * ⟦\":\"‧123‧e‧456⟧ forced tokens \"⟦age⟧\" != \"⟦id⟧\""
   },
-  "Github_medium---o74464.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"(?s:.*)((^$)|(^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$))(?s:.*)\""
-  },
+  "Github_medium---o74464.json": {},
   "Github_medium---o74549.json": {},
   "Github_medium---o74551.json": {
     "json_error": "oneOf constraints are not supported. Enable 'coerce_one_of' option to approximate oneOf with anyOf"
@@ -9188,15 +9162,9 @@
   "Github_ultra---o19343.json": {
     "json_error": "Unknown format: color"
   },
-  "Github_ultra---o21135.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"($|(^(?:\\\\S+\\\\s+){0,19}\\\\S+$))(?s:.*)\""
-  },
-  "Github_ultra---o21136.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"($|(^(?:\\\\S+\\\\s+){0,19}\\\\S+$))(?s:.*)\""
-  },
-  "Github_ultra---o21137.json": {
-    "json_error": "lookarounds not supported yet; End in regex \"($|(^(?:\\\\S+\\\\s+){0,19}\\\\S+$))(?s:.*)\""
-  },
+  "Github_ultra---o21135.json": {},
+  "Github_ultra---o21136.json": {},
+  "Github_ultra---o21137.json": {},
   "Github_ultra---o21161.json": {
     "json_error": "Unimplemented keys: [\"patternProperties\"]"
   },
@@ -11749,10 +11717,10 @@
     "json_error": "Unimplemented keys: [\"patternProperties\"]"
   },
   "Handwritten---string1.json": {
-    "json_error": "Unable to determine if regex is empty:  (And (Regex \"(([a-z][0-9])+)\") (Regex \"(?s:.{10000,})\"))"
+    "json_error": "Unable to determine if regex is empty:  (And (SearchRegex /^([a-z][0-9])+$/) (Regex /(?s:.{10000,})/))"
   },
   "Handwritten---string2.json": {
-    "json_error": "Unable to determine if regex is empty:  (And (And (And (Regex \"(([a-z][0-9])+)\") (Regex \"(((c1d3g3).{4,8}){6,6})(?s:.*)\")) (Regex \"(?s:.*)((t|8){10,10})\")) (Regex \"(?s:.{1000,})\"))"
+    "json_error": "Unable to determine if regex is empty:  (And (And (And (SearchRegex /^([a-z][0-9])+$/) (SearchRegex /^((c1d3g3).{4,8}){6,6}/)) (SearchRegex /(t|8){10,10}$/)) (Regex /(?s:.{1000,})/))"
   },
   "Handwritten---string3.json": {
     "json_error": "Unimplemented keys: [\"not\"]"
@@ -11915,7 +11883,7 @@
     "json_error": "Unimplemented keys: [\"uniqueItems\"]"
   },
   "JsonSchemaStore---airlock-microgateway-3.2.json": {
-    "json_error": "regex parse error:\n    ((?![ \\t\\n]*\\(default(.*)\\))[\\s\\S]*)(?s:.*)\n     ^^^\nerror: look-around, including look-ahead and look-behind, is not supported"
+    "json_error": "regex parse error:\n    ^(?![ \\t\\n]*\\(default(.*)\\))[\\s\\S]*\n     ^^^\nerror: look-around, including look-ahead and look-behind, is not supported"
   },
   "JsonSchemaStore---aliases.json": {
     "json_error": "Unimplemented keys: [\"patternProperties\"]"

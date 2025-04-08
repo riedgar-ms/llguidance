@@ -738,12 +738,37 @@ fn test_json_dw_pattern() {
             "\"\\u00A0\"",
         ],
     );
+}
 
+#[test]
+fn test_json_anchoring() {
     lark_str_test_many(
         r#"
             start: %json { "type": "string", "pattern": "[ab]" }
         "#,
         &["\"a\"", "\"foobar\"", "\"\\nb\\n\\n\""],
         &["1", "\"12\"", "\"\"", "\"১\"", "\"ł\""],
+    );
+
+    lark_str_test_many(
+        r#"
+            start: %json { "type": "string", "pattern": "^foo" }
+        "#,
+        &["\"foo\"", "\"foobar\""],
+        &["1", "\"afoo\"", "\"afooa\""],
+    );
+    lark_str_test_many(
+        r#"
+            start: %json { "type": "string", "pattern": "foo$" }
+        "#,
+        &["\"foo\"", "\"barfoo\""],
+        &["1", "\"fooa\"", "\"afooa\""],
+    );
+    lark_str_test_many(
+        r#"
+            start: %json { "type": "string", "pattern": "^foo$" }
+        "#,
+        &["\"foo\""],
+        &["1", "\"fooa\"", "\"afoo\"", "\"afooa\""],
     );
 }

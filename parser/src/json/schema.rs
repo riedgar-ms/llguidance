@@ -927,25 +927,6 @@ fn compile_numeric(
     })
 }
 
-fn pattern_to_regex(pattern: &str) -> RegexAst {
-    let left_anchored = pattern.starts_with('^');
-    let right_anchored = pattern.ends_with('$');
-    let trimmed = pattern.trim_start_matches('^').trim_end_matches('$');
-    let mut result = String::new();
-    if !left_anchored {
-        result.push_str("(?s:.*)");
-    }
-    // without parens, for a|b we would get .*a|b.* which is (.*a)|(b.*)
-    result.push('(');
-    let quoted = regex_to_lark(trimmed, "dw");
-    result.push_str(&quoted);
-    result.push(')');
-    if !right_anchored {
-        result.push_str("(?s:.*)");
-    }
-    RegexAst::Regex(result)
-}
-
 fn compile_string(
     min_length: Option<&Value>,
     max_length: Option<&Value>,
@@ -972,7 +953,7 @@ fn compile_string(
                 .as_str()
                 .ok_or_else(|| anyhow!("Expected string for 'pattern', got {}", limited_str(val)))?
                 .to_string();
-            pattern_to_regex(&s)
+            RegexAst::SearchRegex(regex_to_lark(&s, "dw"))
         }),
     };
     let format_rx = match format {
@@ -983,7 +964,7 @@ fn compile_string(
                 .ok_or_else(|| anyhow!("Expected string for 'format', got {}", limited_str(val)))?
                 .to_string();
             let fmt = lookup_format(&key).ok_or_else(|| anyhow!("Unknown format: {}", key))?;
-            pattern_to_regex(fmt)
+            RegexAst::Regex(fmt.to_string())
         }),
     };
     let regex = match (pattern_rx, format_rx) {
