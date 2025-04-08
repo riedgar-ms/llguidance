@@ -635,7 +635,7 @@ impl Grammar {
             Statement::Import { path, alias } => {
                 let regex = lookup_common_regex(&path)?;
                 let local_name =
-                    alias.unwrap_or_else(|| path.split('.').last().unwrap().to_string());
+                    alias.unwrap_or_else(|| path.split('.').next_back().unwrap().to_string());
                 self.add_token_def(loc, local_name, regex)?;
             }
             Statement::MultiImport { path, names } => {

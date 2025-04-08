@@ -812,7 +812,7 @@ impl TestEnv {
             schema["$schema"] = json!("http://json-schema.org/draft-07/schema#");
         }
 
-        stats.file_info.id = file_name.split('/').last().unwrap().to_string();
+        stats.file_info.id = file_name.split('/').next_back().unwrap().to_string();
 
         match Validator::options()
             .with_retriever(DummyResolver {})
