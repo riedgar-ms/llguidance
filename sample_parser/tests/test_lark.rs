@@ -246,7 +246,7 @@ fn test_lark_syntax_general() {
     lark_err_test(
         r#"
             start: FOO
-            FOO: @1
+            FOO: @qux
         "#,
         "cannot be used in terminals",
     );
@@ -770,5 +770,19 @@ fn test_json_anchoring() {
         "#,
         &["\"foo\""],
         &["1", "\"fooa\"", "\"afoo\"", "\"afooa\""],
+    );
+}
+
+#[test]
+fn test_nested_lark() {
+    lark_str_test_many(
+        r#"
+            start: /[ab]+/ foobar
+            foobar: %lark {
+                start: "foo" | "Bar"
+            }
+        "#,
+        &["afoo", "abfoo", "aaaaaaBar"],
+        &["FINAL_REJECT:a", "afooa"],
     );
 }
