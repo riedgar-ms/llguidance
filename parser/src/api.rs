@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 
 use crate::{
     earley::{lexerspec::LexerSpec, Grammar},
-    lark::regex_to_lark,
+    regex_to_lark,
 };
 
 /// This represents a collection of grammars, with a designated

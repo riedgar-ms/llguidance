@@ -4,4 +4,4 @@ mod compiler;
 mod lexer;
 mod parser;
 
-pub use compiler::{lark_to_llguidance, regex_to_lark};
+pub use compiler::lark_to_llguidance;

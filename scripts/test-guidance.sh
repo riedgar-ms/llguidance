@@ -1,5 +1,6 @@
 #!/bin/sh
 
+set -x
 set -e
 cd $(dirname $0)/..
 TOP=$(pwd)
@@ -45,6 +46,9 @@ if [ "$TEST_RUST" = 1 ] ; then
     cargo clippy --workspace --all-targets --all-features -- -D warnings
 
     cargo build --locked
+
+    (cd parser && cargo check --no-default-features)
+
     cargo test
     cargo test --release
 
