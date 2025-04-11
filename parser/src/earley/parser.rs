@@ -592,19 +592,25 @@ impl ParserState {
         let mut lexer = Lexer::from(grammar.lexer_spec(), &mut limits, true)?;
         if limits.precompute_large_lexemes {
             let t0 = crate::Instant::now();
+            lexer.dfa.set_fuel(limits.initial_lexer_fuel);
             for spec in &grammar.lexer_spec().lexemes {
                 let w = lexer.dfa.lexeme_weight(spec.idx);
                 if w > 1000 {
                     // println!(
-                    //     "precomputing lexeme {} (w={w})",
-                    //     lexer.lexer_spec().lexeme_def_to_string(spec.idx)
+                    //     "precomputing lexeme {} (w={w}) f={}",
+                    //     lexer.lexer_spec().lexeme_def_to_string(spec.idx),
+                    //     lexer.dfa.get_fuel()
                     // );
                     let mut allowed = grammar.lexer_spec().alloc_lexeme_set();
                     allowed.add(spec.idx);
                     lexer.precompute_for(tok_env.tok_trie(), &allowed);
+                    // println!("fuel={}", lexer.dfa.get_fuel());
                 }
             }
             perf_counters.precompute.record(t0.elapsed());
+            if lexer.dfa.has_error() {
+                bail!("lexer precomputation failed; either increase limits.initial_lexer_fuel or disable limits.precompute_large_lexemes");
+            }
         }
         let scratch = Scratch::new(Arc::clone(&grammar));
         let lexer_state = lexer.a_dead_state(); // placeholder

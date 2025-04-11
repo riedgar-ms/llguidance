@@ -786,3 +786,21 @@ fn test_nested_lark() {
         &["FINAL_REJECT:a", "afooa"],
     );
 }
+
+#[test]
+fn test_large_real_substring() {
+    let data = include_str!("../data/ulysses.md");
+    // 240k is the limit for 1M fuel
+    let data = data[..200_000].to_string();
+    let grm = format!(
+        r#"
+            start: %regex {{ "substring_words": {} }}
+        "#,
+        quote_str(&data)
+    );
+    let mtch = data.split_inclusive(' ').collect::<Vec<_>>()[50..250]
+        .to_vec()
+        .join("");
+    let no_mtch = format!("{}{}", mtch, "XXX");
+    lark_str_test_many_quiet(&grm, &[&mtch], &[&no_mtch]);
+}
