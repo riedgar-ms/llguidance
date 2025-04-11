@@ -49,7 +49,7 @@ impl LLInterpreter {
 #[pymethods]
 impl LLInterpreter {
     #[new]
-    #[pyo3(signature = (tokenizer, grammar, /,
+    #[pyo3(signature = (tokenizer, grammar,
         enable_backtrack=None, enable_ff_tokens=None, log_level=None, limits=None))]
     fn py_new(
         tokenizer: &LLTokenizer,

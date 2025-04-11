@@ -20,7 +20,7 @@ impl LLParserLimits {
 impl LLParserLimits {
     #[new]
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (/, max_items_in_row=None, initial_lexer_fuel=None, step_lexer_fuel=None,
+    #[pyo3(signature = (*, max_items_in_row=None, initial_lexer_fuel=None, step_lexer_fuel=None,
         step_max_items=None, max_lexer_states=None, max_grammar_size=None, precompute_large_lexemes=None))]
     fn new(
         max_items_in_row: Option<usize>,

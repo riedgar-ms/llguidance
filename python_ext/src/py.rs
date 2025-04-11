@@ -130,13 +130,13 @@ impl LLTokenizer {
         Cow::Owned(r)
     }
 
-    #[pyo3(signature = (bytes, /, recent_tokens = None))]
+    #[pyo3(signature = (new_bytes, recent_tokens = None))]
     fn tokenize_partial(
         &self,
-        bytes: &[u8],
+        new_bytes: &[u8],
         recent_tokens: Option<Vec<u32>>,
     ) -> (Vec<u32>, Cow<[u8]>) {
-        if bytes.is_empty() {
+        if new_bytes.is_empty() {
             return (Vec::new(), Cow::Borrowed(&[]));
         }
 
@@ -151,7 +151,7 @@ impl LLTokenizer {
         };
 
         let num_recent_bytes = all_bytes.len();
-        all_bytes.extend_from_slice(bytes);
+        all_bytes.extend_from_slice(new_bytes);
 
         let (mut tokens, mut num_fixed) = self.tok_env().tokenize_bytes_marker(&all_bytes);
         if !tokens.starts_with(&existing_tokens) {

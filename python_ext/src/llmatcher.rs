@@ -174,7 +174,7 @@ fn extract_grammar(grammar: Bound<'_, PyAny>) -> Result<TopLevelGrammar> {
 #[pymethods]
 impl LLMatcher {
     #[new]
-    #[pyo3(signature = (tokenizer, grammar, /, log_level=None, limits=None))]
+    #[pyo3(signature = (tokenizer, grammar, *, log_level=None, limits=None))]
     fn py_new(
         tokenizer: &LLTokenizer,
         grammar: Bound<'_, PyAny>,
@@ -194,7 +194,7 @@ impl LLMatcher {
     }
 
     #[staticmethod]
-    #[pyo3(signature = (grammar, tokenizer=None, /, limits=None))]
+    #[pyo3(signature = (grammar, tokenizer=None, *, limits=None))]
     fn validate_grammar(
         grammar: Bound<'_, PyAny>,
         tokenizer: Option<&LLTokenizer>,
@@ -217,7 +217,7 @@ impl LLMatcher {
     }
 
     #[staticmethod]
-    #[pyo3(signature = (schema, /, defaults=None, overrides=None))]
+    #[pyo3(signature = (schema, defaults=None, overrides=None))]
     fn grammar_from_json_schema(
         schema: Bound<'_, PyAny>,
         defaults: Option<Bound<'_, PyAny>>,
