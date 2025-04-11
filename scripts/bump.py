@@ -6,6 +6,7 @@ import sys
 import os
 from datetime import datetime
 
+auto_commit = ["CHANGELOG.md"]
 
 pyproject_path = "pyproject.toml"
 cargo_paths = [
@@ -43,7 +44,8 @@ def update_version_in_file(file_path, new_version):
 
 def check_in_and_tag(version):
     subprocess.run(["git", "add", pyproject_path] +
-                   [p + "/Cargo.toml" for p in cargo_paths] + ["Cargo.lock"],
+                   [p + "/Cargo.toml"
+                    for p in cargo_paths] + ["Cargo.lock"] + auto_commit,
                    check=True)
     subprocess.run(["git", "commit", "-m", f"Bump version to {version}"],
                    check=True)
@@ -56,7 +58,13 @@ def ensure_clean_working_tree():
     status_output = subprocess.run(["git", "status", "--porcelain"],
                                    capture_output=True,
                                    text=True).stdout
-    if status_output.strip():
+    num_changes = 0
+    for l in status_output.splitlines():
+        if l[3:] in auto_commit:
+            # Ignore changes to CHANGELOG.md etc
+            continue
+        num_changes += 1
+    if num_changes > 0:
         subprocess.run(["git", "status"])
         print(
             "\n\nWorking tree is not clean. Please commit or stash your changes before running this script.\n"
@@ -81,7 +89,8 @@ def generate_changelog(version: str) -> str:
         trimmed = text[start:]
         date_str = datetime.utcnow().strftime("%Y-%m-%d")
         replaced = re.sub(r"\[Unreleased\]", f"[{version}]", trimmed)
-        replaced = re.sub(r"\.\.\.HEAD\)", f"...{version}) {date_str}", replaced)
+        replaced = re.sub(r"\.\.\.HEAD\)", f"...{version}) {date_str}",
+                          replaced)
         return replaced
     except FileNotFoundError:
         return "auto-changelog is not installed. Run `npm install -g auto-changelog` to install it."
@@ -90,13 +99,13 @@ def generate_changelog(version: str) -> str:
 def main():
     #subprocess.run(["python3", "./scripts/update-git.py"], check=True)
 
-    ensure_clean_working_tree()
-
     current_version = get_current_version(pyproject_path)
     suggested_version = bump_patch_version(current_version)
 
     changelog = generate_changelog(suggested_version)
     print("\n\n" + changelog + "\n\n")
+
+    ensure_clean_working_tree()
 
     print(f"Current version: {current_version}")
     new_version = (input(f"Enter new version (default: {suggested_version}): ")
