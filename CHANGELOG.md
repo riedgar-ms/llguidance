@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [0.7.14](https://github.com/guidance-ai/llguidance/compare/v0.7.13...0.7.14) 2025-04-11
+
+- support %lark { ... } syntax for nested grammars [`#157`](https://github.com/guidance-ai/llguidance/pull/157)
+- treat \d and \w in json schema as ASCII; fix ^$ anchors [`#158`](https://github.com/guidance-ai/llguidance/issues/158)
+- make it build without "lark" feature again [`929b13f`](https://github.com/guidance-ai/llguidance/commit/929b13f1e523b4cfda6d842ef84cfabf8b99224f)
+- bump derivre to 0.3.7 and use it for anchor handling in json schema (fixes a few testcases) [`bb228cb`](https://github.com/guidance-ai/llguidance/commit/bb228cbca080f1382bb992dd27bddc0223e9dd00)
+- expose regex_to_lark() in Rust and Python; add \d\w\s replacement [`78fb32f`](https://github.com/guidance-ai/llguidance/commit/78fb32fe2745d30ca94a62b00e5a7299750d80b0)
+- fix usage of / vs \* in python signatures [`ca73c2a`](https://github.com/guidance-ai/llguidance/commit/ca73c2abd44e75d569230b942f53c72b052ed2ab)
+
 #### [0.7.13](https://github.com/guidance-ai/llguidance/compare/v0.7.12...0.7.13) 2025-04-05
 
 - expose LLParserLimits in Python API [`598dc8f`](https://github.com/guidance-ai/llguidance/commit/598dc8f37f69f51244e54d9885445abf02a515a7)
