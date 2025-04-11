@@ -979,6 +979,43 @@ pub unsafe extern "C" fn llg_new_matcher(
     }))
 }
 
+fn validate_grammar(
+    init: &LlgConstraintInit,
+    constraint_type: *const c_char,
+    data: *const c_char,
+) -> Result<()> {
+    let tp = unsafe { c_str_to_str(constraint_type, "constraint_type") }?;
+    let data = unsafe { c_str_to_str(data, "data") }?;
+    let grammar = TopLevelGrammar::from_tagged_str(tp, data)?;
+    let tok_env = init.factory()?.tok_env().clone();
+    let _ = GrammarInit::Serialized(grammar).to_internal(Some(tok_env), init.limits.clone())?;
+    Ok(())
+}
+
+/// Check if given grammar is valid.
+/// This about twice as fast as creating a matcher (which also validates).
+/// See llg_new_matcher() for the grammar format.
+/// Returns 0 on success and -1 on error.
+/// The error message is written to error_string.
+/// The error_string is NUL-terminated.
+/// # Safety
+/// This function should only be called from C code.
+#[no_mangle]
+pub unsafe extern "C" fn llg_validate_grammar(
+    init: &LlgConstraintInit,
+    constraint_type: *const c_char,
+    data: *const c_char,
+    error_string: *mut c_char,
+    error_string_len: usize,
+) -> i32 {
+    if let Err(e) = validate_grammar(init, constraint_type, data) {
+        save_error_string(e, error_string, error_string_len);
+        -1
+    } else {
+        0
+    }
+}
+
 /// Compute the set of allowed tokens for the current state.
 /// The result is written to mask_dest.
 /// mask_byte_len must be equal to llg_matcher_get_mask_byte_size().
@@ -1012,7 +1049,7 @@ pub unsafe extern "C" fn llg_matcher_compute_mask_into(
 }
 
 /// Compute the set of allowed tokens for the current state.
-/// The pointer to the result is written to mask_dest.
+/// Use llg_matcher_get_mask() to get the result.
 /// Returns 0 on success and -1 on error.
 #[no_mangle]
 pub extern "C" fn llg_matcher_compute_mask(matcher: &mut LlgMatcher) -> i32 {
