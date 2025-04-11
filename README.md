@@ -8,6 +8,7 @@
 
 --- 
 
+* 2025-04-11 integration [merged](https://github.com/chromium/chromium/commit/07ca6337c2f714ba0477202414bd2b1692e70594) into Chromium
 * 2025-03-25 integration [merged](https://github.com/vllm-project/vllm/pull/14779) into vLLM (v0.8.2)
 * 2025-02-26 integration [merged](https://github.com/sgl-project/sglang/pull/3298) into SGLang (v0.4.4)
 * 2025-02-01 integration [merged](https://github.com/ggml-org/llama.cpp/pull/10224) into llama.cpp (b4613)
@@ -49,16 +50,17 @@ The library is currently integrated in:
 - [llama.cpp](https://github.com/ggerganov/llama.cpp/pull/10224) - 
   available via `-DLLAMA_LLGUIDANCE=ON` option for `cmake`;
   llama.cpp can be also used Guidance Python package
+- **Chromium** - [merged](https://github.com/chromium/chromium/commit/07ca6337c2f714ba0477202414bd2b1692e70594),
+  to be used for [JSON Schema enforcement](https://github.com/webmachinelearning/prompt-api?tab=readme-ov-file#structured-output-or-json-output) for `window.ai` in Chromium-based browsers
 - [SGLang](https://github.com/sgl-project/sglang/pull/3298) -
   use `--grammar-backend llguidance`; when passing Lark grammar make
   sure to prefix them with `%llguidance {}`, just as in llama.cpp
-- vLLM - [V0 PR](https://github.com/vllm-project/vllm/pull/14589) and [V1 PR](https://github.com/vllm-project/vllm/pull/14779)
+- **vLLM** - [V0 PR](https://github.com/vllm-project/vllm/pull/14589) and [V1 PR](https://github.com/vllm-project/vllm/pull/14779)
 - [LLGTRT](https://github.com/guidance-ai/llgtrt) - OpenAI-compatible REST server using NVIDIA's [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM)
 - [mistral.rs](https://github.com/EricLBuehler/mistral.rs/pull/899)
 
 The integration is ongoing in:
-- onnxruntime-genai - [draft PR](https://github.com/microsoft/onnxruntime-genai/pull/1038)
-- Chromium - [ongoing PR](https://chromium-review.googlesource.com/c/chromium/src/+/6232561)
+- **onnxruntime-genai** - [draft PR](https://github.com/microsoft/onnxruntime-genai/pull/1038)
 
 ## Technical details
 
