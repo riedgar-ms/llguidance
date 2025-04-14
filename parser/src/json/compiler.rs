@@ -25,6 +25,7 @@ pub struct JsonCompileOptions {
     pub whitespace_flexible: bool,
     pub whitespace_pattern: Option<String>,
     pub coerce_one_of: bool,
+    pub lenient: bool,
     #[serde(skip)]
     pub retriever: Option<RetrieveWrapper>,
 }
@@ -73,6 +74,7 @@ impl Default for JsonCompileOptions {
             whitespace_pattern: None,
             whitespace_flexible: true,
             coerce_one_of: false,
+            lenient: false,
             retriever: None,
         }
     }
@@ -131,7 +133,11 @@ impl Compiler {
             .builder
             .add_grammar(LLGuidanceOptions::default(), skip)?;
 
-        let (compiled_schema, definitions) = build_schema(schema, self.options.retriever.clone())?;
+        let (compiled_schema, definitions, warnings) = build_schema(schema, &self.options)?;
+
+        for w in warnings {
+            self.builder.add_warning(w);
+        }
 
         let root = self.gen_json(&compiled_schema)?;
         self.builder.set_start_node(root);
@@ -193,7 +199,9 @@ impl Compiler {
     }
 
     fn process_one_of(&mut self, options: &[Schema]) -> Result<NodeRef> {
-        if self.options.coerce_one_of {
+        if self.options.coerce_one_of || self.options.lenient {
+            self.builder
+                .add_warning("oneOf coerced to anyOf".to_string());
             self.process_any_of(options)
         } else {
             Err(anyhow!("oneOf constraints are not supported. Enable 'coerce_one_of' option to approximate oneOf with anyOf"))

@@ -85,12 +85,46 @@ impl CompileCtx {
             .collect();
 
         let builder = self.builder.unwrap();
+        let warnings = builder.get_warnings();
         let mut grammar = builder.grammar;
         let mut lexer_spec = builder.regex.spec;
 
         grammar.resolve_grammar_refs(&mut lexer_spec, &grammar_by_idx)?;
 
+        assert!(lexer_spec.grammar_warnings.is_empty());
+        lexer_spec.grammar_warnings = warnings;
+
         Ok((grammar, lexer_spec))
+    }
+}
+
+pub enum ValidationResult {
+    Valid,
+    Warning(String),
+    Error(String),
+}
+
+impl ValidationResult {
+    pub fn from_warning(w: String) -> Self {
+        if w.is_empty() {
+            ValidationResult::Valid
+        } else {
+            ValidationResult::Warning(w)
+        }
+    }
+
+    pub fn render(&self, with_warnings: bool) -> String {
+        match self {
+            ValidationResult::Valid => String::new(),
+            ValidationResult::Warning(w) => {
+                if with_warnings {
+                    format!("WARNING: {}", w)
+                } else {
+                    String::new()
+                }
+            }
+            ValidationResult::Error(e) => format!("ERROR: {}", e),
+        }
     }
 }
 
@@ -116,6 +150,13 @@ impl GrammarInit {
 
                 ctx.run(input)
             }
+        }
+    }
+
+    pub fn validate(self, tok_env: Option<TokEnv>, limits: ParserLimits) -> ValidationResult {
+        match self.to_internal(tok_env, limits) {
+            Ok((_, lex_spec)) => ValidationResult::from_warning(lex_spec.render_warnings()),
+            Err(e) => ValidationResult::Error(e.to_string()),
         }
     }
 
