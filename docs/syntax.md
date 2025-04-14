@@ -56,8 +56,8 @@ This will accepting strings like `There is no function I can call`
 and `{"name":"get_weather", "parameters": {"city":"Seattle"}}`.
 If the string starts with `{`, it will be forced to follow the given JSON schema.
 
-If you have more functions, you should use `%json { "anyOf": [ ... ] }`.
-Do not use `fun_call1 | fun_call2`, as it [currently doesn't work](https://github.com/guidance-ai/llguidance/issues/113).
+If you have more functions, you can use either `%json { "anyOf": [ ... ] }`,
+or `fun_call1 | fun_call2` where each `fun_callX` is defined as `%json { ... }`.
 
 ### Special tokens
 
