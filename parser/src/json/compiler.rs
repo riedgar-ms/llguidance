@@ -1,14 +1,15 @@
 use crate::api::LLGuidanceOptions;
 use crate::grammar_builder::GrammarResult;
+use crate::json::schema::{NumberSchema, StringSchema};
 use crate::HashMap;
 use anyhow::{anyhow, Context, Result};
 use derivre::{JsonQuoteOptions, RegexAst};
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use super::numeric::{check_number_bounds, rx_float_range, rx_int_range, Decimal};
-use super::schema::{build_schema, Schema};
+use super::numeric::{check_number_bounds, rx_float_range, rx_int_range};
+use super::schema::{build_schema, ArraySchema, ObjectSchema, OptSchemaExt, Schema};
 use super::RetrieveWrapper;
 
 use crate::{GrammarBuilder, NodeRef};
@@ -159,40 +160,17 @@ impl Compiler {
         }
         match json_schema {
             Schema::Any => Ok(self.gen_json_any()),
-            Schema::Unsatisfiable { reason } => Err(anyhow!(UnsatisfiableSchemaError {
+            Schema::Unsatisfiable(reason) => Err(anyhow!(UnsatisfiableSchemaError {
                 message: reason.to_string(),
             })),
 
-            Schema::Array {
-                min_items,
-                max_items,
-                prefix_items,
-                items,
-            } => self.gen_json_array(
-                prefix_items,
-                items.as_deref().unwrap_or(&Schema::Any),
-                *min_items,
-                *max_items,
-            ),
-            Schema::Object {
-                properties,
-                additional_properties,
-                required,
-            } => self.gen_json_object(
-                properties,
-                additional_properties.as_deref().unwrap_or(&Schema::Any),
-                required.iter().cloned().collect(),
-            ),
+            Schema::Array(arr) => self.gen_json_array(arr),
+            Schema::Object(obj) => self.gen_json_object(obj),
+            Schema::AnyOf(options) => self.process_any_of(options),
+            Schema::OneOf(options) => self.process_one_of(options),
+            Schema::Ref(uri) => self.get_definition(uri),
 
-            Schema::AnyOf { options } => self.process_any_of(options),
-            Schema::OneOf { options } => self.process_one_of(options),
-            Schema::Ref { uri, .. } => self.get_definition(uri),
-
-            Schema::Null
-            | Schema::Boolean
-            | Schema::LiteralBool { .. }
-            | Schema::String { .. }
-            | Schema::Number { .. } => {
+            Schema::Null | Schema::Boolean(_) | Schema::String(_) | Schema::Number(_) => {
                 unreachable!("should be handled in regex_compile()")
             }
         }
@@ -257,28 +235,13 @@ impl Compiler {
         }
     }
 
-    fn json_int(
-        &mut self,
-        minimum: Option<f64>,
-        maximum: Option<f64>,
-        exclusive_minimum: bool,
-        exclusive_maximum: bool,
-        multiple_of: Option<Decimal>,
-    ) -> Result<RegexAst> {
-        check_number_bounds(
-            minimum,
-            maximum,
-            exclusive_minimum,
-            exclusive_maximum,
-            false,
-            multiple_of.clone(),
-        )
-        .map_err(|e| {
+    fn json_int(&mut self, num: &NumberSchema) -> Result<RegexAst> {
+        check_number_bounds(num).map_err(|e| {
             anyhow!(UnsatisfiableSchemaError {
                 message: e.to_string(),
             })
         })?;
-        let minimum = match (minimum, exclusive_minimum) {
+        let minimum = match num.get_minimum() {
             (Some(min_val), true) => {
                 if min_val.fract() != 0.0 {
                     Some(min_val.ceil())
@@ -290,7 +253,7 @@ impl Compiler {
             _ => None,
         }
         .map(|val| val as i64);
-        let maximum = match (maximum, exclusive_maximum) {
+        let maximum = match num.get_maximum() {
             (Some(max_val), true) => {
                 if max_val.fract() != 0.0 {
                     Some(max_val.floor())
@@ -309,33 +272,20 @@ impl Compiler {
             )
         })?;
         let mut ast = RegexAst::Regex(rx);
-        if let Some(d) = multiple_of {
+        if let Some(d) = num.multiple_of.as_ref() {
             ast = RegexAst::And(vec![ast, RegexAst::MultipleOf(d.coef, d.exp)]);
         }
         Ok(ast)
     }
 
-    fn json_number(
-        &mut self,
-        minimum: Option<f64>,
-        maximum: Option<f64>,
-        exclusive_minimum: bool,
-        exclusive_maximum: bool,
-        multiple_of: Option<Decimal>,
-    ) -> Result<RegexAst> {
-        check_number_bounds(
-            minimum,
-            maximum,
-            exclusive_minimum,
-            exclusive_maximum,
-            false,
-            multiple_of.clone(),
-        )
-        .map_err(|e| {
+    fn json_number(&mut self, num: &NumberSchema) -> Result<RegexAst> {
+        check_number_bounds(num).map_err(|e| {
             anyhow!(UnsatisfiableSchemaError {
                 message: e.to_string(),
             })
         })?;
+        let (minimum, exclusive_minimum) = num.get_minimum();
+        let (maximum, exclusive_maximum) = num.get_maximum();
         let rx = rx_float_range(minimum, maximum, !exclusive_minimum, !exclusive_maximum)
             .with_context(|| {
                 format!(
@@ -344,7 +294,7 @@ impl Compiler {
                 )
             })?;
         let mut ast = RegexAst::Regex(rx);
-        if let Some(d) = multiple_of {
+        if let Some(d) = num.multiple_of.as_ref() {
             ast = RegexAst::And(vec![ast, RegexAst::MultipleOf(d.coef, d.exp)]);
         }
         Ok(ast)
@@ -376,16 +326,26 @@ impl Compiler {
         cache!(self.any_cache, {
             let json_any = self.builder.new_node("json_any");
             self.any_cache = Some(json_any); // avoid infinite recursion
-            let num = self.json_number(None, None, false, false, None).unwrap();
+            let num = self.json_number(&NumberSchema::default()).unwrap();
             let tf = self.builder.regex.regex("true|false").unwrap();
             let options = vec![
                 self.builder.string("null"),
                 self.builder.lexeme(tf),
                 self.ast_lexeme(num).unwrap(),
                 self.json_simple_string(),
-                self.gen_json_array(&[], &Schema::Any, 0, None).unwrap(),
-                self.gen_json_object(&IndexMap::new(), &Schema::Any, vec![])
-                    .unwrap(),
+                self.gen_json_array(&ArraySchema {
+                    min_items: 0,
+                    max_items: None,
+                    prefix_items: vec![],
+                    items: Schema::any_box(),
+                })
+                .unwrap(),
+                self.gen_json_object(&ObjectSchema {
+                    properties: IndexMap::new(),
+                    additional_properties: Schema::any_box(),
+                    required: IndexSet::new(),
+                })
+                .unwrap(),
             ];
             let inner = self.builder.select(&options);
             self.builder.set_placeholder(json_any, inner);
@@ -393,21 +353,19 @@ impl Compiler {
         })
     }
 
-    fn gen_json_object(
-        &mut self,
-        properties: &IndexMap<String, Schema>,
-        additional_properties: &Schema,
-        required: Vec<String>,
-    ) -> Result<NodeRef> {
+    fn gen_json_object(&mut self, obj: &ObjectSchema) -> Result<NodeRef> {
         let mut taken_names: Vec<String> = vec![];
         let mut items: Vec<(NodeRef, bool)> = vec![];
-        for name in properties.keys().chain(
-            required
+        for name in obj.properties.keys().chain(
+            obj.required
                 .iter()
-                .filter(|n| !properties.contains_key(n.as_str())),
+                .filter(|n| !obj.properties.contains_key(n.as_str())),
         ) {
-            let property_schema = properties.get(name).unwrap_or(additional_properties);
-            let is_required = required.contains(name);
+            let property_schema = obj
+                .properties
+                .get(name)
+                .unwrap_or_else(|| obj.additional_properties.schema_ref());
+            let is_required = obj.required.contains(name);
             // Quote (and escape) the name
             let quoted_name = json_dumps(&json!(name));
             let property = match self.gen_json(property_schema) {
@@ -435,7 +393,7 @@ impl Compiler {
             items.push((item, is_required));
         }
 
-        match self.gen_json(additional_properties) {
+        match self.gen_json(obj.additional_properties.schema_ref()) {
             Err(e) => {
                 if e.downcast_ref::<UnsatisfiableSchemaError>().is_none() {
                     // Propagate errors that aren't UnsatisfiableSchemaError
@@ -549,87 +507,31 @@ impl Compiler {
 
         let r = match schema {
             Schema::Null => literal_regex("null"),
-            Schema::Boolean => Some(RegexAst::Regex("true|false".to_string())),
-            Schema::LiteralBool { value } => literal_regex(if *value { "true" } else { "false" }),
+            Schema::Boolean(None) => Some(RegexAst::Regex("true|false".to_string())),
+            Schema::Boolean(Some(value)) => literal_regex(if *value { "true" } else { "false" }),
 
-            Schema::Number {
-                minimum,
-                maximum,
-                exclusive_minimum,
-                exclusive_maximum,
-                integer,
-                multiple_of,
-            } => {
-                let (minimum, exclusive_minimum) = match (minimum, exclusive_minimum) {
-                    (Some(min), Some(xmin)) => {
-                        if xmin >= min {
-                            (Some(*xmin), true)
-                        } else {
-                            (Some(*min), false)
-                        }
-                    }
-                    (Some(min), None) => (Some(*min), false),
-                    (None, Some(xmin)) => (Some(*xmin), true),
-                    (None, None) => (None, false),
-                };
-                let (maximum, exclusive_maximum) = match (maximum, exclusive_maximum) {
-                    (Some(max), Some(xmax)) => {
-                        if xmax <= max {
-                            (Some(*xmax), true)
-                        } else {
-                            (Some(*max), false)
-                        }
-                    }
-                    (Some(max), None) => (Some(*max), false),
-                    (None, Some(xmax)) => (Some(*xmax), true),
-                    (None, None) => (None, false),
-                };
-                Some(if *integer {
-                    self.json_int(
-                        minimum,
-                        maximum,
-                        exclusive_minimum,
-                        exclusive_maximum,
-                        multiple_of.clone(),
-                    )?
-                } else {
-                    self.json_number(
-                        minimum,
-                        maximum,
-                        exclusive_minimum,
-                        exclusive_maximum,
-                        multiple_of.clone(),
-                    )?
-                })
-            }
+            Schema::Number(num) => Some(if num.integer {
+                self.json_int(num)?
+            } else {
+                self.json_number(num)?
+            }),
 
-            Schema::String {
-                min_length,
-                max_length,
-                regex,
-            } => {
-                return self
-                    .gen_json_string(*min_length, *max_length, regex.clone())
-                    .map(Some)
-            }
+            Schema::String(opts) => return self.gen_json_string(opts.clone()).map(Some),
 
             Schema::Any
-            | Schema::Unsatisfiable { .. }
-            | Schema::Array { .. }
-            | Schema::Object { .. }
-            | Schema::AnyOf { .. }
-            | Schema::OneOf { .. }
-            | Schema::Ref { .. } => None,
+            | Schema::Unsatisfiable(_)
+            | Schema::Array(_)
+            | Schema::Object(_)
+            | Schema::AnyOf(_)
+            | Schema::OneOf(_)
+            | Schema::Ref(_) => None,
         };
         Ok(r)
     }
 
-    fn gen_json_string(
-        &self,
-        min_length: u64,
-        max_length: Option<u64>,
-        regex: Option<RegexAst>,
-    ) -> Result<RegexAst> {
+    fn gen_json_string(&self, opts: StringSchema) -> Result<RegexAst> {
+        let min_length = opts.min_length;
+        let max_length = opts.max_length;
         if let Some(max_length) = max_length {
             if min_length > max_length {
                 return Err(anyhow!(UnsatisfiableSchemaError {
@@ -640,10 +542,10 @@ impl Compiler {
                 }));
             }
         }
-        if min_length == 0 && max_length.is_none() && regex.is_none() {
+        if min_length == 0 && max_length.is_none() && opts.regex.is_none() {
             return Ok(self.json_quote(RegexAst::Regex("(?s:.*)".to_string())));
         }
-        if let Some(mut ast) = regex {
+        if let Some(mut ast) = opts.regex {
             let mut positive = false;
 
             fn mk_rx_repr(ast: &RegexAst) -> String {
@@ -716,14 +618,9 @@ impl Compiler {
         }
     }
 
-    fn gen_json_array(
-        &mut self,
-        prefix_items: &[Schema],
-        item_schema: &Schema,
-        min_items: u64,
-        max_items: Option<u64>,
-    ) -> Result<NodeRef> {
-        let mut max_items = max_items;
+    fn gen_json_array(&mut self, arr: &ArraySchema) -> Result<NodeRef> {
+        let mut max_items = arr.max_items;
+        let min_items = arr.min_items;
 
         if let Some(max_items) = max_items {
             if min_items > max_items {
@@ -736,13 +633,13 @@ impl Compiler {
             }
         }
 
-        let additional_item_grm = match self.gen_json(item_schema) {
+        let additional_item_grm = match self.gen_json(arr.items.schema_ref()) {
             Ok(node) => Some(node),
             Err(e) => match e.downcast_ref::<UnsatisfiableSchemaError>() {
                 // If it's not an UnsatisfiableSchemaError, just propagate it normally
                 None => return Err(e),
                 // Item is optional; don't raise UnsatisfiableSchemaError
-                Some(_) if prefix_items.len() >= min_items as usize => None,
+                Some(_) if arr.prefix_items.len() >= min_items as usize => None,
                 // Item is required; add context and propagate UnsatisfiableSchemaError
                 Some(_) => {
                     return Err(e.context(UnsatisfiableSchemaError {
@@ -756,13 +653,13 @@ impl Compiler {
         let mut optional_items = vec![];
 
         // If max_items is None, we can add an infinite tail of items later
-        let n_to_add = max_items.map_or(prefix_items.len().max(min_items as usize), |max| {
+        let n_to_add = max_items.map_or(arr.prefix_items.len().max(min_items as usize), |max| {
             max as usize
         });
 
         for i in 0..n_to_add {
-            let item = if i < prefix_items.len() {
-                match self.gen_json(&prefix_items[i]) {
+            let item = if i < arr.prefix_items.len() {
+                match self.gen_json(&arr.prefix_items[i]) {
                     Ok(node) => node,
                     Err(e) => match e.downcast_ref::<UnsatisfiableSchemaError>() {
                         // If it's not an UnsatisfiableSchemaError, just propagate it normally
