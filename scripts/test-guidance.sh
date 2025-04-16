@@ -128,16 +128,16 @@ else
         echo "Guidance clone OK"
     else
         echo "Cloning guidance"
-        git clone -b main https://github.com/guidance-ai/guidance
+        git clone -b llg_warnings https://github.com/guidance-ai/guidance
     fi
     cd guidance
     echo "Branch: $(git branch --show-current), Remote URL: $(git remote get-url origin), HEAD: $(git rev-parse HEAD)"
 fi
 
-python -m pytest $PYTEST_FLAGS tests/unit/test_ll.py # main test
+# not so relevant anymore, we do it anyways below
+# python -m pytest $PYTEST_FLAGS tests/unit/test_ll.py # main test
 
 (cd "$TOP" && python -m pytest $PYTEST_FLAGS python/torch_tests/)
-
 python -m pytest $PYTEST_FLAGS tests/unit/test_[lgmp]*.py tests/unit/library "$@"
 
 

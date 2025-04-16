@@ -7,6 +7,7 @@ use llguidance::{
     TokenParser,
 };
 use sample_parser::*;
+use serde_json::{json, Value};
 
 fn make_parser(lark: &str, quiet: bool) -> Result<TokenParser> {
     let grm = TopLevelGrammar::from_lark(lark.to_string());
@@ -43,6 +44,13 @@ fn lark_err_test(lark: &str, err: &str) {
         }
         Ok(_) => panic!("expected error: {}; grm:\n{}", err, lark),
     }
+}
+
+fn json_err_test(schema: &Value, err: &str) {
+    lark_err_test(
+        &format!(r#"start: %json {}"#, serde_json::to_string(schema).unwrap()),
+        err,
+    );
 }
 
 fn lark_str_test(lark: &str, should_accept: bool, input: &str, quiet: bool) {
@@ -104,6 +112,18 @@ fn lark_str_test_many_ext(quiet: bool, lark: &str, passing: &[&str], failing: &[
     }
     for s in failing {
         lark_str_test(lark, false, s, quiet);
+    }
+}
+
+fn json_test_many(schema: &Value, passing: &[Value], failing: &[Value]) {
+    let lark = format!(r#"start: %json {}"#, serde_json::to_string(schema).unwrap());
+    for s in passing {
+        let s = serde_json::to_string(s).unwrap();
+        lark_str_test(&lark, true, &s, false);
+    }
+    for s in failing {
+        let s = serde_json::to_string(s).unwrap();
+        lark_str_test(&lark, false, &s, false);
     }
 }
 
@@ -803,4 +823,173 @@ fn test_large_real_substring() {
         .join("");
     let no_mtch = format!("{}{}", mtch, "XXX");
     lark_str_test_many_quiet(&grm, &[&mtch], &[&no_mtch]);
+}
+
+#[test]
+fn test_json_pattern_properties() {
+    json_err_test(
+        &json!({
+            "type": "object",
+            "patternProperties": {
+                "^fo": { "type": "integer" },
+                "^foo": { "type": "number" },
+            },
+        }),
+        "are not disjoint",
+    );
+
+    json_err_test(
+        &json!({
+            "type": "object",
+            "patternProperties": {
+                "foo": { "type": "integer" },
+                "bar": { "type": "number" },
+            },
+        }),
+        "are not disjoint",
+    );
+
+    json_err_test(
+        &json!({
+            "allOf": [
+                {
+                    "type": "object",
+                    "patternProperties": {
+                        "^fo": { "type": "integer" },
+                    },
+                },
+                {
+                    "type": "object",
+                    "patternProperties": {
+                        "^foo": { "type": "number" },
+                    },
+                },
+            ],
+        }),
+        "are not disjoint",
+    );
+
+    json_err_test(
+        &json!({
+            "allOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "foo": { "type": "string" },
+                    },
+                    "required": ["foo"],
+                },
+                {
+                    "type": "object",
+                    "patternProperties": {
+                        "^f": { "type": "number" },
+                    },
+                },
+            ],
+        }),
+        "required property 'foo' is unsatisfiable",
+    );
+
+    json_test_many(
+        &json!({
+            "type": "object",
+            "properties": {
+                "foo": { "type": "string" },
+            },
+            "patternProperties": {
+                "^foo": { "type": "integer" },
+                "^bar": { "type": "array" },
+            },
+            "additionalProperties": {
+                "type": "boolean",
+            },
+        }),
+        &[
+            json!({}),
+            json!({
+                "foo": "bar"
+            }),
+            json!({
+                "foo": "bar",
+                "foo1": 123,
+                "bar": [],
+                "qux": true,
+                "foo2": 456,
+                "bar1": [],
+                "mux": false,
+            }),
+            json!({
+                "bar": []
+            }),
+            json!({
+                "muxxx": false
+            }),
+        ],
+        &[
+            json!({
+                "foo": 123
+            }),
+            json!({
+                "foo1": "blah"
+            }),
+            json!({
+                "foo1": true
+            }),
+            json!({
+                "bar11": true
+            }),
+        ],
+    );
+
+    json_test_many(
+        &json!({
+            "type": "object",
+            "properties": {
+                "foo": { "type": "string" },
+            },
+            "patternProperties": {
+                "^foo": { "type": "integer" },
+                "^bar": { "type": "array" },
+            },
+            "additionalProperties": {
+                "type": "boolean",
+            },
+            "required": ["foo", "mux", "foo1", "bar1"],
+        }),
+        &[
+            json!({
+                "foo": "bar",
+                "mux": false,
+                "foo1": 123,
+                "bar1": [],
+            }),
+            json!({
+                "foo": "bar",
+                "mux": false,
+                "foo1": 123,
+                "bar1": [],
+                "blah": true
+            }),
+        ],
+        &[
+            json!({
+                "foo": "bar",
+                "mux": false,
+                "bar1": [],
+                "foo1": 123,
+            }),
+            json!({
+                "foo": "bar",
+                "mux": "blah",
+                "foo1": 123,
+                "bar1": [],
+            }),
+            json!({
+                "foo": "bar",
+                "mux": false,
+                "foo1": "aaa",
+                "bar1": [],
+            }),
+        ],
+    );
 }

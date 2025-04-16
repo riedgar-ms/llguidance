@@ -1,7 +1,7 @@
 use crate::api::LLGuidanceOptions;
 use crate::grammar_builder::GrammarResult;
 use crate::json::schema::{NumberSchema, StringSchema};
-use crate::HashMap;
+use crate::{regex_to_lark, HashMap};
 use anyhow::{anyhow, Context, Result};
 use derivre::{JsonQuoteOptions, RegexAst};
 use indexmap::{IndexMap, IndexSet};
@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 
 use super::numeric::{check_number_bounds, rx_float_range, rx_int_range};
 use super::schema::{build_schema, ArraySchema, ObjectSchema, OptSchemaExt, Schema};
+use super::shared_context::PatternPropertyCache;
 use super::RetrieveWrapper;
 
 use crate::{GrammarBuilder, NodeRef};
@@ -53,6 +54,7 @@ struct Compiler {
     options: JsonCompileOptions,
     definitions: HashMap<String, NodeRef>,
     pending_definitions: Vec<(String, NodeRef)>,
+    pattern_cache: PatternPropertyCache,
 
     any_cache: Option<NodeRef>,
     string_cache: Option<NodeRef>,
@@ -119,6 +121,7 @@ impl Compiler {
             pending_definitions: vec![],
             any_cache: None,
             string_cache: None,
+            pattern_cache: PatternPropertyCache::default(),
         }
     }
 
@@ -134,20 +137,25 @@ impl Compiler {
             .builder
             .add_grammar(LLGuidanceOptions::default(), skip)?;
 
-        let (compiled_schema, definitions, warnings) = build_schema(schema, &self.options)?;
+        let built = build_schema(schema, &self.options)?;
+        self.pattern_cache = built.pattern_cache;
 
-        for w in warnings {
+        for w in built.warnings {
             self.builder.add_warning(w);
         }
 
-        let root = self.gen_json(&compiled_schema)?;
+        let root = self.gen_json(&built.schema)?;
         self.builder.set_start_node(root);
 
         while let Some((path, pl)) = self.pending_definitions.pop() {
-            let schema = definitions
+            let schema = built
+                .definitions
                 .get(&path)
                 .ok_or_else(|| anyhow!("Definition not found: {}", path))?;
-            let compiled = self.gen_json(schema)?;
+            let compiled = self.gen_json(schema).map_err(|e| {
+                let top_level = anyhow!("{e}\n  while processing {path}");
+                e.context(top_level)
+            })?;
             self.builder.set_placeholder(pl, compiled);
         }
 
@@ -179,7 +187,7 @@ impl Compiler {
     fn process_one_of(&mut self, options: &[Schema]) -> Result<NodeRef> {
         if self.options.coerce_one_of || self.options.lenient {
             self.builder
-                .add_warning("oneOf coerced to anyOf".to_string());
+                .add_warning("oneOf not fully supported, falling back to anyOf. This may cause validation errors in some cases.".to_string());
             self.process_any_of(options)
         } else {
             Err(anyhow!("oneOf constraints are not supported. Enable 'coerce_one_of' option to approximate oneOf with anyOf"))
@@ -344,6 +352,7 @@ impl Compiler {
                     properties: IndexMap::new(),
                     additional_properties: Schema::any_box(),
                     required: IndexSet::new(),
+                    pattern_properties: IndexMap::new(),
                 })
                 .unwrap(),
             ];
@@ -355,17 +364,21 @@ impl Compiler {
 
     fn gen_json_object(&mut self, obj: &ObjectSchema) -> Result<NodeRef> {
         let mut taken_names: Vec<String> = vec![];
+        let mut unquoted_taken_names: Vec<String> = vec![];
         let mut items: Vec<(NodeRef, bool)> = vec![];
+
+        let colon = self.builder.string(&self.options.key_separator);
+
         for name in obj.properties.keys().chain(
             obj.required
                 .iter()
                 .filter(|n| !obj.properties.contains_key(n.as_str())),
         ) {
-            let property_schema = obj
-                .properties
-                .get(name)
-                .unwrap_or_else(|| obj.additional_properties.schema_ref());
+            let property_schema = self.pattern_cache.property_schema(obj, name)?;
             let is_required = obj.required.contains(name);
+            if !obj.pattern_properties.is_empty() {
+                unquoted_taken_names.push(name.to_string());
+            }
             // Quote (and escape) the name
             let quoted_name = json_dumps(&json!(name));
             let property = match self.gen_json(property_schema) {
@@ -388,9 +401,49 @@ impl Compiler {
             };
             let name = self.builder.string(&quoted_name);
             taken_names.push(quoted_name);
-            let colon = self.builder.string(&self.options.key_separator);
             let item = self.builder.join(&[name, colon, property]);
             items.push((item, is_required));
+        }
+
+        let mut taken_name_ids = taken_names
+            .iter()
+            .map(|n| self.builder.regex.literal(n.to_string()))
+            .collect::<Vec<_>>();
+
+        let mut pattern_options = vec![];
+        for (pattern, schema) in obj.pattern_properties.iter() {
+            let regex = self
+                .builder
+                .regex
+                .add_ast(self.json_quote(RegexAst::SearchRegex(regex_to_lark(pattern, "dw"))))?;
+            taken_name_ids.push(regex);
+
+            let schema = match self.gen_json(schema) {
+                Ok(r) => r,
+                Err(e) => match e.downcast_ref::<UnsatisfiableSchemaError>() {
+                    // If it's not an UnsatisfiableSchemaError, just propagate it normally
+                    None => return Err(e),
+                    // Property is optional; don't raise UnsatisfiableSchemaError but mark name as taken
+                    Some(_) => continue,
+                },
+            };
+
+            let exclude_names = unquoted_taken_names
+                .iter()
+                .enumerate()
+                .filter(|(_, name)| self.pattern_cache.is_match(pattern, name).unwrap_or(true))
+                .map(|(idx, _)| taken_name_ids[idx])
+                .collect::<Vec<_>>();
+            let regex = if exclude_names.is_empty() {
+                regex
+            } else {
+                let options = self.builder.regex.select(exclude_names);
+                let not_taken = self.builder.regex.not(options);
+                self.builder.regex.and(vec![regex, not_taken])
+            };
+
+            let name = self.builder.lexeme(regex);
+            pattern_options.push(self.builder.join(&[name, colon, schema]));
         }
 
         match self.gen_json(obj.additional_properties.schema_ref()) {
@@ -402,13 +455,9 @@ impl Compiler {
                 // Ignore UnsatisfiableSchemaError for additionalProperties
             }
             Ok(property) => {
-                let name = if taken_names.is_empty() {
+                let name = if taken_name_ids.is_empty() {
                     self.json_simple_string()
                 } else {
-                    let taken_name_ids = taken_names
-                        .iter()
-                        .map(|n| self.builder.regex.literal(n.to_string()))
-                        .collect::<Vec<_>>();
                     let taken = self.builder.regex.select(taken_name_ids);
                     let not_taken = self.builder.regex.not(taken);
                     let valid = self
@@ -418,12 +467,17 @@ impl Compiler {
                     let valid_and_not_taken = self.builder.regex.and(vec![valid, not_taken]);
                     self.builder.lexeme(valid_and_not_taken)
                 };
-                let colon = self.builder.string(&self.options.key_separator);
                 let item = self.builder.join(&[name, colon, property]);
-                let seq = self.sequence(item);
-                items.push((seq, false));
+                pattern_options.push(item);
             }
         }
+
+        if !pattern_options.is_empty() {
+            let pattern = self.builder.select(&pattern_options);
+            let seq = self.sequence(pattern);
+            items.push((seq, false));
+        }
+
         let opener = self.builder.string("{");
         let inner = self.ordered_sequence(&items, false, &mut HashMap::default());
         let closer = self.builder.string("}");
