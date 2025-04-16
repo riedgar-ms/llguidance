@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [0.7.15](https://github.com/guidance-ai/llguidance/compare/v0.7.14...0.7.15) 2025-04-16
+
+- support for patternProperties in JSON schema [`#167`](https://github.com/guidance-ai/llguidance/pull/167)
+- add lenient option to JSON schemas [`#163`](https://github.com/guidance-ai/llguidance/pull/163) [`#136`](https://github.com/guidance-ai/llguidance/issues/136)
+- Add llg_validate_grammar() in C FFI [`e5c21cf`](https://github.com/guidance-ai/llguidance/commit/e5c21cf480a17e6b310e46b24b272576cfd9c4c6)
+
 #### [0.7.14](https://github.com/guidance-ai/llguidance/compare/v0.7.13...0.7.14) 2025-04-11
 
 - support %lark { ... } syntax for nested grammars [`#157`](https://github.com/guidance-ai/llguidance/pull/157)
