@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [0.7.16](https://github.com/guidance-ai/llguidance/compare/v0.7.15...0.7.16) 2025-04-17
+
+- fix special token tokenization [`ae7870f`](https://github.com/guidance-ai/llguidance/commit/ae7870f05ca0de68599088607ba742b7071f92ad)
+
 #### [0.7.15](https://github.com/guidance-ai/llguidance/compare/v0.7.14...0.7.15) 2025-04-16
 
 - support for patternProperties in JSON schema [`#167`](https://github.com/guidance-ai/llguidance/pull/167)
