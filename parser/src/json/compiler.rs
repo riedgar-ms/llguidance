@@ -2,7 +2,7 @@ use crate::api::LLGuidanceOptions;
 use crate::grammar_builder::GrammarResult;
 use crate::json::schema::{NumberSchema, StringSchema};
 use crate::{regex_to_lark, HashMap};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use derivre::{JsonQuoteOptions, RegexAst};
 use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
@@ -353,6 +353,8 @@ impl Compiler {
                     additional_properties: Schema::any_box(),
                     required: IndexSet::new(),
                     pattern_properties: IndexMap::new(),
+                    min_properties: 0,
+                    max_properties: None,
                 })
                 .unwrap(),
             ];
@@ -368,6 +370,9 @@ impl Compiler {
         let mut items: Vec<(NodeRef, bool)> = vec![];
 
         let colon = self.builder.string(&self.options.key_separator);
+
+        let mut num_required = 0;
+        let mut num_optional = 0;
 
         for name in obj.properties.keys().chain(
             obj.required
@@ -403,6 +408,86 @@ impl Compiler {
             taken_names.push(quoted_name);
             let item = self.builder.join(&[name, colon, property]);
             items.push((item, is_required));
+            if is_required {
+                num_required += 1;
+            } else {
+                num_optional += 1;
+            }
+        }
+
+        let min_properties = obj.min_properties.saturating_sub(num_required);
+        let max_properties = obj.max_properties.map(|v| v.saturating_sub(num_required));
+
+        if num_optional > 0 && (min_properties > 0 || max_properties.is_some()) {
+            // special case for min/maxProperties == 1
+            // this is sometimes used to indicate that at least one property is required
+            if min_properties <= 1
+                && max_properties.unwrap_or(1) == 1
+                && obj.pattern_properties.is_empty()
+                && obj
+                    .additional_properties
+                    .as_ref()
+                    .map(|s| s.is_unsat())
+                    .unwrap_or(false)
+            {
+                let mut options: Vec<Vec<(NodeRef, bool)>> = vec![];
+                if max_properties == Some(1) {
+                    // at most one
+                    for idx in 0..items.len() {
+                        let (_, required) = items[idx];
+                        if !required {
+                            options.push(
+                                items
+                                    .iter()
+                                    .enumerate()
+                                    .filter_map(|(i2, (n, r))| {
+                                        if i2 == idx || *r {
+                                            Some((*n, true))
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .collect(),
+                            );
+                        }
+                    }
+                    if min_properties == 1 {
+                        // exactly one - done
+                    } else {
+                        // at most one - add empty option
+                        assert!(min_properties == 0);
+                        options.push(items.into_iter().filter(|(_, r)| *r).collect());
+                    }
+                } else {
+                    assert!(max_properties.is_none());
+                    assert!(min_properties == 1);
+                    // at least one
+                    for idx in 0..items.len() {
+                        let (_, required) = items[idx];
+                        if !required {
+                            options.push(
+                                items
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(i2, (n, r))| (*n, *r || i2 == idx))
+                                    .collect(),
+                            );
+                        }
+                    }
+                }
+                let sel_options = options
+                    .iter()
+                    .map(|v| self.object_fields(v))
+                    .collect::<Vec<_>>();
+                return Ok(self.builder.select(&sel_options));
+            }
+
+            let msg = "min/maxProperties only supported when all keys listed in \"properties\" are required";
+            if self.options.lenient {
+                self.builder.add_warning(msg.to_string());
+            } else {
+                bail!(msg);
+            }
         }
 
         let mut taken_name_ids = taken_names
@@ -472,16 +557,28 @@ impl Compiler {
             }
         }
 
-        if !pattern_options.is_empty() {
+        if !pattern_options.is_empty() && max_properties != Some(0) {
             let pattern = self.builder.select(&pattern_options);
-            let seq = self.sequence(pattern);
-            items.push((seq, false));
+            let required = min_properties > 0;
+            let seq = self.bounded_sequence(pattern, min_properties, max_properties);
+            items.push((seq, required));
+        } else if min_properties > 0 {
+            return Err(anyhow!(UnsatisfiableSchemaError {
+                message: format!(
+                    "minProperties ({}) is greater than number of properties ({})",
+                    min_properties, num_required
+                ),
+            }));
         }
 
+        Ok(self.object_fields(&items))
+    }
+
+    fn object_fields(&mut self, items: &[(NodeRef, bool)]) -> NodeRef {
         let opener = self.builder.string("{");
-        let inner = self.ordered_sequence(&items, false, &mut HashMap::default());
+        let inner = self.ordered_sequence(items, false, &mut HashMap::default());
         let closer = self.builder.string("}");
-        Ok(self.builder.join(&[opener, inner, closer]))
+        self.builder.join(&[opener, inner, closer])
     }
 
     #[allow(clippy::type_complexity)]
@@ -533,6 +630,20 @@ impl Compiler {
         };
         cache.insert((items, prefixed), node);
         node
+    }
+
+    fn bounded_sequence(
+        &mut self,
+        item: NodeRef,
+        min_elts: usize,
+        max_elts: Option<usize>,
+    ) -> NodeRef {
+        let min_elts = min_elts.saturating_sub(1);
+        let max_elts = max_elts.map(|v| v.saturating_sub(1));
+        let comma = self.builder.string(&self.options.item_separator);
+        let item_comma = self.builder.join(&[item, comma]);
+        let item_comma_rep = self.builder.repeat(item_comma, min_elts, max_elts);
+        self.builder.join(&[item_comma_rep, item])
     }
 
     fn sequence(&mut self, item: NodeRef) -> NodeRef {
@@ -610,9 +721,9 @@ impl Compiler {
 
             // special-case literals - the length is easy to check
             if let RegexAst::Literal(s) = &ast {
-                let l = s.chars().count() as u64;
+                let l = s.chars().count();
 
-                if l < min_length || l > max_length.unwrap_or(u64::MAX) {
+                if l < min_length || l > max_length.unwrap_or(usize::MAX) {
                     return Err(anyhow!(UnsatisfiableSchemaError {
                         message: format!("Constant {:?} doesn't match length constraints", s)
                     }));
@@ -693,7 +804,7 @@ impl Compiler {
                 // If it's not an UnsatisfiableSchemaError, just propagate it normally
                 None => return Err(e),
                 // Item is optional; don't raise UnsatisfiableSchemaError
-                Some(_) if arr.prefix_items.len() >= min_items as usize => None,
+                Some(_) if arr.prefix_items.len() >= min_items => None,
                 // Item is required; add context and propagate UnsatisfiableSchemaError
                 Some(_) => {
                     return Err(e.context(UnsatisfiableSchemaError {
@@ -707,9 +818,7 @@ impl Compiler {
         let mut optional_items = vec![];
 
         // If max_items is None, we can add an infinite tail of items later
-        let n_to_add = max_items.map_or(arr.prefix_items.len().max(min_items as usize), |max| {
-            max as usize
-        });
+        let n_to_add = max_items.map_or(arr.prefix_items.len().max(min_items), |max| max);
 
         for i in 0..n_to_add {
             let item = if i < arr.prefix_items.len() {
@@ -720,8 +829,8 @@ impl Compiler {
                         None => return Err(e),
                         // Item is optional; don't raise UnsatisfiableSchemaError.
                         // Set max_items to the current index, as we can't satisfy any more items.
-                        Some(_) if i >= min_items as usize => {
-                            max_items = Some(i as u64);
+                        Some(_) if i >= min_items => {
+                            max_items = Some(i);
                             break;
                         }
                         // Item is required; add context and propagate UnsatisfiableSchemaError
@@ -741,7 +850,7 @@ impl Compiler {
                 break;
             };
 
-            if i < min_items as usize {
+            if i < min_items {
                 required_items.push(item);
             } else {
                 optional_items.push(item);

@@ -1,5 +1,5 @@
 use crate::{regex_to_lark, HashMap, JsonCompileOptions};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, ensure, Result};
 use derivre::RegexAst;
 use indexmap::{IndexMap, IndexSet};
 use serde_json::Value;
@@ -13,7 +13,7 @@ use super::shared_context::BuiltSchema;
 const TYPES: [&str; 6] = ["null", "boolean", "number", "string", "array", "object"];
 
 // Keywords that are implemented in this module
-pub(crate) const IMPLEMENTED: [&str; 25] = [
+pub(crate) const IMPLEMENTED: [&str; 27] = [
     // Core
     "anyOf",
     "oneOf",
@@ -33,6 +33,8 @@ pub(crate) const IMPLEMENTED: [&str; 25] = [
     "additionalProperties",
     "patternProperties",
     "required",
+    "minProperties",
+    "maxProperties",
     // String
     "minLength",
     "maxLength",
@@ -135,15 +137,15 @@ impl NumberSchema {
 
 #[derive(Debug, Clone)]
 pub struct StringSchema {
-    pub min_length: u64,
-    pub max_length: Option<u64>,
+    pub min_length: usize,
+    pub max_length: Option<usize>,
     pub regex: Option<RegexAst>,
 }
 
 #[derive(Debug, Clone)]
 pub struct ArraySchema {
-    pub min_items: u64,
-    pub max_items: Option<u64>,
+    pub min_items: usize,
+    pub max_items: Option<usize>,
     pub prefix_items: Vec<Schema>,
     pub items: Option<Box<Schema>>,
 }
@@ -154,6 +156,8 @@ pub struct ObjectSchema {
     pub pattern_properties: IndexMap<String, Schema>,
     pub additional_properties: Option<Box<Schema>>,
     pub required: IndexSet<String>,
+    pub min_properties: usize,
+    pub max_properties: Option<usize>,
 }
 
 pub trait OptSchemaExt {
@@ -188,6 +192,10 @@ impl Schema {
 
     pub fn any_box() -> Option<Box<Schema>> {
         Some(Box::new(Schema::Any))
+    }
+
+    pub fn is_unsat(&self) -> bool {
+        matches!(self, Schema::Unsatisfiable(_))
     }
 
     /// Shallowly normalize the schema, removing any unnecessary nesting or empty options.
@@ -406,11 +414,16 @@ impl Schema {
                         }
                     };
 
-                Schema::Object(ObjectSchema {
+                let min_properties = o1.min_properties.max(o2.min_properties);
+                let max_properties = opt_min(o1.max_properties, o2.max_properties);
+
+                mk_object_schema(ObjectSchema {
                     properties,
                     pattern_properties,
                     additional_properties,
                     required,
+                    min_properties,
+                    max_properties,
                 })
             }
 
@@ -800,8 +813,8 @@ fn compile_const(instance: &Value) -> Result<Schema> {
                 .map(compile_const)
                 .collect::<Result<Vec<Schema>>>()?;
             Ok(Schema::Array(ArraySchema {
-                min_items: prefix_items.len() as u64,
-                max_items: Some(prefix_items.len() as u64),
+                min_items: prefix_items.len(),
+                max_items: Some(prefix_items.len()),
                 prefix_items,
                 items: Some(Box::new(Schema::false_schema())),
             }))
@@ -817,6 +830,8 @@ fn compile_const(instance: &Value) -> Result<Schema> {
                 pattern_properties: IndexMap::default(),
                 additional_properties: Some(Box::new(Schema::false_schema())),
                 required,
+                min_properties: 0,
+                max_properties: None,
             }))
         }
     }
@@ -842,53 +857,24 @@ fn compile_types(
 fn compile_type(ctx: &Context, tp: &str, schema: &HashMap<&str, &Value>) -> Result<Schema> {
     ctx.increment()?;
 
-    let get = |key: &str| schema.get(key).copied();
-
     match tp {
         "null" => Ok(Schema::Null),
         "boolean" => Ok(Schema::Boolean(None)),
-        "number" | "integer" => compile_numeric(
-            get("minimum"),
-            get("maximum"),
-            get("exclusiveMinimum"),
-            get("exclusiveMaximum"),
-            tp == "integer",
-            get("multipleOf"),
-        ),
-        "string" => compile_string(
-            ctx,
-            get("minLength"),
-            get("maxLength"),
-            get("pattern"),
-            get("format"),
-        ),
-        "array" => compile_array(
-            ctx,
-            get("minItems"),
-            get("maxItems"),
-            get("prefixItems"),
-            get("items"),
-            get("additionalItems"),
-        ),
-        "object" => compile_object(
-            ctx,
-            get("properties"),
-            get("patternProperties"),
-            get("additionalProperties"),
-            get("required"),
-        ),
+        "number" | "integer" => compile_numeric(schema, tp == "integer"),
+        "string" => compile_string(ctx, schema),
+        "array" => compile_array(ctx, schema),
+        "object" => compile_object(ctx, schema),
         _ => bail!("Invalid type: {}", tp),
     }
 }
 
-fn compile_numeric(
-    minimum: Option<&Value>,
-    maximum: Option<&Value>,
-    exclusive_minimum: Option<&Value>,
-    exclusive_maximum: Option<&Value>,
-    integer: bool,
-    multiple_of: Option<&Value>,
-) -> Result<Schema> {
+fn compile_numeric(schema: &HashMap<&str, &Value>, integer: bool) -> Result<Schema> {
+    let minimum = schema.get("minimum").copied();
+    let maximum = schema.get("maximum").copied();
+    let exclusive_minimum = schema.get("exclusiveMinimum").copied();
+    let exclusive_maximum = schema.get("exclusiveMaximum").copied();
+    let multiple_of = schema.get("multipleOf").copied();
+
     let minimum = match minimum {
         None => None,
         Some(val) => Some(
@@ -948,26 +934,13 @@ fn compile_numeric(
     }))
 }
 
-fn compile_string(
-    ctx: &Context,
-    min_length: Option<&Value>,
-    max_length: Option<&Value>,
-    pattern: Option<&Value>,
-    format: Option<&Value>,
-) -> Result<Schema> {
-    let min_length = match min_length {
-        None => 0,
-        Some(val) => val
-            .as_u64()
-            .ok_or_else(|| anyhow!("Expected u64 for 'minLength', got {}", limited_str(val)))?,
-    };
-    let max_length = match max_length {
-        None => None,
-        Some(val) => Some(
-            val.as_u64()
-                .ok_or_else(|| anyhow!("Expected u64 for 'maxLength', got {}", limited_str(val)))?,
-        ),
-    };
+fn compile_string(ctx: &Context, schema: &HashMap<&str, &Value>) -> Result<Schema> {
+    let pattern = schema.get("pattern").copied();
+    let format = schema.get("format").copied();
+
+    let min_length = get_usize(schema, "minLength")?.unwrap_or(0);
+    let max_length = get_usize(schema, "maxLength")?;
+
     let pattern_rx = match pattern {
         None => None,
         Some(val) => Some({
@@ -1012,14 +985,13 @@ fn compile_string(
     }))
 }
 
-fn compile_array(
-    ctx: &Context,
-    min_items: Option<&Value>,
-    max_items: Option<&Value>,
-    prefix_items: Option<&Value>,
-    items: Option<&Value>,
-    additional_items: Option<&Value>,
-) -> Result<Schema> {
+fn compile_array(ctx: &Context, schema: &HashMap<&str, &Value>) -> Result<Schema> {
+    let min_items = get_usize(schema, "minItems")?.unwrap_or(0);
+    let max_items = get_usize(schema, "maxItems")?;
+    let prefix_items = schema.get("prefixItems").copied();
+    let items = schema.get("items").copied();
+    let additional_items = schema.get("additionalItems").copied();
+
     let (prefix_items, items) = {
         // Note that draft detection falls back to Draft202012 if the draft is unknown, so let's relax the draft constraint a bit
         // and assume we're in an old draft if additionalItems is present or items is an array
@@ -1036,19 +1008,6 @@ fn compile_array(
         } else {
             (prefix_items, items)
         }
-    };
-    let min_items = match min_items {
-        None => 0,
-        Some(val) => val
-            .as_u64()
-            .ok_or_else(|| anyhow!("Expected u64 for 'minItems', got {}", limited_str(val)))?,
-    };
-    let max_items = match max_items {
-        None => None,
-        Some(val) => Some(
-            val.as_u64()
-                .ok_or_else(|| anyhow!("Expected u64 for 'maxItems', got {}", limited_str(val)))?,
-        ),
     };
     let prefix_items = match prefix_items {
         None => vec![],
@@ -1087,13 +1046,33 @@ fn compile_prop_map(
     }
 }
 
-fn compile_object(
-    ctx: &Context,
-    properties: Option<&Value>,
-    pattern_properties: Option<&Value>,
-    additional_properties: Option<&Value>,
-    required: Option<&Value>,
-) -> Result<Schema> {
+fn get_usize(schema: &HashMap<&str, &Value>, name: &str) -> Result<Option<usize>> {
+    if let Some(val) = schema.get(name) {
+        if let Some(val) = val.as_u64() {
+            ensure!(
+                val <= usize::MAX as u64,
+                "Value {val} for '{name}' is too large"
+            );
+            Ok(Some(val as usize))
+        } else {
+            bail!(
+                "Expected positive integer for '{name}', got {}",
+                limited_str(val)
+            )
+        }
+    } else {
+        Ok(None)
+    }
+}
+
+fn compile_object(ctx: &Context, schema: &HashMap<&str, &Value>) -> Result<Schema> {
+    let properties = schema.get("properties").copied();
+    let pattern_properties = schema.get("patternProperties").copied();
+    let additional_properties = schema.get("additionalProperties").copied();
+    let required = schema.get("required").copied();
+    let min_properties = get_usize(schema, "minProperties")?.unwrap_or(0);
+    let max_properties = get_usize(schema, "maxProperties")?;
+
     let properties = compile_prop_map(ctx, "properties", properties)?;
     let pattern_properties = compile_prop_map(ctx, "patternProperties", pattern_properties)?;
     ctx.check_disjoint_pattern_properties(&pattern_properties.keys().collect::<Vec<_>>())?;
@@ -1119,12 +1098,28 @@ fn compile_object(
             })
             .collect::<Result<IndexSet<String>>>()?,
     };
-    Ok(Schema::Object(ObjectSchema {
+
+    Ok(mk_object_schema(ObjectSchema {
         properties,
-        additional_properties,
         pattern_properties,
+        additional_properties,
         required,
+        min_properties,
+        max_properties,
     }))
+}
+
+fn mk_object_schema(obj: ObjectSchema) -> Schema {
+    if let Some(max) = obj.max_properties {
+        if obj.min_properties > max {
+            return Schema::unsat("minProperties > maxProperties");
+        }
+    }
+    if obj.required.len() > obj.max_properties.unwrap_or(usize::MAX) {
+        return Schema::unsat("required > maxProperties");
+    }
+
+    Schema::Object(obj)
 }
 
 fn opt_max<T: PartialOrd>(a: Option<T>, b: Option<T>) -> Option<T> {
