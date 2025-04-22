@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [0.7.17](https://github.com/guidance-ai/llguidance/compare/v0.7.16...0.7.17) 2025-04-22
+
+- support for min/maxProperties in JSON Schema [`#168`](https://github.com/guidance-ai/llguidance/issues/168)
+- give priority to &lt;[123]&gt; over "foo" in grammar [`3e9f3b5`](https://github.com/guidance-ai/llguidance/commit/3e9f3b5e8c1cac92daab6e9709f01ebccc20342b)
+
 #### [0.7.16](https://github.com/guidance-ai/llguidance/compare/v0.7.15...0.7.16) 2025-04-17
 
 - fix special token tokenization [`ae7870f`](https://github.com/guidance-ai/llguidance/commit/ae7870f05ca0de68599088607ba742b7071f92ad)
