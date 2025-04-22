@@ -170,16 +170,20 @@ impl LlgTokenizer {
         })
     }
 
-    fn to_env(&self) -> TokEnv {
+    pub fn to_env(&self) -> TokEnv {
         self.factory.tok_env().clone()
     }
 
-    fn tok_env(&self) -> &TokEnv {
+    pub fn tok_env(&self) -> &TokEnv {
         self.factory.tok_env()
     }
 
-    fn tok_trie(&self) -> &TokTrie {
+    pub fn tok_trie(&self) -> &TokTrie {
         self.factory.tok_env().tok_trie()
+    }
+
+    pub fn factory(&self) -> &ParserFactory {
+        &self.factory
     }
 }
 
@@ -644,8 +648,10 @@ pub extern "C" fn llg_clone_constraint(cc: &LlgConstraint) -> *mut LlgConstraint
 }
 
 /// Construct a new tokenizer from the given TokenizerInit
+/// # Safety
+/// This function should only be called from C code.
 #[no_mangle]
-pub extern "C" fn llg_new_tokenizer(
+pub unsafe extern "C" fn llg_new_tokenizer(
     tok_init: &LlgTokenizerInit,
     error_string: *mut c_char,
     error_string_len: usize,
@@ -849,7 +855,16 @@ fn build_stop_controller(
     StopController::new(tokenizer.to_env(), stop_tokens.to_vec(), stop_rx, vec![])
 }
 
-fn save_error_string(e: impl Display, error_string: *mut c_char, error_string_len: usize) {
+/// Save the error string to the given pointer.
+/// The string is NUL-terminated.
+/// The function will write at most error_string_len bytes (including the NUL).
+/// # Safety
+/// This function should only when interacting with pointers passed from C.
+pub unsafe fn save_error_string(
+    e: impl Display,
+    error_string: *mut c_char,
+    error_string_len: usize,
+) {
     if !error_string.is_null() && error_string_len > 0 {
         let e = e.to_string();
         let e = e.as_bytes();
@@ -999,9 +1014,8 @@ fn validate_grammar(
 /// This about twice as fast as creating a matcher (which also validates).
 /// See llg_new_matcher() for the grammar format.
 /// Returns 0 on success and -1 on error and 1 on warning.
-/// The error message is written to error_string.
-/// The error_string is NUL-terminated.
-/// Same for warning_string.
+/// The error message or warning is written to message, which is message_len bytes long.
+/// It's always NUL-terminated.
 /// # Safety
 /// This function should only be called from C code.
 #[no_mangle]
@@ -1009,21 +1023,20 @@ pub unsafe extern "C" fn llg_validate_grammar(
     init: &LlgConstraintInit,
     constraint_type: *const c_char,
     data: *const c_char,
-    error_string: *mut c_char,
-    error_string_len: usize,
-    warning_string: *mut c_char,
-    warning_string_len: usize,
+    message: *mut c_char,
+    message_len: usize,
 ) -> i32 {
     match validate_grammar(init, constraint_type, data) {
         Err(e) => {
-            save_error_string(e, error_string, error_string_len);
+            save_error_string(e, message, message_len);
             -1
         }
         Ok(s) => {
             if !s.is_empty() {
-                save_error_string(s, warning_string, warning_string_len);
+                save_error_string(s, message, message_len);
                 1
             } else {
+                save_error_string("", message, message_len);
                 0
             }
         }

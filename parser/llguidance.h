@@ -462,17 +462,14 @@ struct LlgMatcher *llg_new_matcher(const struct LlgConstraintInit *init,
  * This about twice as fast as creating a matcher (which also validates).
  * See llg_new_matcher() for the grammar format.
  * Returns 0 on success and -1 on error and 1 on warning.
- * The error message is written to error_string.
- * The error_string is NUL-terminated.
- * Same for warning_string.
+ * The error message or warning is written to message, which is message_len bytes long.
+ * It's always NUL-terminated.
  */
 int32_t llg_validate_grammar(const struct LlgConstraintInit *init,
                              const char *constraint_type,
                              const char *data,
-                             char *error_string,
-                             size_t error_string_len,
-                             char *warning_string,
-                             size_t warning_string_len);
+                             char *message,
+                             size_t message_len);
 
 /**
  * Compute the set of allowed tokens for the current state.
