@@ -192,3 +192,18 @@ fn test_ff_json4() {
     json_fwd_test(schema.clone(), json!({ "foo": 123, "baz": "hello" }));
     json_fwd_test(schema.clone(), json!({ "bar": 123 }));
 }
+
+#[test]
+fn test_ff_early() {
+    let lark = r#"
+        start: lst
+        lst: "," lst | ""
+    "#;
+
+    let mut parser = make_parser(lark);
+    let tokens = get_tok_env().tokenize(",,,,,,,");
+
+    for tok in tokens.iter() {
+        parser.consume_token(*tok).unwrap();
+    }
+}

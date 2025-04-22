@@ -37,14 +37,8 @@ impl CompileCtx {
                 let _ = lark;
                 bail!("lark_grammar is not supported in this build")
             }
-        } else if let Some(mut json_schema) = input.json_schema {
-            let mut opts = JsonCompileOptions::default();
-            if let Some(x_guidance) = json_schema.get("x-guidance") {
-                opts = serde_json::from_value(x_guidance.clone())?;
-                // TODO not removing it causes oneOf to be handled as anyOf in Github_medium---o61004.json
-                json_schema.as_object_mut().unwrap().remove("x-guidance");
-            }
-            opts.json_to_llg(builder, json_schema)?
+        } else if let Some(json_schema) = input.json_schema {
+            JsonCompileOptions::default().json_to_llg_with_overrides(builder, json_schema)?
         } else {
             bail!("grammar must have either lark_grammar or json_schema");
         };

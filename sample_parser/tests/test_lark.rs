@@ -409,6 +409,20 @@ fn test_lark_syntax_attributes() {
         "#,
     );
 
+    lark_ok(
+        r#"
+              start: %json {
+                "x-guidance": {
+                   "lenient": true
+                },
+                "oneOf": [
+                    { "type": "object", "properties": { "foo": { "type": "string" } } },
+                    { "type": "object", "properties": { "bar": { "type": "string" } } }
+                ]
+            }
+        "#,
+    );
+
     lark_err_test(
         r#" start: foo
             foo[foobar=12]: /.*/ "#,

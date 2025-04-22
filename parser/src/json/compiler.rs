@@ -84,6 +84,21 @@ impl Default for JsonCompileOptions {
 }
 
 impl JsonCompileOptions {
+    pub fn json_to_llg_with_overrides(
+        &self,
+        builder: GrammarBuilder,
+        mut schema: Value,
+    ) -> Result<GrammarResult> {
+        if let Some(x_guidance) = schema.get("x-guidance") {
+            let opts: Self = serde_json::from_value(x_guidance.clone())?;
+            // TODO: figure out why not removing this still causes problems in maskbench
+            schema.as_object_mut().unwrap().remove("x-guidance");
+            opts.json_to_llg(builder, schema)
+        } else {
+            self.json_to_llg(builder, schema)
+        }
+    }
+
     pub fn json_to_llg(&self, builder: GrammarBuilder, schema: Value) -> Result<GrammarResult> {
         let compiler = Compiler::new(self.clone(), builder);
         #[cfg(feature = "jsonschema_validation")]
