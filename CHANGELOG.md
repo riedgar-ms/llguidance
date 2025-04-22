@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [0.7.18](https://github.com/guidance-ai/llguidance/compare/v0.7.17...0.7.18) 2025-04-22
+
+- apply x-guidance also in %json{} [`2627891`](https://github.com/guidance-ai/llguidance/commit/2627891c72c7e38062cd3e052f1de146d2e21635)
+- more sensible llg_validate_grammar() signature [`41928c0`](https://github.com/guidance-ai/llguidance/commit/41928c07298e69e3c8adc4a3c1f43ef9b1cc1c6b)
+
 #### [0.7.17](https://github.com/guidance-ai/llguidance/compare/v0.7.16...0.7.17) 2025-04-22
 
 - support for min/maxProperties in JSON Schema [`#168`](https://github.com/guidance-ai/llguidance/issues/168)
