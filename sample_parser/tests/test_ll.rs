@@ -876,6 +876,21 @@ fn test_ll_numeric_token_for_text() {
 }
 
 #[test]
+fn test_ll_numeric_and_text() {
+    check_lark_grammar(
+        r#"start: <[5432]> <[5426]> | "qux"
+        "#,
+        &["", "<[5432]>", "long"],
+    );
+
+    check_lark_grammar(
+        r#"start: <[5432]> <[5426]> | " qux"
+        "#,
+        &["", "<[5432]>", "long"],
+    );
+}
+
+#[test]
 fn test_ll_dolphin() {
     let grms = &[
         r#"start: "Dolphin name: " NAME ","

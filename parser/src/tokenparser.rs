@@ -511,7 +511,7 @@ impl TokenParser {
         }
 
         // now apply normally
-        match self.parser.apply_token(tok_bytes) {
+        match self.parser.apply_token(tok_bytes, tok_id) {
             Err(e) => {
                 return Err(self.stop(
                     &format!("Parser Error: {}", e),
