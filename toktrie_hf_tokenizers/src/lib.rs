@@ -213,7 +213,9 @@ impl ByteTokenizerEnv {
                 bail!("vocab size too small; {} vs {}", n_vocab, token_bytes.len());
             }
             while n_vocab > token_bytes.len() {
-                token_bytes.push(Vec::new());
+                let mut name = format!(".<[{}]>", token_bytes.len()).into_bytes();
+                name[0] = TokTrie::SPECIAL_TOKEN_MARKER;
+                token_bytes.push(name);
             }
             info.vocab_size = n_vocab as u32;
         }

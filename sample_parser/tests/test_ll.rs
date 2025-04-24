@@ -1262,3 +1262,52 @@ fn test_ll_tool_str_spec() {
 
     check_lark_grammar(TOOL_STR_SPEC_GRAMMAR, tool_chk);
 }
+
+#[test]
+fn test_ll_numeric_bug() {
+    check_lark_grammar(
+        r#"
+            start: text
+            text: (text_tokens)* <[33000]> ap
+            ap: <[33001]> (atok*)
+            atok: <[400-410]>
+            text_tokens: <[300-310]>
+        "#,
+        &[
+            "",
+            "<[300]>‧<[33000]>",
+            "<[33001]>",
+            "<[401]>‧<[402]>‧≺EOS≻",
+        ],
+    );
+
+    check_lark_grammar(
+        r#"
+            start: text
+            text: (text_tokens)* ( (<[33000]> ap) | (<[33002]> (atok*)) )
+            ap: <[33001]> (atok*)
+            atok: <[400-410]>
+            text_tokens: <[300-310]>
+        "#,
+        &[
+            "",
+            "<[300]>‧<[33000]>",
+            "<[33001]>",
+            "<[401]>‧<[402]>‧≺EOS≻",
+        ],
+    );
+
+    check_lark_grammar(
+        r#"
+            start: text
+            text: (text_tokens)* ( (<[33000]> ap) | (<[33002]> (atok*)) )
+            ap: <[33001,33003]> (atok*)
+            atok: <[400-410]>
+            text_tokens: <[300-310]>
+        "#,
+        &[
+            "",
+            "✖<[33001]>‧<[300]>‧<[33000]>✖<[33002]>✖<[300]>‧<[33001]>✖<[33002]>✖<[300]>‧<[401]>‧<[402]>‧≺EOS≻",
+        ],
+    );
+}
