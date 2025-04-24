@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [0.7.19](https://github.com/guidance-ai/llguidance/compare/v0.7.18...0.7.19) 2025-04-24
+
+- fix a numeric token bug [`1f59edf`](https://github.com/guidance-ai/llguidance/commit/1f59edfc49b44cfba74b2380f34874a0778d9441)
+
 #### [0.7.18](https://github.com/guidance-ai/llguidance/compare/v0.7.17...0.7.18) 2025-04-22
 
 - apply x-guidance also in %json{} [`2627891`](https://github.com/guidance-ai/llguidance/commit/2627891c72c7e38062cd3e052f1de146d2e21635)
