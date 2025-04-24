@@ -428,10 +428,6 @@ impl RegexVec {
                 if lazies.is_none() {
                     all_eoi = false;
                     hidden_len = self.exprs.possible_lookahead_len(e) as u32;
-                    if Some(self.get_rx(idx)) == self.special_token_rx {
-                        desc.has_special_token = true;
-                        unreachable!("special token regex should not be lazy");
-                    }
                 }
                 lazies.add(idx);
                 continue;
