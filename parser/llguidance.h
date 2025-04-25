@@ -235,6 +235,31 @@ typedef struct LlgTokenizerInit {
   const char *const *slices;
 } LlgTokenizerInit;
 
+typedef struct LlgFactoryInit {
+  struct LlgTokenizerInit tokenizer_init;
+  /**
+   * The log level for the buffer that is kept inside of the constraint
+   * 0 - no logging, 1 - warnings only, 2 - info
+   */
+  uint32_t log_buffer_level;
+  /**
+   * The log level for writing to stderr
+   */
+  uint32_t log_stderr_level;
+  /**
+   * The resource limits for the parser
+   * Default values will be used for all fields that are 0
+   */
+  struct LlgParserLimits limits;
+  /**
+   * The number of worker threads to use when computing masks in parallel
+   * 0 - number of cores, but no more than 32
+   * 1 - disable parallelism
+   * > 1 - use this number of threads
+   */
+  uint32_t num_threads;
+} LlgFactoryInit;
+
 
 
 #ifdef __cplusplus
@@ -574,6 +599,13 @@ int32_t llg_matcher_compute_ff_tokens(struct LlgMatcher *matcher,
  * Clone the matcher.
  */
 struct LlgMatcher *llg_clone_matcher(const struct LlgMatcher *matcher);
+
+/**
+ * Construct a new cbison factory for a given tokenizer.
+ */
+const LlgCbisonFactory *llg_new_cbison_factory(const struct LlgFactoryInit *init,
+                                               char *error_string,
+                                               size_t error_string_len);
 
 #ifdef __cplusplus
 }  // extern "C"

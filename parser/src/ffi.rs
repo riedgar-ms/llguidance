@@ -101,71 +101,21 @@ unsafe fn slice_from_ptr_or_empty<'a, T>(data: *const T, len: usize) -> &'a [T] 
 
 impl LlgTokenizer {
     fn from_init(init: &LlgTokenizerInit) -> Result<Self> {
-        ensure!(
-            init.tokenize_fn.is_some() || init.use_approximate_greedy_tokenize_fn,
-            "Either tokenize_fn or use_approximate_greedy_tokenize_fn must be set"
-        );
-        let tokens = if init.tokenizer_json.is_null() {
-            ensure!(
-                !init.token_lens.is_null() && !init.token_bytes.is_null(),
-                "token_lens and token_bytes must be set"
-            );
-            // SAFETY: see comments on the struct definition
-            let token_lens = unsafe { slice_from_ptr(init.token_lens, init.vocab_size as usize) }?;
-            let total_len = token_lens.iter().sum::<u32>();
-            let token_bytes = unsafe { slice_from_ptr(init.token_bytes, total_len as usize) }?;
-
-            let mut tokens = vec![];
-            let mut ptr = 0;
-            for len in token_lens {
-                let token = &token_bytes[ptr..ptr + *len as usize];
-                tokens.push(token.to_vec());
-                ptr += *len as usize;
-            }
-            tokens
-        } else {
-            let tokenizer_json = unsafe { c_str_to_str(init.tokenizer_json, "tokenizer_json") }?;
-            let tokenizer_json = serde_json::from_str(tokenizer_json)
-                .map_err(|e| anyhow::anyhow!("Invalid JSON in tokenizer_json: {e}"))?;
-            let mut token_bytes =
-                crate::tokenizer_json::token_bytes_from_tokenizer_json(&tokenizer_json)?;
-
-            let sz = init.vocab_size as usize;
-            if token_bytes.len() < sz {
-                token_bytes.resize(sz, vec![]);
-            }
-
-            token_bytes
-        };
-
-        let trie = TokTrie::from(&TokRxInfo::new(tokens.len() as u32, init.tok_eos), &tokens);
-
-        let tok_env: TokEnv = Arc::new(CTokenizerInner {
-            trie,
-            tokenize_assumes_string: init.tokenize_assumes_string && init.tokenize_fn.is_some(),
-            tokenize_fn: init.tokenize_fn,
-            tokenize_user_data: init.tokenize_user_data,
-        });
-
-        let slices = if init.slices.is_null() {
-            SlicedBiasComputer::general_slices()
-        } else {
-            let mut slices = vec![];
-            let mut idx = 0;
-            loop {
-                let p = unsafe { *init.slices.add(idx) };
-                if p.is_null() {
-                    break;
-                }
-                let s = unsafe { c_str_to_str(p, "slice") }?;
-                slices.push(s.to_string());
-                idx += 1;
-            }
-            slices
-        };
-
+        let tok_env = init.build_tok_env()?;
+        let slices = init.get_slices()?;
         let factory = ParserFactory::new(&tok_env, InferenceCapabilities::default(), &slices)?;
+        Ok(LlgTokenizer {
+            factory: Arc::new(factory),
+        })
+    }
 
+    fn from_factory_init(init: &LlgFactoryInit) -> Result<Self> {
+        let tok_env = init.tokenizer_init.build_tok_env()?;
+        let slices = init.tokenizer_init.get_slices()?;
+        let mut factory = ParserFactory::new(&tok_env, InferenceCapabilities::default(), &slices)?;
+        *factory.limits_mut() = init.limits.clone();
+        factory.set_stderr_log_level(init.log_stderr_level);
+        factory.set_buffer_log_level(init.log_buffer_level);
         Ok(LlgTokenizer {
             factory: Arc::new(factory),
         })
@@ -271,6 +221,93 @@ pub struct LlgConstraintInit {
     /// The resource limits for the parser
     /// Default values will be used for all fields that are 0
     pub limits: ParserLimits,
+}
+
+#[repr(C)]
+pub struct LlgFactoryInit {
+    pub tokenizer_init: LlgTokenizerInit,
+    /// The log level for the buffer that is kept inside of the constraint
+    /// 0 - no logging, 1 - warnings only, 2 - info
+    pub log_buffer_level: u32,
+    /// The log level for writing to stderr
+    pub log_stderr_level: u32,
+    /// The resource limits for the parser
+    /// Default values will be used for all fields that are 0
+    pub limits: ParserLimits,
+    /// The number of worker threads to use when computing masks in parallel
+    /// 0 - number of cores, but no more than 32
+    /// 1 - disable parallelism
+    /// > 1 - use this number of threads
+    pub num_threads: u32,
+}
+
+impl LlgTokenizerInit {
+    fn get_slices(&self) -> Result<Vec<String>> {
+        if self.slices.is_null() {
+            Ok(SlicedBiasComputer::general_slices())
+        } else {
+            let mut slices = vec![];
+            let mut idx = 0;
+            loop {
+                let p = unsafe { *self.slices.add(idx) };
+                if p.is_null() {
+                    break;
+                }
+                let s = unsafe { c_str_to_str(p, "slice") }?;
+                slices.push(s.to_string());
+                idx += 1;
+            }
+            Ok(slices)
+        }
+    }
+
+    fn build_tok_env(&self) -> Result<TokEnv> {
+        ensure!(
+            self.tokenize_fn.is_some() || self.use_approximate_greedy_tokenize_fn,
+            "Either tokenize_fn or use_approximate_greedy_tokenize_fn must be set"
+        );
+        let tokens = if self.tokenizer_json.is_null() {
+            ensure!(
+                !self.token_lens.is_null() && !self.token_bytes.is_null(),
+                "token_lens and token_bytes must be set"
+            );
+            // SAFETY: see comments on the struct definition
+            let token_lens = unsafe { slice_from_ptr(self.token_lens, self.vocab_size as usize) }?;
+            let total_len = token_lens.iter().sum::<u32>();
+            let token_bytes = unsafe { slice_from_ptr(self.token_bytes, total_len as usize) }?;
+
+            let mut tokens = vec![];
+            let mut ptr = 0;
+            for len in token_lens {
+                let token = &token_bytes[ptr..ptr + *len as usize];
+                tokens.push(token.to_vec());
+                ptr += *len as usize;
+            }
+            tokens
+        } else {
+            let tokenizer_json = unsafe { c_str_to_str(self.tokenizer_json, "tokenizer_json") }?;
+            let tokenizer_json = serde_json::from_str(tokenizer_json)
+                .map_err(|e| anyhow::anyhow!("Invalid JSON in tokenizer_json: {e}"))?;
+            let mut token_bytes =
+                crate::tokenizer_json::token_bytes_from_tokenizer_json(&tokenizer_json)?;
+
+            let sz = self.vocab_size as usize;
+            if token_bytes.len() < sz {
+                token_bytes.resize(sz, vec![]);
+            }
+
+            token_bytes
+        };
+
+        let trie = TokTrie::from(&TokRxInfo::new(tokens.len() as u32, self.tok_eos), &tokens);
+
+        Ok(Arc::new(CTokenizerInner {
+            trie,
+            tokenize_assumes_string: self.tokenize_assumes_string && self.tokenize_fn.is_some(),
+            tokenize_fn: self.tokenize_fn,
+            tokenize_user_data: self.tokenize_user_data,
+        }))
+    }
 }
 
 impl LlgConstraintInit {
@@ -1260,7 +1297,7 @@ pub extern "C" fn llg_clone_matcher(matcher: &LlgMatcher) -> *mut LlgMatcher {
 
 #[repr(C)]
 pub struct LlgCbisonFactory {
-    common: CbisonFactory,
+    common: CbisonFactory, // has to come first!
     tokenizer: LlgTokenizer,
 }
 
@@ -1344,16 +1381,16 @@ fn fill_cbison_factory(tok_env: &TokEnv) -> CbisonFactory {
     }
 }
 
-/// Construct a new tokenizer from the given TokenizerInit
+/// Construct a new cbison factory for a given tokenizer.
 /// # Safety
 /// This function should only be called from C code.
 #[no_mangle]
 pub unsafe extern "C" fn llg_new_cbison_factory(
-    tok_init: &LlgTokenizerInit,
+    init: &LlgFactoryInit,
     error_string: *mut c_char,
     error_string_len: usize,
 ) -> *const LlgCbisonFactory {
-    match LlgTokenizer::from_init(tok_init) {
+    match LlgTokenizer::from_factory_init(init) {
         Ok(tok) => {
             let factory = LlgCbisonFactory {
                 common: fill_cbison_factory(tok.tok_env()),
