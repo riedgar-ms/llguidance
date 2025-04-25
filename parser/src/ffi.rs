@@ -11,6 +11,7 @@ use toktrie::{
 
 use crate::{
     api::{GrammarInit, ParserLimits, TopLevelGrammar},
+    cbison::{CbisonFactory, CBISON_MAGIC, CBISON_VERSION_MAJOR, CBISON_VERSION_MINOR},
     earley::{SlicedBiasComputer, ValidationResult},
     CommitResult, Constraint, Logger, Matcher, ParserFactory, StopController, TokenParser,
 };
@@ -1165,7 +1166,7 @@ pub extern "C" fn llg_matcher_is_error(matcher: &mut LlgMatcher) -> bool {
 /// # Safety
 /// This function should only be called from C code.
 #[no_mangle]
-pub unsafe extern "C" fn llg_free_matcher(matcher: *mut LlgMatcher) {
+pub unsafe extern "C" fn llg_free_matcher(matcher: &mut LlgMatcher) {
     unsafe {
         drop(Box::from_raw(matcher));
     }
@@ -1255,4 +1256,114 @@ pub extern "C" fn llg_clone_matcher(matcher: &LlgMatcher) -> *mut LlgMatcher {
         saved_mask: None,
         tok_env: matcher.tok_env.clone(),
     }))
+}
+
+#[repr(C)]
+pub struct LlgCbisonFactory {
+    common: CbisonFactory,
+    tokenizer: LlgTokenizer,
+}
+
+impl LlgCbisonFactory {
+    fn factory(&self) -> &ParserFactory {
+        self.tokenizer.factory()
+    }
+
+    fn check_magic(&self) {
+        assert!(self.common.magic == CBISON_MAGIC && self.common.impl_magic == CBISON_IMPL_MAGIC);
+    }
+
+    fn constraint_init(&self) -> LlgConstraintInit {
+        self.check_magic();
+        let f = self.factory();
+        LlgConstraintInit {
+            tokenizer: &self.tokenizer,
+            log_buffer_level: f.buffer_log_level(),
+            log_stderr_level: f.stderr_log_level(),
+            ff_tokens_ok: false,
+            backtrack_ok: false,
+            limits: f.limits().clone(),
+        }
+    }
+}
+
+const CBISON_IMPL_MAGIC: u32 = 0x4C4C4742; // "LLG\0"
+
+unsafe extern "C" fn cbison_validate_grammar(
+    this: &LlgCbisonFactory,
+    grammar_type: *const c_char,
+    grammar: *const c_char,
+    message: *mut c_char,
+    message_len: usize,
+) -> i32 {
+    let init = this.constraint_init();
+    llg_validate_grammar(&init, grammar_type, grammar, message, message_len)
+}
+
+unsafe extern "C" fn cbison_new_matcher(
+    this: &LlgCbisonFactory,
+    grammar_type: *const c_char,
+    grammar: *const c_char,
+) -> &'static mut LlgMatcher {
+    let init = this.constraint_init();
+    llg_new_matcher(&init, grammar_type, grammar)
+        .as_mut()
+        .unwrap()
+}
+
+unsafe extern "C" fn cbison_matcher_is_stopped(matcher: &mut LlgMatcher) -> bool {
+    llg_matcher_is_stopped(matcher)
+}
+
+unsafe extern "C" fn cbison_clone_matcher(matcher: &mut LlgMatcher) -> &'static mut LlgMatcher {
+    llg_clone_matcher(matcher).as_mut().unwrap()
+}
+
+fn fill_cbison_factory(tok_env: &TokEnv) -> CbisonFactory {
+    let trie = tok_env.tok_trie();
+    CbisonFactory {
+        magic: CBISON_MAGIC,
+        impl_magic: CBISON_IMPL_MAGIC,
+        version_major: CBISON_VERSION_MAJOR,
+        version_minor: CBISON_VERSION_MINOR,
+        n_vocab: trie.vocab_size(),
+        mask_byte_len: trie.vocab_size().div_ceil(32) * 4,
+        validate_grammar: Some(cbison_validate_grammar),
+        new_matcher: Some(cbison_new_matcher),
+        get_error: Some(llg_matcher_get_error),
+        compute_mask: Some(llg_matcher_compute_mask_into),
+        consume_tokens: Some(llg_matcher_consume_tokens),
+        is_accepting: Some(llg_matcher_is_accepting),
+        is_stopped: Some(cbison_matcher_is_stopped),
+        validate_tokens: Some(llg_matcher_validate_tokens),
+        compute_ff_tokens: Some(llg_matcher_compute_ff_tokens),
+        free_matcher: Some(llg_free_matcher),
+        rollback: Some(llg_matcher_rollback),
+        reset: Some(llg_matcher_reset),
+        clone_matcher: Some(cbison_clone_matcher),
+    }
+}
+
+/// Construct a new tokenizer from the given TokenizerInit
+/// # Safety
+/// This function should only be called from C code.
+#[no_mangle]
+pub unsafe extern "C" fn llg_new_cbison_factory(
+    tok_init: &LlgTokenizerInit,
+    error_string: *mut c_char,
+    error_string_len: usize,
+) -> *const LlgCbisonFactory {
+    match LlgTokenizer::from_init(tok_init) {
+        Ok(tok) => {
+            let factory = LlgCbisonFactory {
+                common: fill_cbison_factory(tok.tok_env()),
+                tokenizer: tok,
+            };
+            Box::into_raw(Box::new(factory))
+        }
+        Err(e) => {
+            save_error_string(e, error_string, error_string_len);
+            std::ptr::null_mut()
+        }
+    }
 }

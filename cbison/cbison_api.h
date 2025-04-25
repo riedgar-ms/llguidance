@@ -9,16 +9,20 @@
 #define CBISON_VERSION_MAJOR 1
 #define CBISON_VERSION_MINOR 0
 
+#ifndef CBISON_SKIP_STRUCTS
 typedef struct cbison_matcher *cbison_matcher_t;
-typedef struct cbison_api *cbison_api_t;
+typedef struct cbison_factory *cbison_factory_t;
+#endif
 
 /**
- * This represents the API for a constraint engine that is specialized
+ * C Binary Interface for Structured Output Negotiation (CBISON)
+ * 
+ * This represents a factory for matchers, that is specialized
  * for a given tokenizer.
  *
  * We currently do not cover creation APIs for these here.
  */
-struct cbison_api {
+struct cbison_factory {
   /**
    * Always CBISON_MAGIC (0x1bb53ed3)
    */
@@ -62,7 +66,7 @@ struct cbison_api {
    * The error message or warning is written to message, which is message_len
    * bytes long. It's always NUL-terminated.
    */
-  int32_t (*validate_grammar)(cbison_api_t api, const char *grammar_type,
+  int32_t (*validate_grammar)(cbison_factory_t api, const char *grammar_type,
                               const char *grammar, char *message,
                               size_t message_len);
 
@@ -79,7 +83,7 @@ struct cbison_api {
    * - "llguidance" or "guidance" - grammar is a list of Lark or JSON schemas in
    * JSON format
    */
-  cbison_matcher_t (*new_matcher)(cbison_api_t api, const char *grammar_type,
+  cbison_matcher_t (*new_matcher)(cbison_factory_t api, const char *grammar_type,
                                   const char *grammar);
 
   /**
