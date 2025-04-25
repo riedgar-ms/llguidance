@@ -14,9 +14,31 @@ typedef struct cbison_matcher *cbison_matcher_t;
 typedef struct cbison_factory *cbison_factory_t;
 #endif
 
+// This type is used when a value is returned or stored in a struct
+// (think of cbison_matcher_t as cbison_matcher& and cbison_matcher_ptr_t as
+// cbison_matcher* in C++ sense).
+typedef cbison_matcher_t cbison_matcher_ptr_t;
+
+/**
+ * Represents a single request for a mask.
+ */
+typedef struct cbison_mask_req {
+  /**
+   * The matcher to compute the mask for.
+   */
+  cbison_matcher_ptr_t matcher;
+
+  /**
+   * Where to write the mask.
+   * This must point to a buffer of size mask_byte_len bytes.
+   */
+  uint32_t *mask_dest;
+
+} cbison_mask_req_t;
+
 /**
  * C Binary Interface for Structured Output Negotiation (CBISON)
- * 
+ *
  * This represents a factory for matchers, that is specialized
  * for a given tokenizer.
  *
@@ -83,8 +105,9 @@ struct cbison_factory {
    * - "llguidance" or "guidance" - grammar is a list of Lark or JSON schemas in
    * JSON format
    */
-  cbison_matcher_t (*new_matcher)(cbison_factory_t api, const char *grammar_type,
-                                  const char *grammar);
+  cbison_matcher_ptr_t (*new_matcher)(cbison_factory_t api,
+                                      const char *grammar_type,
+                                      const char *grammar);
 
   /**
    * Get the error message from the matcher.
@@ -162,7 +185,19 @@ struct cbison_factory {
    * Clone the matcher.
    * This is optional (can be NULL).
    */
-  cbison_matcher_t (*clone_matcher)(cbison_matcher_t matcher);
+  cbison_matcher_ptr_t (*clone_matcher)(cbison_matcher_t matcher);
+
+  /**
+   * Compute masks for a number of matchers.
+   * The masks can be computed in parallel, and the function returns only
+   * when all of them are computed.
+   * The behavior is undefined if any matcher is specified more than once,
+   * or if other operations are performed on the matchers while this function is
+   * running.
+   * This is optional (can be NULL).
+   */
+  int32_t (*compute_masks)(cbison_factory_t api, cbison_mask_req_t *reqs,
+                           size_t n_reqs);
 };
 
 #endif // CBISON_API_H

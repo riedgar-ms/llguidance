@@ -253,7 +253,7 @@ typedef struct LlgFactoryInit {
   struct LlgParserLimits limits;
   /**
    * The number of worker threads to use when computing masks in parallel
-   * 0 - number of cores, but no more than 32
+   * 0 - 80% of the number of cores, but no more than 32
    * 1 - disable parallelism
    * > 1 - use this number of threads
    */

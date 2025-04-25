@@ -4,6 +4,7 @@ use crate::ffi::{LlgCbisonFactory, LlgMatcher};
 
 pub type cbison_factory_t = &'static LlgCbisonFactory;
 pub type cbison_matcher_t = &'static mut LlgMatcher;
+pub type cbison_matcher_ptr_t = *mut LlgMatcher;
 pub type CbisonFactory = cbison_factory;
 
 // ---START OF GENERATED CODE---
@@ -12,6 +13,25 @@ pub type CbisonFactory = cbison_factory;
 pub const CBISON_MAGIC: u32 = 464862931;
 pub const CBISON_VERSION_MAJOR: u32 = 1;
 pub const CBISON_VERSION_MINOR: u32 = 0;
+#[doc = " Represents a single request for a mask."]
+#[repr(C)]
+pub struct cbison_mask_req {
+    #[doc = " The matcher to compute the mask for."]
+    pub matcher: cbison_matcher_ptr_t,
+    #[doc = " Where to write the mask.\n This must point to a buffer of size mask_byte_len bytes."]
+    pub mask_dest: *mut u32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of cbison_mask_req"][::std::mem::size_of::<cbison_mask_req>() - 16usize];
+    ["Alignment of cbison_mask_req"][::std::mem::align_of::<cbison_mask_req>() - 8usize];
+    ["Offset of field: cbison_mask_req::matcher"]
+        [::std::mem::offset_of!(cbison_mask_req, matcher) - 0usize];
+    ["Offset of field: cbison_mask_req::mask_dest"]
+        [::std::mem::offset_of!(cbison_mask_req, mask_dest) - 8usize];
+};
+#[doc = " Represents a single request for a mask."]
+pub type cbison_mask_req_t = cbison_mask_req;
 #[doc = " C Binary Interface for Structured Output Negotiation (CBISON)\n\n This represents a factory for matchers, that is specialized\n for a given tokenizer.\n\n We currently do not cover creation APIs for these here."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -44,7 +64,7 @@ pub struct cbison_factory {
             api: cbison_factory_t,
             grammar_type: *const ::std::os::raw::c_char,
             grammar: *const ::std::os::raw::c_char,
-        ) -> cbison_matcher_t,
+        ) -> cbison_matcher_ptr_t,
     >,
     #[doc = " Get the error message from the matcher.\n The error message is always NUL-terminated.\n Returns NULL if there is no error."]
     pub get_error: ::std::option::Option<
@@ -84,12 +104,21 @@ pub struct cbison_factory {
     #[doc = " Resets the matcher to the initial state.\n A matcher in error state cannot be reset.\n Returns 0 on success and -1 on error.\n This is optional (can be NULL)."]
     pub reset: ::std::option::Option<unsafe extern "C" fn(matcher: cbison_matcher_t) -> i32>,
     #[doc = " Clone the matcher.\n This is optional (can be NULL)."]
-    pub clone_matcher:
-        ::std::option::Option<unsafe extern "C" fn(matcher: cbison_matcher_t) -> cbison_matcher_t>,
+    pub clone_matcher: ::std::option::Option<
+        unsafe extern "C" fn(matcher: cbison_matcher_t) -> cbison_matcher_ptr_t,
+    >,
+    #[doc = " Compute masks for a number of matchers.\n The masks can be computed in parallel, and the function returns only\n when all of them are computed.\n The behavior is undefined if any matcher is specified more than once,\n or if other operations are performed on the matchers while this function is\n running.\n This is optional (can be NULL)."]
+    pub compute_masks: ::std::option::Option<
+        unsafe extern "C" fn(
+            api: cbison_factory_t,
+            reqs: *mut cbison_mask_req_t,
+            n_reqs: usize,
+        ) -> i32,
+    >,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of cbison_factory"][::std::mem::size_of::<cbison_factory>() - 136usize];
+    ["Size of cbison_factory"][::std::mem::size_of::<cbison_factory>() - 144usize];
     ["Alignment of cbison_factory"][::std::mem::align_of::<cbison_factory>() - 8usize];
     ["Offset of field: cbison_factory::magic"]
         [::std::mem::offset_of!(cbison_factory, magic) - 0usize];
@@ -129,4 +158,6 @@ const _: () = {
         [::std::mem::offset_of!(cbison_factory, reset) - 120usize];
     ["Offset of field: cbison_factory::clone_matcher"]
         [::std::mem::offset_of!(cbison_factory, clone_matcher) - 128usize];
+    ["Offset of field: cbison_factory::compute_masks"]
+        [::std::mem::offset_of!(cbison_factory, compute_masks) - 136usize];
 };

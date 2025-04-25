@@ -11,7 +11,9 @@ use toktrie::{
 
 use crate::{
     api::{GrammarInit, ParserLimits, TopLevelGrammar},
-    cbison::{CbisonFactory, CBISON_MAGIC, CBISON_VERSION_MAJOR, CBISON_VERSION_MINOR},
+    cbison::{
+        cbison_mask_req, CbisonFactory, CBISON_MAGIC, CBISON_VERSION_MAJOR, CBISON_VERSION_MINOR,
+    },
     earley::{SlicedBiasComputer, ValidationResult},
     CommitResult, Constraint, Logger, Matcher, ParserFactory, StopController, TokenParser,
 };
@@ -235,7 +237,7 @@ pub struct LlgFactoryInit {
     /// Default values will be used for all fields that are 0
     pub limits: ParserLimits,
     /// The number of worker threads to use when computing masks in parallel
-    /// 0 - number of cores, but no more than 32
+    /// 0 - 80% of the number of cores, but no more than 32
     /// 1 - disable parallelism
     /// > 1 - use this number of threads
     pub num_threads: u32,
@@ -1299,6 +1301,7 @@ pub extern "C" fn llg_clone_matcher(matcher: &LlgMatcher) -> *mut LlgMatcher {
 pub struct LlgCbisonFactory {
     common: CbisonFactory, // has to come first!
     tokenizer: LlgTokenizer,
+    executor: LlgExecutor,
 }
 
 impl LlgCbisonFactory {
@@ -1341,19 +1344,17 @@ unsafe extern "C" fn cbison_new_matcher(
     this: &LlgCbisonFactory,
     grammar_type: *const c_char,
     grammar: *const c_char,
-) -> &'static mut LlgMatcher {
+) -> *mut LlgMatcher {
     let init = this.constraint_init();
     llg_new_matcher(&init, grammar_type, grammar)
-        .as_mut()
-        .unwrap()
 }
 
 unsafe extern "C" fn cbison_matcher_is_stopped(matcher: &mut LlgMatcher) -> bool {
     llg_matcher_is_stopped(matcher)
 }
 
-unsafe extern "C" fn cbison_clone_matcher(matcher: &mut LlgMatcher) -> &'static mut LlgMatcher {
-    llg_clone_matcher(matcher).as_mut().unwrap()
+unsafe extern "C" fn cbison_clone_matcher(matcher: &mut LlgMatcher) -> *mut LlgMatcher {
+    llg_clone_matcher(matcher)
 }
 
 fn fill_cbison_factory(tok_env: &TokEnv) -> CbisonFactory {
@@ -1378,7 +1379,96 @@ fn fill_cbison_factory(tok_env: &TokEnv) -> CbisonFactory {
         rollback: Some(llg_matcher_rollback),
         reset: Some(llg_matcher_reset),
         clone_matcher: Some(cbison_clone_matcher),
+        #[cfg(not(feature = "rayon"))]
+        compute_masks: None,
+        #[cfg(feature = "rayon")]
+        compute_masks: Some(cbison_compute_masks),
     }
+}
+
+unsafe impl Send for cbison_mask_req {}
+impl Clone for cbison_mask_req {
+    fn clone(&self) -> Self {
+        cbison_mask_req {
+            matcher: self.matcher,
+            mask_dest: self.mask_dest,
+        }
+    }
+}
+
+#[cfg(feature = "rayon")]
+unsafe extern "C" fn cbison_compute_masks(
+    this: &LlgCbisonFactory,
+    reqs: *mut cbison_mask_req,
+    n_reqs: usize,
+) -> i32 {
+    use rayon::prelude::*;
+
+    if n_reqs == 0 {
+        return 0;
+    }
+    if reqs.is_null() {
+        return -1;
+    }
+    let reqs = unsafe { slice_from_ptr(reqs, n_reqs).unwrap() };
+    let byte_len = this.common.mask_byte_len;
+
+    if let Some(pool) = &this.executor.pool {
+        let reqs = reqs.to_vec();
+        pool.install(|| {
+            reqs.into_par_iter().for_each(|req| {
+                llg_matcher_compute_mask_into(&mut *req.matcher, req.mask_dest, byte_len);
+            })
+        });
+    } else {
+        for req in reqs.iter() {
+            llg_matcher_compute_mask_into(&mut *req.matcher, req.mask_dest, byte_len);
+        }
+    }
+
+    0
+}
+
+struct LlgExecutor {
+    #[cfg(feature = "rayon")]
+    pool: Option<rayon::ThreadPool>,
+}
+
+impl LlgExecutor {
+    #[cfg(not(feature = "rayon"))]
+    fn new(_init: &LlgFactoryInit) -> Result<Self> {
+        Ok(LlgExecutor {})
+    }
+
+    #[cfg(feature = "rayon")]
+    fn new(init: &LlgFactoryInit) -> Result<Self> {
+        let num_threads = if init.num_threads == 0 {
+            let n = std::thread::available_parallelism().unwrap().get();
+            // by default run on 80% of available threads but not more than 32
+            (n * 80 / 100).clamp(1, 32)
+        } else {
+            init.num_threads as usize
+        };
+
+        if num_threads == 1 {
+            Ok(LlgExecutor { pool: None })
+        } else {
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(num_threads)
+                .build()?;
+            Ok(LlgExecutor { pool: Some(pool) })
+        }
+    }
+}
+
+fn build_cbison_factory(init: &LlgFactoryInit) -> Result<LlgCbisonFactory> {
+    let tok = LlgTokenizer::from_factory_init(init)?;
+    let factory = LlgCbisonFactory {
+        common: fill_cbison_factory(tok.tok_env()),
+        tokenizer: tok,
+        executor: LlgExecutor::new(init)?,
+    };
+    Ok(factory)
 }
 
 /// Construct a new cbison factory for a given tokenizer.
@@ -1390,14 +1480,8 @@ pub unsafe extern "C" fn llg_new_cbison_factory(
     error_string: *mut c_char,
     error_string_len: usize,
 ) -> *const LlgCbisonFactory {
-    match LlgTokenizer::from_factory_init(init) {
-        Ok(tok) => {
-            let factory = LlgCbisonFactory {
-                common: fill_cbison_factory(tok.tok_env()),
-                tokenizer: tok,
-            };
-            Box::into_raw(Box::new(factory))
-        }
+    match build_cbison_factory(init) {
+        Ok(factory) => Box::into_raw(Box::new(factory)),
         Err(e) => {
             save_error_string(e, error_string, error_string_len);
             std::ptr::null_mut()
