@@ -1102,7 +1102,7 @@ pub extern "C" fn llg_matcher_get_mask(matcher: &mut LlgMatcher) -> *const u32 {
         .map_or(std::ptr::null(), |m| m.as_ptr())
 }
 
-/// Return pointer to the mask computed by llg_matcher_compute_mask(), if any.
+/// Return the size of the mask in bytes.
 #[no_mangle]
 pub extern "C" fn llg_matcher_get_mask_byte_size(matcher: &mut LlgMatcher) -> usize {
     matcher.mask_elts() * 4
