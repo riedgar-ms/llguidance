@@ -4,6 +4,7 @@ use std::ops::DerefMut;
 
 use anyhow::Result;
 use llguidance::api::GrammarInit;
+use llguidance::api::ParserLimits;
 use llguidance::api::TopLevelGrammar;
 use llguidance::toktrie::{InferenceCapabilities, SimpleVob, TokEnv, TokenId};
 use llguidance::{json_merge, Logger, Matcher, ParserFactory};
@@ -145,7 +146,7 @@ fn new_matcher(
     fact: &ParserFactory,
     grammar: TopLevelGrammar,
     log_level: isize,
-    limits: Option<&LLParserLimits>,
+    limits: ParserLimits,
     py: Python<'_>,
 ) -> Matcher {
     let logger = Logger::new(0, std::cmp::max(0, log_level) as u32);
@@ -156,7 +157,7 @@ fn new_matcher(
             GrammarInit::Serialized(grammar),
             logger,
             InferenceCapabilities::default(),
-            LLParserLimits::from_option(limits),
+            limits,
         )
     });
     Matcher::new(inner)
@@ -183,8 +184,14 @@ impl LLMatcher {
         py: Python<'_>,
     ) -> Self {
         let fact = tokenizer.factory();
+        let log_level = log_level.unwrap_or(fact.stderr_log_level() as isize);
+        let limits = if limits.is_some() {
+            LLParserLimits::from_option(limits)
+        } else {
+            fact.limits().clone()
+        };
         let inner = match extract_grammar(grammar) {
-            Ok(grammar) => new_matcher(fact, grammar, log_level.unwrap_or(1), limits, py),
+            Ok(grammar) => new_matcher(fact, grammar, log_level, limits, py),
             Err(e) => Matcher::new(Err(e)),
         };
         LLMatcher {

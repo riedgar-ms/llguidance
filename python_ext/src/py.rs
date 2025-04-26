@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use toktrie_hf_tokenizers::ByteTokenizer;
 
+use crate::parserlimits::LLParserLimits;
+
 struct PyTokenizer {
     tok_trie: Arc<toktrie::TokTrie>,
     tokenizer_fun: Py<PyAny>,
@@ -37,12 +39,14 @@ struct PyMidProcessResult {
 #[pymethods]
 impl LLTokenizer {
     #[new]
-    #[pyo3(signature = (tokenizer, n_vocab=None, eos_token=None, slices=None))]
+    #[pyo3(signature = (tokenizer, n_vocab=None, eos_token=None, slices=None, limits=None, log_level=None))]
     fn py_new(
         tokenizer: Bound<'_, PyAny>,
         n_vocab: Option<usize>,
         eos_token: Option<u32>,
         slices: Option<Vec<String>>,
+        limits: Option<&LLParserLimits>,
+        log_level: Option<u32>,
     ) -> PyResult<Self> {
         let tok_env: TokEnv = if let Ok(tokenizer_str) = tokenizer.extract::<String>() {
             if tokenizer_str == "byte" {
@@ -61,12 +65,19 @@ impl LLTokenizer {
         } else {
             Arc::new(PyTokenizer::py_new(tokenizer)?)
         };
-        let factory = ParserFactory::new(
+        let mut factory = ParserFactory::new(
             &tok_env,
             InferenceCapabilities::default(),
             &slices.unwrap_or_else(SlicedBiasComputer::general_slices),
         )
         .map_err(val_error)?;
+
+        if limits.is_some() {
+            *factory.limits_mut() = LLParserLimits::from_option(limits);
+        }
+        if let Some(log_level) = log_level {
+            factory.set_stderr_log_level(log_level);
+        }
 
         Ok(LLTokenizer {
             factory: Arc::new(factory),
