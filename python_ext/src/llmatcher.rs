@@ -7,7 +7,7 @@ use llguidance::api::GrammarInit;
 use llguidance::api::ParserLimits;
 use llguidance::api::TopLevelGrammar;
 use llguidance::ffi::LlgMatcher;
-use llguidance::toktrie::{InferenceCapabilities, SimpleVob, TokEnv, TokenId};
+use llguidance::toktrie::{InferenceCapabilities, SimpleVob, TokenId};
 use llguidance::{json_merge, Logger, Matcher, ParserFactory};
 use pyo3::types::{PyList, PyTuple};
 use pyo3::{exceptions::PyValueError, prelude::*};
