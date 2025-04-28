@@ -972,12 +972,21 @@ pub unsafe extern "C" fn llg_free_stop_controller(stop_ctrl: *mut LlgStopControl
 
 pub struct LlgMatcher {
     last_error: Option<String>,
-    matcher: Matcher,
+    pub matcher: Matcher,
     saved_mask: Option<SimpleVob>,
-    tok_env: TokEnv,
+    pub tok_env: TokEnv,
 }
 
 impl LlgMatcher {
+    pub fn new(tok_env: TokEnv, matcher: Matcher) -> Self {
+        LlgMatcher {
+            last_error: None,
+            matcher,
+            saved_mask: None,
+            tok_env,
+        }
+    }
+
     fn wrap(&mut self, f: impl FnOnce(&mut Matcher) -> Result<i32>) -> i32 {
         if self.matcher.is_error() {
             return -1;

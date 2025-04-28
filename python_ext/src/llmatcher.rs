@@ -6,6 +6,7 @@ use anyhow::Result;
 use llguidance::api::GrammarInit;
 use llguidance::api::ParserLimits;
 use llguidance::api::TopLevelGrammar;
+use llguidance::ffi::LlgMatcher;
 use llguidance::toktrie::{InferenceCapabilities, SimpleVob, TokEnv, TokenId};
 use llguidance::{json_merge, Logger, Matcher, ParserFactory};
 use pyo3::types::{PyList, PyTuple};
@@ -19,8 +20,7 @@ use crate::pyjson::{str_or_dict_to_value, stringify_if_needed, to_json_value};
 // #[derive(Clone)]
 #[pyclass]
 struct LLMatcher {
-    inner: Matcher,
-    tok_env: TokEnv,
+    c: LlgMatcher,
 }
 
 #[pyclass]
@@ -111,7 +111,7 @@ impl LLMatcher {
         if mask_ptr % 4 != 0 {
             return Err(PyValueError::new_err("Pointer not aligned"));
         }
-        let n_words = self.tok_env.tok_trie().vocab_size().div_ceil(32);
+        let n_words = self.c.tok_env.tok_trie().vocab_size().div_ceil(32);
         if mask_bytes != n_words * 4 {
             return Err(PyValueError::new_err("Invalid buffer size"));
         }
@@ -127,15 +127,16 @@ impl LLMatcher {
     }
 
     fn eos_token_set(&self) -> SimpleVob {
-        let trie = self.tok_env.tok_trie();
+        let trie = self.c.tok_env.tok_trie();
         trie.singleton_token_set(trie.eos_token())
     }
 
     fn compute_mask_or_eos(&mut self) -> SimpleVob {
-        if self.inner.is_stopped() {
+        if self.c.matcher.is_stopped() {
             self.eos_token_set()
         } else {
-            self.inner
+            self.c
+                .matcher
                 .compute_mask()
                 .unwrap_or_else(|_| self.eos_token_set())
         }
@@ -190,13 +191,13 @@ impl LLMatcher {
         } else {
             fact.limits().clone()
         };
-        let inner = match extract_grammar(grammar) {
+        let matcher = match extract_grammar(grammar) {
             Ok(grammar) => new_matcher(fact, grammar, log_level, limits, py),
             Err(e) => Matcher::new(Err(e)),
         };
+
         LLMatcher {
-            inner,
-            tok_env: fact.tok_env().clone(),
+            c: LlgMatcher::new(fact.tok_env().clone(), matcher),
         }
     }
 
@@ -291,31 +292,30 @@ impl LLMatcher {
     }
 
     fn get_grammar_warnings(&mut self) -> Vec<String> {
-        self.inner.grammar_warnings()
+        self.c.matcher.grammar_warnings()
     }
 
     fn deep_copy(&self) -> Self {
         Self {
-            inner: self.inner.clone(),
-            tok_env: self.tok_env.clone(),
+            c: LlgMatcher::new(self.c.tok_env.clone(), self.c.matcher.clone()),
         }
     }
 
     fn is_accepting(&mut self) -> bool {
-        self.inner.is_accepting().unwrap_or(false)
+        self.c.matcher.is_accepting().unwrap_or(false)
     }
 
     fn is_stopped(&self) -> bool {
-        self.inner.is_stopped()
+        self.c.matcher.is_stopped()
     }
 
     fn stop_reason(&self) -> String {
-        self.inner.stop_reason().to_string()
+        self.c.matcher.stop_reason().to_string()
     }
 
     fn validate_tokens(&mut self, tokens: Vec<TokenId>) -> usize {
-        self.inner.validate_tokens(&tokens).unwrap_or_else(|_| {
-            let eos = self.tok_env.tok_trie().eos_token();
+        self.c.matcher.validate_tokens(&tokens).unwrap_or_else(|_| {
+            let eos = self.c.tok_env.tok_trie().eos_token();
             if tokens.first() == Some(&eos) {
                 1
             } else {
@@ -352,44 +352,44 @@ impl LLMatcher {
     }
 
     fn consume_token(&mut self, sampled_token: TokenId) -> bool {
-        if self.inner.is_stopped() && sampled_token == self.tok_env.tok_trie().eos_token() {
+        if self.c.matcher.is_stopped() && sampled_token == self.c.tok_env.tok_trie().eos_token() {
             true
         } else {
-            self.inner.consume_token(sampled_token).is_ok()
+            self.c.matcher.consume_token(sampled_token).is_ok()
         }
     }
 
     fn consume_tokens(&mut self, tokens: Vec<TokenId>) -> bool {
-        self.inner.consume_tokens(&tokens).is_ok()
+        self.c.matcher.consume_tokens(&tokens).is_ok()
     }
 
     fn rollback(&mut self, num_tokens: usize) -> bool {
-        self.inner.rollback(num_tokens).is_ok()
+        self.c.matcher.rollback(num_tokens).is_ok()
     }
 
     fn reset(&mut self) -> bool {
-        self.inner.reset().is_ok()
+        self.c.matcher.reset().is_ok()
     }
 
     fn compute_ff_tokens(&mut self) -> Vec<TokenId> {
-        self.inner.compute_ff_tokens()
+        self.c.matcher.compute_ff_tokens()
     }
 
     fn compute_ff_bytes(&mut self) -> Cow<[u8]> {
-        let bytes = self.inner.compute_ff_bytes();
+        let bytes = self.c.matcher.compute_ff_bytes();
         Cow::Owned(bytes)
     }
 
     fn try_consume_tokens(&mut self, tokens: Vec<TokenId>) -> usize {
-        self.inner.try_consume_tokens(&tokens).unwrap_or(0)
+        self.c.matcher.try_consume_tokens(&tokens).unwrap_or(0)
     }
 
     fn is_error(&self) -> bool {
-        self.inner.is_error()
+        self.c.matcher.is_error()
     }
 
     fn get_error(&self) -> String {
-        self.inner.get_error().unwrap_or_default()
+        self.c.matcher.get_error().unwrap_or_default()
     }
 }
 
