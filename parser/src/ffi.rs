@@ -226,6 +226,15 @@ pub struct LlgConstraintInit {
 }
 
 #[repr(C)]
+pub struct LlgExecutorInit {
+    /// The number of worker threads to use when computing masks in parallel
+    /// 0 - 80% of the number of cores, but no more than 32
+    /// 1 - disable parallelism
+    /// > 1 - use this number of threads
+    pub num_threads: u32,
+}
+
+#[repr(C)]
 pub struct LlgFactoryInit {
     pub tokenizer_init: LlgTokenizerInit,
     /// The log level for the buffer that is kept inside of the constraint
@@ -236,11 +245,8 @@ pub struct LlgFactoryInit {
     /// The resource limits for the parser
     /// Default values will be used for all fields that are 0
     pub limits: ParserLimits,
-    /// The number of worker threads to use when computing masks in parallel
-    /// 0 - 80% of the number of cores, but no more than 32
-    /// 1 - disable parallelism
-    /// > 1 - use this number of threads
-    pub num_threads: u32,
+    /// The initialization parameters for the thread pool
+    pub executor: LlgExecutorInit,
 }
 
 impl LlgTokenizerInit {
@@ -1306,6 +1312,7 @@ pub extern "C" fn llg_clone_matcher(matcher: &LlgMatcher) -> *mut LlgMatcher {
     }))
 }
 
+#[derive(Clone)]
 #[repr(C)]
 pub struct LlgCbisonFactory {
     common: CbisonFactory, // has to come first!
@@ -1314,6 +1321,30 @@ pub struct LlgCbisonFactory {
 }
 
 impl LlgCbisonFactory {
+    fn from_factory_init(init: &LlgFactoryInit) -> Result<LlgCbisonFactory> {
+        let tok = LlgTokenizer::from_factory_init(init)?;
+        let factory = LlgCbisonFactory {
+            common: fill_cbison_factory(tok.tok_env()),
+            tokenizer: tok,
+            executor: LlgExecutor::new(&init.executor)?,
+        };
+        Ok(factory)
+    }
+
+    pub fn from_parser_factory(
+        parser_factory: Arc<ParserFactory>,
+        executor_init: &LlgExecutorInit,
+    ) -> Result<LlgCbisonFactory> {
+        let executor = LlgExecutor::new(executor_init)?;
+        Ok(LlgCbisonFactory {
+            common: fill_cbison_factory(parser_factory.tok_env()),
+            tokenizer: LlgTokenizer {
+                factory: parser_factory,
+            },
+            executor,
+        })
+    }
+
     fn factory(&self) -> &ParserFactory {
         self.tokenizer.factory()
     }
@@ -1411,8 +1442,6 @@ unsafe extern "C" fn cbison_compute_masks(
     reqs: *mut cbison_mask_req,
     n_reqs: usize,
 ) -> i32 {
-    use rayon::prelude::*;
-
     if n_reqs == 0 {
         return 0;
     }
@@ -1422,35 +1451,41 @@ unsafe extern "C" fn cbison_compute_masks(
     let reqs = unsafe { slice_from_ptr(reqs, n_reqs).unwrap() };
     let byte_len = this.common.mask_byte_len;
 
-    if let Some(pool) = &this.executor.pool {
-        let reqs = reqs.to_vec();
-        pool.install(|| {
-            reqs.into_par_iter().for_each(|req| {
-                llg_matcher_compute_mask_into(&mut *req.matcher, req.mask_dest, byte_len);
-            })
-        });
-    } else {
-        for req in reqs.iter() {
-            llg_matcher_compute_mask_into(&mut *req.matcher, req.mask_dest, byte_len);
-        }
-    }
+    this.executor.for_each(reqs.to_vec(), |req| {
+        llg_matcher_compute_mask_into(&mut *req.matcher, req.mask_dest, byte_len);
+    });
 
     0
 }
 
-struct LlgExecutor {
+#[derive(Clone)]
+pub struct LlgExecutor {
     #[cfg(feature = "rayon")]
-    pool: Option<rayon::ThreadPool>,
+    pool: Option<Arc<rayon::ThreadPool>>,
 }
 
+#[cfg(not(feature = "rayon"))]
 impl LlgExecutor {
-    #[cfg(not(feature = "rayon"))]
-    fn new(_init: &LlgFactoryInit) -> Result<Self> {
+    pub fn new(_init: &LlgExecutorInit) -> Result<Self> {
         Ok(LlgExecutor {})
     }
 
-    #[cfg(feature = "rayon")]
-    fn new(init: &LlgFactoryInit) -> Result<Self> {
+    pub fn has_pool(&self) -> bool {
+        false
+    }
+
+    pub fn for_each<T, F>(&self, elts: Vec<T>, f: F)
+    where
+        T: Send,
+        F: Fn(T) + Send + Sync,
+    {
+        elts.into_iter().for_each(f);
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl LlgExecutor {
+    pub fn new(init: &LlgExecutorInit) -> Result<Self> {
         let num_threads = if init.num_threads == 0 {
             let n = std::thread::available_parallelism().unwrap().get();
             // by default run on 80% of available threads but not more than 32
@@ -1465,19 +1500,29 @@ impl LlgExecutor {
             let pool = rayon::ThreadPoolBuilder::new()
                 .num_threads(num_threads)
                 .build()?;
-            Ok(LlgExecutor { pool: Some(pool) })
+            Ok(LlgExecutor {
+                pool: Some(Arc::new(pool)),
+            })
         }
     }
-}
 
-fn build_cbison_factory(init: &LlgFactoryInit) -> Result<LlgCbisonFactory> {
-    let tok = LlgTokenizer::from_factory_init(init)?;
-    let factory = LlgCbisonFactory {
-        common: fill_cbison_factory(tok.tok_env()),
-        tokenizer: tok,
-        executor: LlgExecutor::new(init)?,
-    };
-    Ok(factory)
+    pub fn has_pool(&self) -> bool {
+        self.pool.is_some()
+    }
+
+    pub fn for_each<T, F>(&self, elts: Vec<T>, f: F)
+    where
+        T: Send,
+        F: Fn(T) + Send + Sync,
+    {
+        use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
+        if let Some(pool) = &self.pool {
+            pool.install(|| elts.into_par_iter().for_each(f));
+        } else {
+            elts.into_iter().for_each(f);
+        }
+    }
 }
 
 /// Construct a new cbison factory for a given tokenizer.
@@ -1489,7 +1534,7 @@ pub unsafe extern "C" fn llg_new_cbison_factory(
     error_string: *mut c_char,
     error_string_len: usize,
 ) -> *const LlgCbisonFactory {
-    match build_cbison_factory(init) {
+    match LlgCbisonFactory::from_factory_init(init) {
         Ok(factory) => Box::into_raw(Box::new(factory)),
         Err(e) => {
             save_error_string(e, error_string, error_string_len);

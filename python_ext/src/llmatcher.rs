@@ -6,6 +6,8 @@ use anyhow::Result;
 use llguidance::api::GrammarInit;
 use llguidance::api::ParserLimits;
 use llguidance::api::TopLevelGrammar;
+use llguidance::ffi::LlgExecutor;
+use llguidance::ffi::LlgExecutorInit;
 use llguidance::ffi::LlgMatcher;
 use llguidance::toktrie::{InferenceCapabilities, SimpleVob, TokenId};
 use llguidance::{json_merge, Logger, Matcher, ParserFactory};
@@ -25,7 +27,7 @@ struct LLMatcher {
 
 #[pyclass]
 struct LLExecutor {
-    pool: rayon::ThreadPool,
+    exec: LlgExecutor,
 }
 
 #[pymethods]
@@ -33,16 +35,11 @@ impl LLExecutor {
     #[new]
     #[pyo3(signature = (num_threads=None))]
     fn py_new(num_threads: Option<usize>) -> PyResult<Self> {
-        let num_threads = num_threads.unwrap_or_else(|| {
-            let n = std::thread::available_parallelism().unwrap().get();
-            // by default run on 80% of available threads but not more than 32
-            (n * 80 / 100).clamp(1, 32)
-        });
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(num_threads)
-            .build()
-            .map_err(val_error)?;
-        Ok(LLExecutor { pool })
+        let exec = LlgExecutor::new(&LlgExecutorInit {
+            num_threads: num_threads.unwrap_or(0).try_into().unwrap(),
+        })
+        .map_err(val_error)?;
+        Ok(LLExecutor { exec })
     }
 
     fn unsafe_compute_mask_ptr(
@@ -86,16 +83,9 @@ impl LLExecutor {
             .map(|(x, idx)| (x.deref_mut(), *idx))
             .collect();
 
-        use rayon::prelude::*;
-
         py.allow_threads(|| {
-            self.pool.install(|| {
-                mut_refs2.into_par_iter().for_each(|(interp, idx)| {
-                    interp.unsafe_compute_mask_ptr_inner(
-                        trg_ptr + idx * one_mask_bytes,
-                        one_mask_bytes,
-                    )
-                })
+            self.exec.for_each(mut_refs2, |(interp, idx)| {
+                interp.unsafe_compute_mask_ptr_inner(trg_ptr + idx * one_mask_bytes, one_mask_bytes)
             })
         });
 
@@ -390,6 +380,10 @@ impl LLMatcher {
 
     fn get_error(&self) -> String {
         self.c.matcher.get_error().unwrap_or_default()
+    }
+
+    fn cbison_matcher(&self) -> usize {
+        &self.c as *const _ as usize
     }
 }
 
