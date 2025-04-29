@@ -3,6 +3,7 @@ use std::{borrow::Cow, sync::Arc};
 
 use llguidance::api::{GrammarInit, ParserLimits};
 use llguidance::earley::SlicedBiasComputer;
+use llguidance::ffi::{LlgCbisonFactory, LlgExecutor, LlgExecutorInit};
 use llguidance::toktrie::{
     self, AnythingGoes, ApproximateTokEnv, InferenceCapabilities, TokEnv, TokRxInfo, TokTrie,
     TokenId, TokenizerEnv,
@@ -14,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use toktrie_hf_tokenizers::ByteTokenizer;
 
+use crate::llmatcher::LLExecutor;
 use crate::parserlimits::LLParserLimits;
 
 struct PyTokenizer {
@@ -93,6 +95,24 @@ impl LLTokenizer {
 
     fn tokenize_bytes(&self, utf8bytes: &[u8]) -> Vec<TokenId> {
         self.tok_env().tokenize_bytes(utf8bytes)
+    }
+
+    #[pyo3(signature = (*, num_threads = None, executor = None))]
+    fn copy_as_cbison_factory(
+        &self,
+        num_threads: Option<u32>,
+        executor: Option<&LLExecutor>,
+    ) -> PyResult<usize> {
+        let executor = if let Some(executor) = executor {
+            executor.exec.clone()
+        } else {
+            LlgExecutor::new(&LlgExecutorInit {
+                num_threads: num_threads.unwrap_or(0),
+            })
+            .map_err(val_error)?
+        };
+        let f = LlgCbisonFactory::from_parser_factory(self.factory.clone(), executor)?;
+        Ok(Box::into_raw(Box::new(f)) as usize)
     }
 
     #[getter]

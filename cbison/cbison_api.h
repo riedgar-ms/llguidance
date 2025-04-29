@@ -81,6 +81,11 @@ struct cbison_factory {
   size_t mask_byte_len;
 
   /**
+   * Free the factory.
+   */
+  void (*free_factory)(cbison_factory_t api);
+
+  /**
    * Check if given grammar is valid.
    * This is about twice as fast as creating a matcher (which also validates).
    * See matcher_new() for the grammar format.

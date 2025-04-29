@@ -48,6 +48,8 @@ pub struct cbison_factory {
     pub n_vocab: usize,
     #[doc = " The size of token mask in bytes.\n It equals (n_vocab + 31) / 32 * 4."]
     pub mask_byte_len: usize,
+    #[doc = " Free the factory."]
+    pub free_factory: ::std::option::Option<unsafe extern "C" fn(api: cbison_factory_t)>,
     #[doc = " Check if given grammar is valid.\n This is about twice as fast as creating a matcher (which also validates).\n See matcher_new() for the grammar format.\n Returns 0 on success and -1 on error and 1 on warning.\n The error message or warning is written to message, which is message_len\n bytes long. It's always NUL-terminated."]
     pub validate_grammar: ::std::option::Option<
         unsafe extern "C" fn(
@@ -118,7 +120,7 @@ pub struct cbison_factory {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of cbison_factory"][::std::mem::size_of::<cbison_factory>() - 144usize];
+    ["Size of cbison_factory"][::std::mem::size_of::<cbison_factory>() - 152usize];
     ["Alignment of cbison_factory"][::std::mem::align_of::<cbison_factory>() - 8usize];
     ["Offset of field: cbison_factory::magic"]
         [::std::mem::offset_of!(cbison_factory, magic) - 0usize];
@@ -132,32 +134,34 @@ const _: () = {
         [::std::mem::offset_of!(cbison_factory, n_vocab) - 16usize];
     ["Offset of field: cbison_factory::mask_byte_len"]
         [::std::mem::offset_of!(cbison_factory, mask_byte_len) - 24usize];
+    ["Offset of field: cbison_factory::free_factory"]
+        [::std::mem::offset_of!(cbison_factory, free_factory) - 32usize];
     ["Offset of field: cbison_factory::validate_grammar"]
-        [::std::mem::offset_of!(cbison_factory, validate_grammar) - 32usize];
+        [::std::mem::offset_of!(cbison_factory, validate_grammar) - 40usize];
     ["Offset of field: cbison_factory::new_matcher"]
-        [::std::mem::offset_of!(cbison_factory, new_matcher) - 40usize];
+        [::std::mem::offset_of!(cbison_factory, new_matcher) - 48usize];
     ["Offset of field: cbison_factory::get_error"]
-        [::std::mem::offset_of!(cbison_factory, get_error) - 48usize];
+        [::std::mem::offset_of!(cbison_factory, get_error) - 56usize];
     ["Offset of field: cbison_factory::compute_mask"]
-        [::std::mem::offset_of!(cbison_factory, compute_mask) - 56usize];
+        [::std::mem::offset_of!(cbison_factory, compute_mask) - 64usize];
     ["Offset of field: cbison_factory::consume_tokens"]
-        [::std::mem::offset_of!(cbison_factory, consume_tokens) - 64usize];
+        [::std::mem::offset_of!(cbison_factory, consume_tokens) - 72usize];
     ["Offset of field: cbison_factory::is_accepting"]
-        [::std::mem::offset_of!(cbison_factory, is_accepting) - 72usize];
+        [::std::mem::offset_of!(cbison_factory, is_accepting) - 80usize];
     ["Offset of field: cbison_factory::is_stopped"]
-        [::std::mem::offset_of!(cbison_factory, is_stopped) - 80usize];
+        [::std::mem::offset_of!(cbison_factory, is_stopped) - 88usize];
     ["Offset of field: cbison_factory::validate_tokens"]
-        [::std::mem::offset_of!(cbison_factory, validate_tokens) - 88usize];
+        [::std::mem::offset_of!(cbison_factory, validate_tokens) - 96usize];
     ["Offset of field: cbison_factory::compute_ff_tokens"]
-        [::std::mem::offset_of!(cbison_factory, compute_ff_tokens) - 96usize];
+        [::std::mem::offset_of!(cbison_factory, compute_ff_tokens) - 104usize];
     ["Offset of field: cbison_factory::free_matcher"]
-        [::std::mem::offset_of!(cbison_factory, free_matcher) - 104usize];
+        [::std::mem::offset_of!(cbison_factory, free_matcher) - 112usize];
     ["Offset of field: cbison_factory::rollback"]
-        [::std::mem::offset_of!(cbison_factory, rollback) - 112usize];
+        [::std::mem::offset_of!(cbison_factory, rollback) - 120usize];
     ["Offset of field: cbison_factory::reset"]
-        [::std::mem::offset_of!(cbison_factory, reset) - 120usize];
+        [::std::mem::offset_of!(cbison_factory, reset) - 128usize];
     ["Offset of field: cbison_factory::clone_matcher"]
-        [::std::mem::offset_of!(cbison_factory, clone_matcher) - 128usize];
+        [::std::mem::offset_of!(cbison_factory, clone_matcher) - 136usize];
     ["Offset of field: cbison_factory::compute_masks"]
-        [::std::mem::offset_of!(cbison_factory, compute_masks) - 136usize];
+        [::std::mem::offset_of!(cbison_factory, compute_masks) - 144usize];
 };

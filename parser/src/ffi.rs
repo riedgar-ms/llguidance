@@ -993,6 +993,20 @@ impl LlgMatcher {
         }
     }
 
+    pub fn deep_clone(&self) -> Self {
+        LlgMatcher {
+            matcher: self.matcher.deep_clone(),
+            last_error: self.last_error.clone(),
+            saved_mask: None,
+            tok_env: self.tok_env.clone(),
+        }
+    }
+
+    pub fn deep_clone_as_ptr(&self) -> *mut LlgMatcher {
+        let matcher = self.deep_clone();
+        Box::into_raw(Box::new(matcher))
+    }
+
     fn wrap(&mut self, f: impl FnOnce(&mut Matcher) -> Result<i32>) -> i32 {
         if self.matcher.is_error() {
             return -1;
@@ -1304,12 +1318,7 @@ pub unsafe extern "C" fn llg_matcher_compute_ff_tokens(
 /// Clone the matcher.
 #[no_mangle]
 pub extern "C" fn llg_clone_matcher(matcher: &LlgMatcher) -> *mut LlgMatcher {
-    Box::into_raw(Box::new(LlgMatcher {
-        matcher: matcher.matcher.deep_clone(),
-        last_error: matcher.last_error.clone(),
-        saved_mask: None,
-        tok_env: matcher.tok_env.clone(),
-    }))
+    matcher.deep_clone_as_ptr()
 }
 
 #[derive(Clone)]
@@ -1333,9 +1342,8 @@ impl LlgCbisonFactory {
 
     pub fn from_parser_factory(
         parser_factory: Arc<ParserFactory>,
-        executor_init: &LlgExecutorInit,
+        executor: LlgExecutor,
     ) -> Result<LlgCbisonFactory> {
-        let executor = LlgExecutor::new(executor_init)?;
         Ok(LlgCbisonFactory {
             common: fill_cbison_factory(parser_factory.tok_env()),
             tokenizer: LlgTokenizer {
@@ -1397,6 +1405,12 @@ unsafe extern "C" fn cbison_clone_matcher(matcher: &mut LlgMatcher) -> *mut LlgM
     llg_clone_matcher(matcher)
 }
 
+unsafe extern "C" fn cbison_free_factory(factory: &LlgCbisonFactory) {
+    let factory =
+        unsafe { Box::from_raw(factory as *const LlgCbisonFactory as *mut LlgCbisonFactory) };
+    drop(factory);
+}
+
 fn fill_cbison_factory(tok_env: &TokEnv) -> CbisonFactory {
     let trie = tok_env.tok_trie();
     CbisonFactory {
@@ -1406,6 +1420,7 @@ fn fill_cbison_factory(tok_env: &TokEnv) -> CbisonFactory {
         version_minor: CBISON_VERSION_MINOR,
         n_vocab: trie.vocab_size(),
         mask_byte_len: trie.vocab_size().div_ceil(32) * 4,
+        free_factory: Some(cbison_free_factory),
         validate_grammar: Some(cbison_validate_grammar),
         new_matcher: Some(cbison_new_matcher),
         get_error: Some(llg_matcher_get_error),

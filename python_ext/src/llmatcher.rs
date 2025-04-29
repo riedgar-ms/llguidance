@@ -26,8 +26,8 @@ struct LLMatcher {
 }
 
 #[pyclass]
-struct LLExecutor {
-    exec: LlgExecutor,
+pub struct LLExecutor {
+    pub(crate) exec: LlgExecutor,
 }
 
 #[pymethods]
@@ -287,8 +287,12 @@ impl LLMatcher {
 
     fn deep_copy(&self) -> Self {
         Self {
-            c: LlgMatcher::new(self.c.tok_env.clone(), self.c.matcher.clone()),
+            c: self.c.deep_clone(),
         }
+    }
+
+    fn deep_copy_as_cbison(&self) -> usize {
+        self.c.deep_clone_as_ptr() as usize
     }
 
     fn is_accepting(&mut self) -> bool {
@@ -380,10 +384,6 @@ impl LLMatcher {
 
     fn get_error(&self) -> String {
         self.c.matcher.get_error().unwrap_or_default()
-    }
-
-    fn cbison_matcher(&self) -> usize {
-        &self.c as *const _ as usize
     }
 }
 

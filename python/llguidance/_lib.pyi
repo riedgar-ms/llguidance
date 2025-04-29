@@ -14,6 +14,8 @@ class LLTokenizer:
         n_vocab: Optional[int] = None,
         eos_token: Optional[TokenId] = None,
         slices: Optional[List[str]] = None,
+        log_level: int = 1,
+        limits: Optional[LLParserLimits] = None,
     ) -> "LLTokenizer":
         """
         Create a new tokenizer.
@@ -25,11 +27,22 @@ class LLTokenizer:
             n_vocab: int - override the size of the vocabulary
             slices: List[str] - configuration for slicer optimization; pass [] to disable,
                 or None to use general_slices()
+            limits and log_level are the defaults for creating new matchers
         """
 
     def with_slices(self, slices: List[str]) -> "LLTokenizer":
         """
         Create a new tokenizer with the specified "slices" for optimization when computing the token mask.
+        """
+
+    def copy_as_cbison_factory(self,
+                               num_threads: Optional[int] = None,
+                               executor: Optional[LLExecutor] = None) -> int:
+        """
+        Create a new cbison_factory_t, that can be used in native code.
+        If executor is passed, it will be used as the thread pool.
+        Otherwise, a new thread pool will be created with the specified number of threads,
+        or 80% of the available CPUs up to 32 when set to None.
         """
 
     @staticmethod
@@ -335,6 +348,11 @@ class LLMatcher:
     def deep_copy(self) -> "LLMatcher":
         """
         Create a deep copy of the matcher.
+        """
+
+    def deep_copy_as_cbison(self) -> int:
+        """
+        Copy internal state into a new cbison_matcher_t, that can be used in native code.
         """
 
     def is_accepting(self) -> bool:
