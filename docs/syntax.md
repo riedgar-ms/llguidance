@@ -105,11 +105,19 @@ with a definition of a Python string, depending on how the model was trained.
 ### Reasoning/thinking
 
 Yet another example is "thinking" or reasoning models distilled from DeepSeek-R1.
-A grammar for forcing JSON may look like this:
+A grammar for forcing a JSON-formatted address may look like this:
 
 ```lark
-start: <think> "\n" /(.|\n)*/ </think> json
-json: %json { ... }
+start: <think> "\n" /(.|\n)*/ </think> address
+address: %json {
+    "type": "object",
+    "properties": {
+        "street": { "type": "string" },
+        "city": { "type": "string" },
+        "zip": { "type": "number" }
+    },
+    "required": ["street", "city", "state", "zip"]
+}
 ```
 
 Often, the chat format already includes initial `<think>\n` - in these cases
