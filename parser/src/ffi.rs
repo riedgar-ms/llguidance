@@ -1125,24 +1125,32 @@ pub unsafe extern "C" fn llg_matcher_compute_mask_into(
     mask_byte_len: usize,
 ) -> i32 {
     let n_elts = matcher.mask_elts();
-    matcher.wrap(|m| {
+    if mask_dest.is_null() || mask_dest as usize % 4 != 0 || mask_byte_len != n_elts * 4 {
+        return -1;
+    }
+
+    let r = matcher.wrap(|m| {
         // this may become more optimized in the future (no copy)
         let vob = m.compute_mask_or_eos()?;
         let slc = &vob.as_slice()[0..n_elts];
-        ensure!(
-            std::mem::size_of_val(slc) == mask_byte_len,
-            "mask_dest size mismatch: expected {}, got {}",
-            mask_byte_len,
-            std::mem::size_of_val(slc)
-        );
-        ensure!(!mask_dest.is_null(), "mask_dest is null");
-        ensure!(mask_dest as usize % 4 == 0, "mask_dest is not aligned");
         // SAFETY: mask_dest is non-null and has the right size; slc is freshly allocated and thus non-overlapping
         unsafe {
             std::ptr::copy_nonoverlapping(slc.as_ptr(), mask_dest, slc.len());
         }
         Ok(0)
-    })
+    });
+
+    // if we failed, make sure to write eos-only mask
+    if r != 0 {
+        let eos_tok = matcher.tok_env.eos_token();
+        // SAFETY: mask_dest is non-null and has the right size
+        unsafe {
+            std::ptr::write_bytes(mask_dest, 0, mask_byte_len / 4);
+            std::ptr::write(mask_dest.add(eos_tok as usize / 32), 1 << (eos_tok % 32));
+        }
+    }
+
+    r
 }
 
 /// Compute the set of allowed tokens for the current state.
@@ -1420,6 +1428,8 @@ fn fill_cbison_factory(tok_env: &TokEnv) -> CbisonFactory {
         version_major: CBISON_VERSION_MAJOR,
         version_minor: CBISON_VERSION_MINOR,
         n_vocab: trie.vocab_size(),
+        eos_token_id: trie.eos_token(),
+        reserved_hd: [0; 7],
         mask_byte_len: trie.vocab_size().div_ceil(32) * 4,
         free_factory: Some(cbison_free_factory),
         validate_grammar: Some(cbison_validate_grammar),
@@ -1439,6 +1449,7 @@ fn fill_cbison_factory(tok_env: &TokEnv) -> CbisonFactory {
         compute_masks: None,
         #[cfg(feature = "rayon")]
         compute_masks: Some(cbison_compute_masks),
+        reserved_ptr: [std::ptr::null_mut(); 16],
     }
 }
 
