@@ -18,4 +18,4 @@ clang2py cbison_api.h | sed \
     -e 's@, ctypes.POINTER(struct_cbison_matcher)@, cbison_matcher_t@' \
     -e 's@(ctypes.POINTER(struct_cbison_matcher)@(cbison_matcher_t@' \
     -e 's@ctypes.POINTER(ctypes.c_char)@ctypes.c_char_p@g' \
-    > ffi.py
+    > cbison/bindings.py

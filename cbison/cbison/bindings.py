@@ -172,6 +172,8 @@ struct_cbison_factory._fields_ = [
     ('version_minor', ctypes.c_uint32),
     ('n_vocab', ctypes.c_size_t),
     ('mask_byte_len', ctypes.c_size_t),
+    ('eos_token_id', ctypes.c_uint32),
+    ('reserved_hd', ctypes.c_uint32 * 7),
     ('free_factory', ctypes.CFUNCTYPE(None, cbison_factory_t)),
     ('validate_grammar', ctypes.CFUNCTYPE(ctypes.c_int32, cbison_factory_t, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_size_t)),
     ('new_matcher', ctypes.CFUNCTYPE(cbison_matcher_t, cbison_factory_t, ctypes.c_char_p, ctypes.c_char_p)),
@@ -187,6 +189,7 @@ struct_cbison_factory._fields_ = [
     ('reset', ctypes.CFUNCTYPE(ctypes.c_int32, cbison_matcher_t)),
     ('clone_matcher', ctypes.CFUNCTYPE(cbison_matcher_t, cbison_matcher_t)),
     ('compute_masks', ctypes.CFUNCTYPE(ctypes.c_int32, cbison_factory_t, ctypes.POINTER(struct_cbison_mask_req), ctypes.c_size_t)),
+    ('reserved_ptr', ctypes.POINTER(None) * 16),
 ]
 
 __all__ = \

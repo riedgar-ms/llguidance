@@ -81,6 +81,13 @@ struct cbison_factory {
   size_t mask_byte_len;
 
   /**
+   * The id for end-of-sequence token.
+   */
+  uint32_t eos_token_id;
+
+  uint32_t reserved_hd[7];
+
+  /**
    * Free the factory.
    */
   void (*free_factory)(cbison_factory_t api);
@@ -203,6 +210,8 @@ struct cbison_factory {
    */
   int32_t (*compute_masks)(cbison_factory_t api, cbison_mask_req_t *reqs,
                            size_t n_reqs);
+
+  void *reserved_ptr[16];
 };
 
 #endif // CBISON_API_H

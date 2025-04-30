@@ -1,6 +1,7 @@
 import llguidance
 from .matcher import CbisonMatcher, CbisonFactory
 from typing import TYPE_CHECKING
+import numpy as np
 
 
 def main():
@@ -56,8 +57,8 @@ def main():
     assert m2.is_stopped()
 
     m2.rollback(1)
-    mask = m2.compute_mask()
-    print(mask)
+    mask2 = m2.compute_mask()
+    print(mask2)
 
     l = m2.compute_ff_tokens()
     assert len(l) == 0
@@ -65,8 +66,14 @@ def main():
     m.rollback(1)
 
     mask = f.alloc_bitmasks_numpy(3)
-    f.compute_masks_numpy([(m, 0), (m2, 1)], mask)
+    f.compute_masks_numpy([(m, 0), (m2, 2)], mask)
     print(mask)
+
+    mask2_np = np.frombuffer(mask2, dtype=np.int32)
+    assert (mask2_np == mask[0, :]).all()
+    assert (mask2_np == mask[2, :]).all()
+    assert mask[1, :].all() == 0
+
 
 
 main()
