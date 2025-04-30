@@ -17,6 +17,10 @@ class CbisonMatcher:
                  addr: struct_cbison_matcher) -> None:
         """
         Initializes a matcher with its factory and native pointer.
+        
+        Args:
+            api (struct_cbison_factory): The factory used to create the matcher.
+            addr (struct_cbison_matcher): The native pointer to the matcher.
         """
         self.api = api
         self.matcher = addr
@@ -32,12 +36,12 @@ class CbisonMatcher:
     def copy(self) -> 'CbisonMatcher':
         """
         Clones the matcher into a new instance.
-
+        
         Returns:
             A new CbisonMatcher with the same state.
-
+        
         Raises:
-            RuntimeError: if cloning fails.
+            RuntimeError: If cloning fails.
         """
         m = self.api.clone_matcher(self.matcher)
         if m is None:
@@ -47,7 +51,7 @@ class CbisonMatcher:
     def compute_mask(self) -> bytearray:
         """
         Allocates a bytearray and computes the token mask into it.
-
+        
         Returns:
             A bytearray containing the token mask.
         """
@@ -59,10 +63,10 @@ class CbisonMatcher:
     def compute_mask_into(self, trg: ctypes.Array[ctypes.c_uint32]) -> int:
         """
         Computes the token mask into the given ctypes array.
-
+        
         Args:
-            trg: A ctypes array of uint32 with size mask_byte_len / 4.
-
+            trg (ctypes.Array[ctypes.c_uint32]): A ctypes array of uint32 with size mask_byte_len / 4.
+        
         Returns:
             0 on success, -1 on error.
         """
@@ -71,10 +75,10 @@ class CbisonMatcher:
     def compute_mask_numpy(self, bitmask: 'NDArray[np.int32]') -> int:
         """
         Computes the token mask into a NumPy array.
-
+        
         Args:
-            bitmask: A 1D, int32, C-contiguous NumPy array.
-
+            bitmask (NDArray[np.int32]): A 1D, int32, C-contiguous NumPy array.
+        
         Returns:
             0 on success, -1 on error.
         """
@@ -88,11 +92,11 @@ class CbisonMatcher:
                                 trg_byte_size: int) -> int:
         """
         Calls compute_mask using a raw memory pointer.
-
+        
         Args:
-            trg_pointer: Pointer to writable memory.
-            trg_byte_size: Number of bytes to write.
-
+            trg_pointer (int): Pointer to writable memory.
+            trg_byte_size (int): Number of bytes to write.
+        
         Returns:
             0 on success, -1 on error.
         """
@@ -102,7 +106,7 @@ class CbisonMatcher:
     def compute_ff_tokens(self) -> list[int]:
         """
         Computes the list of forced (fast-forward) tokens from the current state.
-
+        
         Returns:
             A list of token IDs, or an empty list if none.
         """
@@ -120,7 +124,7 @@ class CbisonMatcher:
     def get_error(self) -> str:
         """
         Returns the last error message associated with the matcher.
-
+        
         Returns:
             Error string or "" if no error.
         """
@@ -132,7 +136,7 @@ class CbisonMatcher:
     def is_accepting(self) -> bool:
         """
         Checks if the matcher would allow EOS now.
-
+        
         Returns:
             True if matcher is in an accepting state.
         """
@@ -141,7 +145,7 @@ class CbisonMatcher:
     def is_stopped(self) -> bool:
         """
         Checks if the matcher is in a forced-stop state.
-
+        
         Returns:
             True if matcher is stopped or in an error state.
         """
@@ -150,10 +154,10 @@ class CbisonMatcher:
     def validate_tokens(self, tokens: list[int]) -> int:
         """
         Validates how many of the provided tokens can be consumed.
-
+        
         Args:
-            tokens: List of token IDs.
-
+            tokens (list[int]): List of token IDs.
+        
         Returns:
             Number of valid tokens, or -1 on error.
         """
@@ -163,10 +167,10 @@ class CbisonMatcher:
     def consume_tokens(self, tokens: list[int]) -> int:
         """
         Consumes the provided tokens.
-
+        
         Args:
-            tokens: List of token IDs to consume.
-
+            tokens (list[int]): List of token IDs to consume.
+        
         Returns:
             0 on success, -1 on error.
         """
@@ -176,7 +180,7 @@ class CbisonMatcher:
     def reset(self) -> int:
         """
         Resets the matcher to its initial state.
-
+        
         Returns:
             0 on success, -1 on error.
         """
@@ -185,10 +189,10 @@ class CbisonMatcher:
     def rollback(self, n: int) -> int:
         """
         Rolls back the matcher state by `n` tokens.
-
+        
         Args:
-            n: Number of tokens to undo.
-
+            n (int): Number of tokens to undo.
+        
         Returns:
             0 on success, -1 on error.
         """
@@ -209,9 +213,12 @@ class CbisonFactory:
     def __init__(self, addr: int) -> None:
         """
         Initializes the factory wrapper from a raw memory address.
-
+        
+        Args:
+            addr (int): The raw memory address of the factory.
+        
         Raises:
-            ValueError: if the address is invalid or the magic/version mismatch.
+            ValueError: If the address is invalid or the magic/version mismatch.
         """
         _check_addr(addr)
         handle = struct_cbison_factory.from_address(addr)
@@ -233,6 +240,9 @@ class CbisonFactory:
     def n_vocab(self) -> int:
         """
         Returns the vocabulary size used by this factory.
+        
+        Returns:
+            The vocabulary size.
         """
         return self.handle.n_vocab
 
@@ -240,6 +250,9 @@ class CbisonFactory:
     def mask_byte_len(self) -> int:
         """
         Returns the size of a token mask for a single sampling in bytes.
+        
+        Returns:
+            The size of the token mask in bytes.
         """
         return self.handle.mask_byte_len
 
@@ -247,11 +260,11 @@ class CbisonFactory:
                     grammar: str | bytes) -> CbisonMatcher:
         """
         Creates a new matcher for the given grammar.
-
+        
         Args:
-            grammar_type: Type of grammar (e.g., "json", "regex").
-            grammar: Grammar string or bytes.
-
+            grammar_type (str): Type of grammar (e.g., "json", "regex").
+            grammar (str | bytes): Grammar string or bytes.
+        
         Returns:
             A new CbisonMatcher.
         """
@@ -259,21 +272,19 @@ class CbisonFactory:
             grammar = grammar.encode("utf-8")
         elif not isinstance(grammar, bytes):
             raise TypeError("grammar must be str or bytes")
-
         m = self.handle.new_matcher(self.handle, grammar_type.encode("utf-8"),
                                     grammar)
-
         return CbisonMatcher(self.handle, m)
 
     def validate_grammar(self, grammar_type: str,
                          grammar: str | bytes) -> tuple[bool, str]:
         """
         Validates a grammar string without creating a matcher.
-
+        
         Args:
-            grammar_type: Type of grammar.
-            grammar: Grammar string or bytes.
-
+            grammar_type (str): Type of grammar.
+            grammar (str | bytes): Grammar string or bytes.
+        
         Returns:
             Tuple (ok, message), where ok is True iff grammar is valid;
                 message contains the error if not ok, or any possible warnings if ok.
@@ -297,10 +308,10 @@ class CbisonFactory:
     def alloc_bitmasks_numpy(self, batch: int) -> 'NDArray[np.int32]':
         """
         Allocates a NumPy array for holding a batch of token masks.
-
+        
         Args:
-            batch: Number of matchers.
-
+            batch (int): Number of matchers.
+        
         Returns:
             A (batch, mask_len) NumPy array of int32 zeros.
         """
@@ -312,11 +323,11 @@ class CbisonFactory:
                             bitmask: 'NDArray[np.int32]') -> int:
         """
         Computes token masks for a batch of matchers into a NumPy array.
-
+        
         Args:
-            matchers: List of (matcher, row index) tuples.
-            bitmask: A (batch, mask_len) C-contiguous int32 NumPy array.
-
+            matchers (list[tuple[CbisonMatcher, int]]): List of (matcher, row index) tuples.
+            bitmask (NDArray[np.int32]): A (batch, mask_len) C-contiguous int32 NumPy array.
+        
         Returns:
             0 on success, -1 on error.
         """
