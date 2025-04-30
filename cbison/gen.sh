@@ -12,3 +12,10 @@ bindgen \
     cbison_api.h >> tmp.rs
 
 mv tmp.rs ../parser/src/cbison.rs
+clang2py cbison_api.h | sed \
+    -e 's@ctypes.c_uint64@ctypes.c_size_t@' \
+    -e 's@, ctypes.POINTER(struct_cbison_factory)@, cbison_factory_t@' \
+    -e 's@, ctypes.POINTER(struct_cbison_matcher)@, cbison_matcher_t@' \
+    -e 's@(ctypes.POINTER(struct_cbison_matcher)@(cbison_matcher_t@' \
+    -e 's@ctypes.POINTER(ctypes.c_char)@ctypes.c_char_p@g' \
+    > ffi.py

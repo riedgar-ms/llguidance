@@ -1136,6 +1136,7 @@ pub unsafe extern "C" fn llg_matcher_compute_mask_into(
             std::mem::size_of_val(slc)
         );
         ensure!(!mask_dest.is_null(), "mask_dest is null");
+        ensure!(mask_dest as usize % 4 == 0, "mask_dest is not aligned");
         // SAFETY: mask_dest is non-null and has the right size; slc is freshly allocated and thus non-overlapping
         unsafe {
             std::ptr::copy_nonoverlapping(slc.as_ptr(), mask_dest, slc.len());
