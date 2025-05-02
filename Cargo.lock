@@ -1196,12 +1196,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "llguidance_cbison"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "lazy_static",
+ "llguidance",
+ "rayon",
+ "serde",
+ "serde_json",
+ "toktrie_hf_tokenizers",
+]
+
+[[package]]
 name = "llguidance_py"
 version = "0.7.19"
 dependencies = [
  "anyhow",
  "bytemuck",
  "llguidance",
+ "llguidance_cbison",
  "pyo3",
  "rayon",
  "serde",

@@ -3,13 +3,14 @@ use std::{borrow::Cow, sync::Arc};
 
 use llguidance::api::{GrammarInit, ParserLimits};
 use llguidance::earley::SlicedBiasComputer;
-use llguidance::ffi::{LlgCbisonFactory, LlgExecutor, LlgExecutorInit};
+use llguidance::ffi::{LlgExecutor, LlgExecutorInit};
 use llguidance::toktrie::{
     self, AnythingGoes, ApproximateTokEnv, InferenceCapabilities, TokEnv, TokRxInfo, TokTrie,
     TokenId, TokenizerEnv,
 };
 use llguidance::{api::TopLevelGrammar, output::ParserOutput};
 use llguidance::{JsonCompileOptions, ParserFactory};
+use llguidance_cbison::LlgCbisonFactory;
 use pyo3::{exceptions::PyValueError, prelude::*};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

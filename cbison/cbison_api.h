@@ -26,6 +26,7 @@ typedef struct cbison_tokenizer *cbison_tokenizer_t;
 // (think of cbison_matcher_t as cbison_matcher& and cbison_matcher_ptr_t as
 // cbison_matcher* in C++ sense).
 typedef cbison_matcher_t cbison_matcher_ptr_t;
+typedef cbison_tokenizer_t cbison_tokenizer_ptr_t;
 
 typedef struct cbison_mask_req cbison_mask_req_t;
 
@@ -99,10 +100,17 @@ struct cbison_tokenizer {
    *
    * This can be omitted, resulting in compute_ff_tokens() always returning an
    * empty vector.
+   * 
+   * If provided, this function must be thread-safe and reentrant.
    */
   size_t (*tokenize_bytes)(cbison_tokenizer_t api, const uint8_t *bytes,
                            size_t bytes_len, uint32_t *output_tokens,
                            size_t output_tokens_len);
+
+  /**
+   * Free the tokenizer.
+   */
+  void (*free_tokenizer)(cbison_tokenizer_ptr_t api);
 
   void *reserved_ptr[16];
 };

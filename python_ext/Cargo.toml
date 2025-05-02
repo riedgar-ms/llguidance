@@ -9,6 +9,7 @@ repository = "https://github.com/guidance-ai/llguidance"
 [dependencies]
 llguidance = { workspace = true, features = ["rayon", "lark", "ahash", "referencing"] }
 toktrie_hf_tokenizers = { workspace = true }
+llguidance_cbison = { workspace = true }
 bytemuck = "1.21.0"
 pyo3 = {version = "0.24.1", features = ["extension-module", "abi3-py39", "anyhow"]}
 serde = { version = "1.0.217", features = ["derive"] }

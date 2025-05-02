@@ -32,7 +32,6 @@ pub use derivre;
 pub use derivre::{HashMap, HashSet};
 
 pub mod ffi;
-mod cbison;
 #[cfg(feature = "rayon")]
 mod ffi_par;
 

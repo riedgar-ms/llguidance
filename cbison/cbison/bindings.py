@@ -158,6 +158,7 @@ class struct_cbison_tokenizer(Structure):
 
 cbison_tokenizer_t = ctypes.POINTER(struct_cbison_tokenizer)
 cbison_matcher_ptr_t = ctypes.POINTER(struct_cbison_matcher)
+cbison_tokenizer_ptr_t = ctypes.POINTER(struct_cbison_tokenizer)
 class struct_cbison_mask_req(Structure):
     pass
 
@@ -210,11 +211,13 @@ struct_cbison_tokenizer._fields_ = [
     ('get_token', ctypes.CFUNCTYPE(ctypes.c_int32, ctypes.POINTER(struct_cbison_tokenizer), ctypes.c_uint32, ctypes.POINTER(ctypes.c_ubyte), ctypes.c_size_t)),
     ('is_special_token', ctypes.CFUNCTYPE(ctypes.c_int32, ctypes.POINTER(struct_cbison_tokenizer), ctypes.c_uint32)),
     ('tokenize_bytes', ctypes.CFUNCTYPE(ctypes.c_size_t, ctypes.POINTER(struct_cbison_tokenizer), ctypes.POINTER(ctypes.c_ubyte), ctypes.c_uint64, ctypes.POINTER(ctypes.c_uint32), ctypes.c_uint64)),
+    ('free_tokenizer', ctypes.CFUNCTYPE(None, ctypes.POINTER(struct_cbison_tokenizer))),
     ('reserved_ptr', ctypes.POINTER(None) * 16),
 ]
 
 __all__ = \
     ['cbison_factory_t', 'cbison_mask_req_t', 'cbison_matcher_ptr_t',
-    'cbison_matcher_t', 'cbison_tokenizer_t', 'struct_cbison_factory',
+    'cbison_matcher_t', 'cbison_tokenizer_ptr_t',
+    'cbison_tokenizer_t', 'struct_cbison_factory',
     'struct_cbison_mask_req', 'struct_cbison_matcher',
     'struct_cbison_tokenizer']

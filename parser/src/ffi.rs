@@ -11,9 +11,6 @@ use toktrie::{
 
 use crate::{
     api::{GrammarInit, ParserLimits, TopLevelGrammar},
-    cbison::{
-        cbison_mask_req, CbisonFactory, CBISON_MAGIC, CBISON_VERSION_MAJOR, CBISON_VERSION_MINOR,
-    },
     earley::{SlicedBiasComputer, ValidationResult},
     CommitResult, Constraint, Logger, Matcher, ParserFactory, StopController, TokenParser,
 };
@@ -111,7 +108,7 @@ impl LlgTokenizer {
         })
     }
 
-    fn from_factory_init(init: &LlgFactoryInit) -> Result<Self> {
+    pub fn from_factory_init(init: &LlgFactoryInit) -> Result<Self> {
         let tok_env = init.tokenizer_init.build_tok_env()?;
         let slices = init.tokenizer_init.get_slices()?;
         let mut factory = ParserFactory::new(&tok_env, InferenceCapabilities::default(), &slices)?;
@@ -121,6 +118,10 @@ impl LlgTokenizer {
         Ok(LlgTokenizer {
             factory: Arc::new(factory),
         })
+    }
+
+    pub fn from_factory(factory: Arc<ParserFactory>) -> Self {
+        LlgTokenizer { factory }
     }
 
     pub fn to_env(&self) -> TokEnv {
@@ -441,8 +442,13 @@ impl LlgCommitResult {
     }
 }
 
+/**
+ * Convert a C string to a Rust string.
+ * # Safety
+ * The caller must ensure that c_str points to a valid C string or is null
+ */
 // SAFETY: caller needs to ensure c_str points to a valid C string or is null
-unsafe fn c_str_to_str<'a>(c_str: *const c_char, info: &str) -> Result<&'a str> {
+pub unsafe fn c_str_to_str<'a>(c_str: *const c_char, info: &str) -> Result<&'a str> {
     ensure!(!c_str.is_null(), "{info} is null");
     CStr::from_ptr(c_str)
         .to_str()
@@ -1331,161 +1337,6 @@ pub extern "C" fn llg_clone_matcher(matcher: &LlgMatcher) -> *mut LlgMatcher {
 }
 
 #[derive(Clone)]
-#[repr(C)]
-pub struct LlgCbisonFactory {
-    common: CbisonFactory, // has to come first!
-    tokenizer: LlgTokenizer,
-    executor: LlgExecutor,
-}
-
-impl LlgCbisonFactory {
-    fn from_factory_init(init: &LlgFactoryInit) -> Result<LlgCbisonFactory> {
-        let tok = LlgTokenizer::from_factory_init(init)?;
-        let factory = LlgCbisonFactory {
-            common: fill_cbison_factory(tok.tok_env()),
-            tokenizer: tok,
-            executor: LlgExecutor::new(&init.executor)?,
-        };
-        Ok(factory)
-    }
-
-    pub fn from_parser_factory(
-        parser_factory: Arc<ParserFactory>,
-        executor: LlgExecutor,
-    ) -> Result<LlgCbisonFactory> {
-        Ok(LlgCbisonFactory {
-            common: fill_cbison_factory(parser_factory.tok_env()),
-            tokenizer: LlgTokenizer {
-                factory: parser_factory,
-            },
-            executor,
-        })
-    }
-
-    fn factory(&self) -> &ParserFactory {
-        self.tokenizer.factory()
-    }
-
-    fn check_magic(&self) {
-        assert!(self.common.magic == CBISON_MAGIC && self.common.impl_magic == CBISON_IMPL_MAGIC);
-    }
-
-    fn constraint_init(&self) -> LlgConstraintInit {
-        self.check_magic();
-        let f = self.factory();
-        LlgConstraintInit {
-            tokenizer: &self.tokenizer,
-            log_buffer_level: f.buffer_log_level(),
-            log_stderr_level: f.stderr_log_level(),
-            ff_tokens_ok: false,
-            backtrack_ok: false,
-            limits: f.limits().clone(),
-        }
-    }
-}
-
-const CBISON_IMPL_MAGIC: u32 = 0x4C4C4742; // "LLG\0"
-
-unsafe extern "C" fn cbison_validate_grammar(
-    this: &LlgCbisonFactory,
-    grammar_type: *const c_char,
-    grammar: *const c_char,
-    message: *mut c_char,
-    message_len: usize,
-) -> i32 {
-    let init = this.constraint_init();
-    llg_validate_grammar(&init, grammar_type, grammar, message, message_len)
-}
-
-unsafe extern "C" fn cbison_new_matcher(
-    this: &LlgCbisonFactory,
-    grammar_type: *const c_char,
-    grammar: *const c_char,
-) -> *mut LlgMatcher {
-    let init = this.constraint_init();
-    llg_new_matcher(&init, grammar_type, grammar)
-}
-
-unsafe extern "C" fn cbison_matcher_is_stopped(matcher: &mut LlgMatcher) -> bool {
-    llg_matcher_is_stopped(matcher)
-}
-
-unsafe extern "C" fn cbison_clone_matcher(matcher: &mut LlgMatcher) -> *mut LlgMatcher {
-    llg_clone_matcher(matcher)
-}
-
-unsafe extern "C" fn cbison_free_factory(factory: &LlgCbisonFactory) {
-    let factory =
-        unsafe { Box::from_raw(factory as *const LlgCbisonFactory as *mut LlgCbisonFactory) };
-    drop(factory);
-}
-
-fn fill_cbison_factory(tok_env: &TokEnv) -> CbisonFactory {
-    let trie = tok_env.tok_trie();
-    CbisonFactory {
-        magic: CBISON_MAGIC,
-        impl_magic: CBISON_IMPL_MAGIC,
-        version_major: CBISON_VERSION_MAJOR,
-        version_minor: CBISON_VERSION_MINOR,
-        n_vocab: trie.vocab_size(),
-        eos_token_id: trie.eos_token(),
-        reserved_hd: [0; 7],
-        mask_byte_len: trie.vocab_size().div_ceil(32) * 4,
-        free_factory: Some(cbison_free_factory),
-        validate_grammar: Some(cbison_validate_grammar),
-        new_matcher: Some(cbison_new_matcher),
-        get_error: Some(llg_matcher_get_error),
-        compute_mask: Some(llg_matcher_compute_mask_into),
-        consume_tokens: Some(llg_matcher_consume_tokens),
-        is_accepting: Some(llg_matcher_is_accepting),
-        is_stopped: Some(cbison_matcher_is_stopped),
-        validate_tokens: Some(llg_matcher_validate_tokens),
-        compute_ff_tokens: Some(llg_matcher_compute_ff_tokens),
-        free_matcher: Some(llg_free_matcher),
-        rollback: Some(llg_matcher_rollback),
-        reset: Some(llg_matcher_reset),
-        clone_matcher: Some(cbison_clone_matcher),
-        #[cfg(not(feature = "rayon"))]
-        compute_masks: None,
-        #[cfg(feature = "rayon")]
-        compute_masks: Some(cbison_compute_masks),
-        reserved_ptr: [std::ptr::null_mut(); 16],
-    }
-}
-
-unsafe impl Send for cbison_mask_req {}
-impl Clone for cbison_mask_req {
-    fn clone(&self) -> Self {
-        cbison_mask_req {
-            matcher: self.matcher,
-            mask_dest: self.mask_dest,
-        }
-    }
-}
-
-#[cfg(feature = "rayon")]
-unsafe extern "C" fn cbison_compute_masks(
-    this: &LlgCbisonFactory,
-    reqs: *mut cbison_mask_req,
-    n_reqs: usize,
-) -> i32 {
-    if n_reqs == 0 {
-        return 0;
-    }
-    if reqs.is_null() {
-        return -1;
-    }
-    let reqs = unsafe { slice_from_ptr(reqs, n_reqs).unwrap() };
-    let byte_len = this.common.mask_byte_len;
-
-    this.executor.for_each(reqs.to_vec(), |req| {
-        llg_matcher_compute_mask_into(&mut *req.matcher, req.mask_dest, byte_len);
-    });
-
-    0
-}
-
-#[derive(Clone)]
 pub struct LlgExecutor {
     #[cfg(feature = "rayon")]
     pool: Option<Arc<rayon::ThreadPool>>,
@@ -1551,39 +1402,3 @@ impl LlgExecutor {
         }
     }
 }
-
-/// Construct a new cbison factory for a given tokenizer.
-/// # Safety
-/// This function should only be called from C code.
-#[no_mangle]
-pub unsafe extern "C" fn llg_new_cbison_factory(
-    init: &LlgFactoryInit,
-    error_string: *mut c_char,
-    error_string_len: usize,
-) -> *const LlgCbisonFactory {
-    match LlgCbisonFactory::from_factory_init(init) {
-        Ok(factory) => Box::into_raw(Box::new(factory)),
-        Err(e) => {
-            save_error_string(e, error_string, error_string_len);
-            std::ptr::null_mut()
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn llg_new_cbison_byte_factory() -> *const LlgCbisonFactory {
-    let parser_factory = ParserFactory::new(
-        &ApproximateTokEnv::single_byte_env(),
-        InferenceCapabilities::default(),
-        &SlicedBiasComputer::general_slices(),
-    )
-    .expect("Failed to create parser factory");
-    let factory = LlgCbisonFactory::from_parser_factory(
-        Arc::new(parser_factory),
-        LlgExecutor::new(&LlgExecutorInit { num_threads: 0 })
-            .expect("Failed to create LlgExecutor"),
-    )
-    .expect("Failed to create LlgCbisonFactory");
-    Box::into_raw(Box::new(factory))
-}
-

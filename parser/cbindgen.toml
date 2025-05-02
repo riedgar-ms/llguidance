@@ -15,10 +15,16 @@ include_version = false
 exclude = [
     "cbison_factory",
     "LlgCbisonFactory",
+    "LlgCbisonTokenizer",
+    "CbisonFactory",
+    "CbisonTokenizer",
     "NodeRef",
-    "CBISON_MAGIC",
-    "CBISON_VERSION_MAJOR",
-    "CBISON_VERSION_MINOR",
+    "CBISON_TOKENIZER_MAGIC",
+    "CBISON_TOKENIZER_VERSION_MAJOR",
+    "CBISON_TOKENIZER_VERSION_MINOR",
+    "CBISON_FACTORY_MAGIC",
+    "CBISON_FACTORY_VERSION_MAJOR",
+    "CBISON_FACTORY_VERSION_MINOR",
 ]
 
 [export.rename]
