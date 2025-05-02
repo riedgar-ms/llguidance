@@ -40,6 +40,8 @@ public:
     return *this;
   }
 
+  cbison_matcher_t get() const noexcept { return m_; }
+
   /// Clone the matcher.
   /// @return New Matcher.
   Matcher clone() const noexcept {
@@ -118,8 +120,8 @@ class Factory {
 public:
   /// Wrap existing factory address.
   /// @param addr  Pointer value returned from loader.
-  Factory(intptr_t addr) noexcept
-      : f_(reinterpret_cast<cbison_factory_t>(addr)) {}
+  Factory(const void *addr) noexcept
+      : f_(reinterpret_cast<cbison_factory_t>((void*)addr)) {}
 
   /// Frees the factory.
   ~Factory() noexcept {
@@ -166,7 +168,7 @@ public:
     size_t n = reqs.size();
     std::vector<cbison_mask_req_t> c(n);
     for (size_t i = 0; i < n; ++i) {
-      c[i].matcher = reqs[i].first->m_;
+      c[i].matcher = reqs[i].first->get();
       c[i].mask_dest = reqs[i].second;
     }
     return f_->compute_masks ? f_->compute_masks(f_, c.data(), n) : -1;

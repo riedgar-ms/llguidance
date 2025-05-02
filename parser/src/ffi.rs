@@ -1569,3 +1569,21 @@ pub unsafe extern "C" fn llg_new_cbison_factory(
         }
     }
 }
+
+#[no_mangle]
+pub extern "C" fn llg_new_cbison_byte_factory() -> *const LlgCbisonFactory {
+    let parser_factory = ParserFactory::new(
+        &ApproximateTokEnv::single_byte_env(),
+        InferenceCapabilities::default(),
+        &SlicedBiasComputer::general_slices(),
+    )
+    .expect("Failed to create parser factory");
+    let factory = LlgCbisonFactory::from_parser_factory(
+        Arc::new(parser_factory),
+        LlgExecutor::new(&LlgExecutorInit { num_threads: 0 })
+            .expect("Failed to create LlgExecutor"),
+    )
+    .expect("Failed to create LlgCbisonFactory");
+    Box::into_raw(Box::new(factory))
+}
+

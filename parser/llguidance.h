@@ -31,8 +31,6 @@ typedef struct LlgStopController LlgStopController;
 
 typedef struct LlgTokenizer LlgTokenizer;
 
-typedef struct NodeRef NodeRef;
-
 typedef struct LlgParserLimits {
   /**
    * For non-ambiguous grammars, this is the maximum "branching factor" of the grammar.
@@ -235,6 +233,16 @@ typedef struct LlgTokenizerInit {
   const char *const *slices;
 } LlgTokenizerInit;
 
+typedef struct LlgExecutorInit {
+  /**
+   * The number of worker threads to use when computing masks in parallel
+   * 0 - 80% of the number of cores, but no more than 32
+   * 1 - disable parallelism
+   * > 1 - use this number of threads
+   */
+  uint32_t num_threads;
+} LlgExecutorInit;
+
 typedef struct LlgFactoryInit {
   struct LlgTokenizerInit tokenizer_init;
   /**
@@ -252,12 +260,9 @@ typedef struct LlgFactoryInit {
    */
   struct LlgParserLimits limits;
   /**
-   * The number of worker threads to use when computing masks in parallel
-   * 0 - 80% of the number of cores, but no more than 32
-   * 1 - disable parallelism
-   * > 1 - use this number of threads
+   * The initialization parameters for the thread pool
    */
-  uint32_t num_threads;
+  struct LlgExecutorInit executor;
 } LlgFactoryInit;
 
 
@@ -603,9 +608,11 @@ struct LlgMatcher *llg_clone_matcher(const struct LlgMatcher *matcher);
 /**
  * Construct a new cbison factory for a given tokenizer.
  */
-const LlgCbisonFactory *llg_new_cbison_factory(const struct LlgFactoryInit *init,
+const struct LlgCbisonFactory *llg_new_cbison_factory(const struct LlgFactoryInit *init,
                                                char *error_string,
                                                size_t error_string_len);
+
+const struct LlgCbisonFactory *llg_new_cbison_byte_factory(void);
 
 #ifdef __cplusplus
 }  // extern "C"

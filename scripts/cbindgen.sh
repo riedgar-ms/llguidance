@@ -29,6 +29,7 @@ else
     grep -v "Skip .*(not " tmp/cbindgen.txt
 
     cat tmp/llguidance0.h | \
+        sed -e 's@LlgCbisonFactory@struct LlgCbisonFactory@g' | \
         grep -v "\* # Safety" | \
         grep -v "\* This function should only be called from C code" \
     > tmp/llguidance.h

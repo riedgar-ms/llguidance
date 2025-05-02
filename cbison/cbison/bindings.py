@@ -153,6 +153,10 @@ class struct_cbison_factory(Structure):
     pass
 
 cbison_factory_t = ctypes.POINTER(struct_cbison_factory)
+class struct_cbison_tokenizer(Structure):
+    pass
+
+cbison_tokenizer_t = ctypes.POINTER(struct_cbison_tokenizer)
 cbison_matcher_ptr_t = ctypes.POINTER(struct_cbison_matcher)
 class struct_cbison_mask_req(Structure):
     pass
@@ -192,7 +196,25 @@ struct_cbison_factory._fields_ = [
     ('reserved_ptr', ctypes.POINTER(None) * 16),
 ]
 
+struct_cbison_tokenizer._pack_ = 1 # source:False
+struct_cbison_tokenizer._fields_ = [
+    ('magic', ctypes.c_uint32),
+    ('impl_magic', ctypes.c_uint32),
+    ('version_major', ctypes.c_uint32),
+    ('version_minor', ctypes.c_uint32),
+    ('n_vocab', ctypes.c_size_t),
+    ('eos_token_id', ctypes.c_uint32),
+    ('tokenize_bytes_requires_utf8', ctypes.c_bool),
+    ('PADDING_0', ctypes.c_ubyte * 3),
+    ('reserved_hd', ctypes.c_uint32 * 6),
+    ('get_token', ctypes.CFUNCTYPE(ctypes.c_int32, ctypes.POINTER(struct_cbison_tokenizer), ctypes.c_uint32, ctypes.POINTER(ctypes.c_ubyte), ctypes.c_size_t)),
+    ('is_special_token', ctypes.CFUNCTYPE(ctypes.c_int32, ctypes.POINTER(struct_cbison_tokenizer), ctypes.c_uint32)),
+    ('tokenize_bytes', ctypes.CFUNCTYPE(ctypes.c_size_t, ctypes.POINTER(struct_cbison_tokenizer), ctypes.POINTER(ctypes.c_ubyte), ctypes.c_uint64, ctypes.POINTER(ctypes.c_uint32), ctypes.c_uint64)),
+    ('reserved_ptr', ctypes.POINTER(None) * 16),
+]
+
 __all__ = \
     ['cbison_factory_t', 'cbison_mask_req_t', 'cbison_matcher_ptr_t',
-    'cbison_matcher_t', 'struct_cbison_factory',
-    'struct_cbison_mask_req', 'struct_cbison_matcher']
+    'cbison_matcher_t', 'cbison_tokenizer_t', 'struct_cbison_factory',
+    'struct_cbison_mask_req', 'struct_cbison_matcher',
+    'struct_cbison_tokenizer']
