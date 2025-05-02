@@ -18,7 +18,7 @@ function generate() {
     local crate=$1
 
 mkdir -p tmp
-cbindgen --config ../parser/cbindgen.toml \
+cbindgen --config ./cbindgen.toml \
          --crate "$crate" \
          --output tmp/llguidance0.h  > tmp/cbindgen.txt 2>&1
 
@@ -28,11 +28,13 @@ if [ $? -ne 0 ]; then
     exit 1
 else
     # print warnings and errors, but skip "Skip" messages
-    grep -v "Skip .*(not " tmp/cbindgen.txt
+    grep -vE "(Skip .*\(not |WARN: Skipping llguidance_cbison::cbison_)" tmp/cbindgen.txt
 
     cat tmp/llguidance0.h | \
-        sed -e 's@LlgCbisonFactory@struct LlgCbisonFactory@g' \
-            -e 's@LlgCbisonTokenizer@struct LlgCbisonTokenizer@g' | \
+        sed -e 's@const LlgCbisonFactory \*@cbison_factory_t @g' \
+            -e 's@const LlgCbisonTokenizer \*@cbison_tokenizer_t @g' \
+            -e 's@CbisonTokenizer \*@cbison_tokenizer_t @g' \
+        | \
         grep -v "\* # Safety" | \
         grep -v "\* This function should only be called from C code" \
     > tmp/llguidance.h

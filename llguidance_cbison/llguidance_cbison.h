@@ -1,5 +1,5 @@
-#ifndef LLGUIDANCE_H
-#define LLGUIDANCE_H
+#ifndef LLGUIDANCE_CBISON_H
+#define LLGUIDANCE_CBISON_H
 
 #include <stdarg.h>
 #include <stdbool.h>
@@ -13,19 +13,15 @@ extern "C" {
 
 /**
  * Construct a new cbison factory for a given tokenizer.
- * # Safety
- * This function should only be called from C code.
  */
-const LlgCbisonFactory *llg_new_cbison_factory(const LlgFactoryInit *init,
+cbison_factory_t llg_new_cbison_factory(const LlgFactoryInit *init,
                                                char *error_string,
                                                size_t error_string_len);
 
 /**
  * Construct a new cbison factory for a given tokenizer and options.
- * # Safety
- * This function should only be called from C code.
  */
-const LlgCbisonFactory *llg_new_cbison_factory_json(CbisonTokenizer *tokenizer,
+cbison_factory_t llg_new_cbison_factory_json(cbison_tokenizer_t tokenizer,
                                                     const char *options_json,
                                                     char *error_string,
                                                     size_t error_string_len);
@@ -33,10 +29,10 @@ const LlgCbisonFactory *llg_new_cbison_factory_json(CbisonTokenizer *tokenizer,
 /**
  * This for testing purposes only.
  */
-const LlgCbisonTokenizer *llg_new_cbison_byte_tokenizer(void);
+cbison_tokenizer_t llg_new_cbison_byte_tokenizer(void);
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus
 
-#endif  /* LLGUIDANCE_H */
+#endif  /* LLGUIDANCE_CBISON_H */
