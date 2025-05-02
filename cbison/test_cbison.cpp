@@ -4,12 +4,12 @@
 #include <vector>
 #include <algorithm>
 #include <utility>
+#include "cbison.hpp"
 #include "llguidance_cbison.h"
 
-
 int main() {
-    
-  cbison::Factory f(llg_new_cbison_byte_factory());
+  cbison::Tokenizer t(llg_new_cbison_byte_tokenizer());
+  cbison::Factory f(llg_new_cbison_factory_json(t.get(), "{}", nullptr, 0));
 
   // validate grammar
   {
@@ -35,12 +35,12 @@ int main() {
   assert(!m.isAccepting());
 
   // validate_tokens for incomplete JSON
-  auto tokens = t.tokenize_str("{\"a\":abc}");
+  auto tokens = t.tokenizeString("{\"a\":abc}");
   int n_valid = m.validateTokens(tokens);
   assert(n_valid < static_cast<int>(tokens.size()));
 
   // validate & consume for complete JSON
-  tokens = t.tokenize_str("{\"a\":12}");
+  tokens = t.tokenizeString("{\"a\":12}");
   n_valid = m.validateTokens(tokens);
   assert(n_valid == static_cast<int>(tokens.size()));
   assert(!m.isAccepting());
@@ -91,7 +91,7 @@ int main() {
   std::vector<uint32_t> mask(batch * words, 0);
   std::vector<std::pair<cbison::Matcher *, uint32_t *>> reqs = {
       {&m, mask.data()}, {&m2, mask.data() + 2 * words}};
-  int rc = f.computeMasks(reqs, mask.data());
+  int rc = f.computeMasks(reqs);
   assert(rc == 0);
 
   // verify rows

@@ -19,7 +19,6 @@ exclude = [
     "LlgCbisonTokenizer",
     "CbisonFactory",
     "CbisonTokenizer",
-    "NodeRef",
     "CBISON_TOKENIZER_MAGIC",
     "CBISON_TOKENIZER_VERSION_MAJOR",
     "CBISON_TOKENIZER_VERSION_MINOR",

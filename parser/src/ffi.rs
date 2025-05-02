@@ -717,6 +717,24 @@ pub unsafe extern "C" fn llg_new_tokenizer(
     }
 }
 
+/// Newer version of llg_new_tokenizer()
+/// # Safety
+/// This function should only be called from C code.
+#[no_mangle]
+pub unsafe extern "C" fn llg_new_factory(
+    tok_init: &LlgFactoryInit,
+    error_string: *mut c_char,
+    error_string_len: usize,
+) -> *mut LlgTokenizer {
+    match LlgTokenizer::from_factory_init(tok_init) {
+        Ok(tok) => Box::into_raw(Box::new(tok)),
+        Err(e) => {
+            save_error_string(e, error_string, error_string_len);
+            std::ptr::null_mut()
+        }
+    }
+}
+
 /// Clone a tokenizer.
 /// This increments a reference count and does a small allocation.
 #[no_mangle]
