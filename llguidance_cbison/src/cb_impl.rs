@@ -54,7 +54,7 @@ impl LlgCbisonFactory {
         options_json: *const c_char,
     ) -> Result<LlgCbisonFactory> {
         let tok_env: TokEnv = Arc::new(CbisonTokEnv::new(tokenizer)?);
-        let options_json = c_str_to_str(options_json, "options_json")?;
+        let options_json = c_str_to_json(options_json, "options_json")?;
         let options: JsonFactoryOptions = serde_json::from_str(options_json)
             .map_err(|e| anyhow::anyhow!("Invalid JSON in options: {e}"))?;
         let slices = options
@@ -215,7 +215,7 @@ unsafe extern "C" fn cbison_compute_masks(
 /// # Safety
 /// This function should only be called from C code.
 #[no_mangle]
-pub unsafe extern "C" fn llg_new_cbison_factory(
+pub unsafe extern "C" fn llg_cbison_new_factory_init(
     init: &LlgFactoryInit,
     error_string: *mut c_char,
     error_string_len: usize,
@@ -229,11 +229,12 @@ pub unsafe extern "C" fn llg_new_cbison_factory(
     }
 }
 
-/// Construct a new cbison factory for a given tokenizer and options.
+/// Construct a new CBISON factory for a given tokenizer and options.
+/// The reference count of the tokenizer is incremented (until the factory is freed).
 /// # Safety
 /// This function should only be called from C code.
 #[no_mangle]
-pub unsafe extern "C" fn llg_new_cbison_factory_json(
+pub unsafe extern "C" fn llg_cbison_new_factory(
     tokenizer: *mut CbisonTokenizer,
     options_json: *const c_char,
     error_string: *mut c_char,
@@ -382,7 +383,7 @@ impl LlgCbisonTokenizer {
 
 /// This for testing purposes only.
 #[no_mangle]
-pub extern "C" fn llg_new_cbison_byte_tokenizer() -> *const LlgCbisonTokenizer {
+pub extern "C" fn llg_cbison_new_byte_tokenizer() -> *const LlgCbisonTokenizer {
     let tok = LlgCbisonTokenizer::new(ApproximateTokEnv::single_byte_env());
     Box::into_raw(Box::new(tok))
 }
@@ -538,5 +539,58 @@ unsafe fn slice_from_ptr_or_empty<'a, T>(data: *const T, len: usize) -> &'a [T] 
         &[]
     } else {
         std::slice::from_raw_parts(data, len)
+    }
+}
+
+unsafe fn hf_tokenizer(
+    tokenizer_json: *const c_char,
+    options_json: *const c_char,
+) -> Result<LlgCbisonTokenizer> {
+    let options_json = c_str_to_json(options_json, "options_json")?;
+    let options: LlgJsonTokenizerOptions = serde_json::from_str(options_json)
+        .map_err(|e| anyhow::anyhow!("Invalid JSON in options: {e}"))?;
+    let tokenizer_json = c_str_to_str(tokenizer_json, "tokenizer_json")?;
+    let mut tokenizer =
+        toktrie_hf_tokenizers::ByteTokenizer::from_json_bytes(tokenizer_json.as_bytes())?;
+    if let Some(tok) = options.eos_token_id {
+        tokenizer.set_eos_token(tok);
+    }
+    let env = tokenizer.into_tok_env(options.n_vocab)?;
+    Ok(LlgCbisonTokenizer::new(env))
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct LlgJsonTokenizerOptions {
+    pub n_vocab: Option<usize>,
+    pub eos_token_id: Option<u32>,
+}
+
+/// Construct a new cbison tokenizer from a JSON string representing a HuggingFace
+/// fast tokenizer (tokenizer.json file).
+/// You can override the vocab size and the end of sentence token id.
+/// Keep them at 0 and -1 respectively to use the default values from the tokenizer.
+/// # Safety
+/// This function should only be called from C code.
+#[no_mangle]
+pub unsafe extern "C" fn llg_cbison_new_hf_tokenizer(
+    tokenizer_json: *const c_char,
+    options_json: *const c_char,
+    error_string: *mut c_char,
+    error_string_len: usize,
+) -> *const LlgCbisonTokenizer {
+    match hf_tokenizer(tokenizer_json, options_json) {
+        Ok(tok) => Box::into_raw(Box::new(tok)),
+        Err(e) => {
+            save_error_string(e, error_string, error_string_len);
+            std::ptr::null_mut()
+        }
+    }
+}
+
+unsafe fn c_str_to_json<'a>(c_str: *const c_char, info: &str) -> Result<&'a str> {
+    if c_str.is_null() {
+        Ok("{}")
+    } else {
+        c_str_to_str(c_str, info)
     }
 }

@@ -1,5 +1,5 @@
 import ctypes
-from .bindings import struct_cbison_factory, struct_cbison_matcher, cbison_mask_req_t, string_cast
+from .bindings import struct_cbison_factory, struct_cbison_matcher, cbison_mask_req_t, string_cast, struct_cbison_tokenizer
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -347,3 +347,77 @@ class CbisonFactory:
             trg[i].matcher = m.matcher
             trg[i].mask_dest = ctypes.cast(ptr + idx * mask_len, p_type)
         return self.handle.compute_masks(self.handle, trg, len(matchers))
+
+
+class CbisonTokenizer:
+    """
+    Wrapper around a CBISON tokenizer instance. Provides access to token metadata
+    and tokenization logic.
+    """
+
+    def __init__(self, addr: int):
+        """
+        Initializes the tokenizer wrapper from a raw memory address.
+        
+        Args:
+            addr (int): Address of the cbison_tokenizer_t
+        
+        Raises:
+            ValueError: If address or version/magic are invalid.
+        """
+        _check_addr(addr)
+        handle = struct_cbison_tokenizer.from_address(addr)
+        if handle.magic != 0xff79e338:
+            raise ValueError("Invalid tokenizer magic")
+        if handle.version_major != 1 or handle.version_minor < 0:
+            raise ValueError("Unsupported tokenizer version")
+        self.handle = handle
+        self.handle.incr_ref_count(self.handle)
+
+    def __del__(self):
+        """
+        Decrements tokenizer ref count if applicable.
+        """
+        if self.handle:
+            self.handle.decr_ref_count(self.handle)
+            self.handle = None
+
+    @property
+    def n_vocab(self) -> int:
+        return self.handle.n_vocab
+
+    @property
+    def eos_token_id(self) -> int:
+        return self.handle.eos_token_id
+
+    def get_token(self, token_id: int) -> bytes:
+        """
+        Returns the raw bytes of the token.
+        Raises ValueError if token_id is out of range.
+        """
+        buf_len = 64
+        buf = (ctypes.c_uint8 * buf_len)()
+        n = self.handle.get_token(self.handle, token_id, buf, buf_len)
+        if n < 0:
+            raise ValueError("Invalid token id")
+        if n > buf_len:
+            buf = (ctypes.c_uint8 * n)()
+            n = self.handle.get_token(self.handle, token_id, buf, n)
+        return bytes(buf[:n])
+
+    def is_special_token(self, token_id: int) -> bool:
+        """
+        Returns 1 if special, 0 if normal, -1 on error.
+        """
+        return self.handle.is_special_token(self.handle, token_id) == 1
+
+    def tokenize_bytes(self, b: bytes | str) -> list[int]:
+        """
+        Tokenizes a string or byte buffer.
+        """
+        if isinstance(b, str):
+            b = b.encode("utf-8")
+        est_tokens = len(b) + 1
+        out = (ctypes.c_uint32 * est_tokens)()
+        n = self.handle.tokenize_bytes(self.handle, b, len(b), out, est_tokens)
+        return list(out[:min(n, est_tokens)])
