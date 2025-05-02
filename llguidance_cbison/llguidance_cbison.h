@@ -6,6 +6,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include "llguidance.h"
+#include "cbison_api.h"
 
 #ifdef __cplusplus
 extern "C" {

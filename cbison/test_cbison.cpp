@@ -4,10 +4,11 @@
 #include <vector>
 #include <algorithm>
 #include <utility>
-#include "llguidance.h"
-#include "cbison.hpp"
+#include "llguidance_cbison.h"
+
 
 int main() {
+    
   cbison::Factory f(llg_new_cbison_byte_factory());
 
   // validate grammar

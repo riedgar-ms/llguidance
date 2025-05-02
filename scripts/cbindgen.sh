@@ -28,7 +28,7 @@ if [ $? -ne 0 ]; then
     exit 1
 else
     # print warnings and errors, but skip "Skip" messages
-    grep -vE "(Skip .*\(not |WARN: Skipping llguidance_cbison::cbison_)" tmp/cbindgen.txt
+    grep -vE "(Skip .*\(not |WARN: Skipping llguidance_cbison::cbison_|WARN: Can't find LlgCbison(Factory|Tokenizer))" tmp/cbindgen.txt
 
     cat tmp/llguidance0.h | \
         sed -e 's@const LlgCbisonFactory \*@cbison_factory_t @g' \

@@ -121,7 +121,7 @@ public:
   /// Wrap existing factory address.
   /// @param addr  Pointer value returned from loader.
   Factory(const void *addr) noexcept
-      : f_(reinterpret_cast<cbison_factory_t>((void*)addr)) {}
+      : f_(reinterpret_cast<cbison_factory_t>((void *)addr)) {}
 
   /// Frees the factory.
   ~Factory() noexcept {
@@ -172,6 +172,80 @@ public:
       c[i].mask_dest = reqs[i].second;
     }
     return f_->compute_masks ? f_->compute_masks(f_, c.data(), n) : -1;
+  }
+};
+
+class Tokenizer {
+  cbison_tokenizer_t t_;
+
+public:
+  /// Wrap existing tokenizer.
+  Tokenizer(cbison_tokenizer_t t) noexcept : t_(t) {}
+
+  /// Frees the tokenizer.
+  ~Tokenizer() noexcept {
+    if (t_)
+      t_->free_tokenizer(t_);
+  }
+
+  Tokenizer(const Tokenizer &) = delete;
+  Tokenizer &operator=(const Tokenizer &) = delete;
+
+  Tokenizer(Tokenizer &&o) noexcept : t_(o.t_) { o.t_ = nullptr; }
+  Tokenizer &operator=(Tokenizer &&o) noexcept {
+    if (t_)
+      t_->free_tokenizer(t_);
+    t_ = o.t_;
+    o.t_ = nullptr;
+    return *this;
+  }
+
+  cbison_tokenizer_t get() const noexcept { return t_; }
+
+  /// Return vector of bytes for given token.
+  std::vector<uint8_t> getToken(uint32_t token_id) const noexcept {
+    size_t est_len = 32; // initial guess
+    std::vector<uint8_t> buf(est_len);
+    int n = t_->get_token(t_, token_id, buf.data(), buf.size());
+    if (n < 0)
+      return {};
+    if (static_cast<size_t>(n) > buf.size()) {
+      buf.resize(n);
+      n = t_->get_token(t_, token_id, buf.data(), buf.size());
+      if (n < 0)
+        return {};
+    }
+    buf.resize(n);
+    return buf;
+  }
+
+  /// Tokenize bytes, return token ids.
+  std::vector<uint32_t>
+  tokenizeBytes(const std::vector<uint8_t> &bytes) const noexcept {
+    if (!t_->tokenize_bytes)
+      return {};
+    size_t est_tokens = bytes.size(); // worst case
+    std::vector<uint32_t> out(est_tokens);
+    size_t n = t_->tokenize_bytes(t_, bytes.data(), bytes.size(), out.data(),
+                                  out.size());
+    out.resize(n);
+    return out;
+  }
+
+  /// Tokenize string (UTF-8), returns token ids.
+  std::vector<uint32_t> tokenizeString(const std::string &s) const noexcept {
+    return tokenizeBytes(std::vector<uint8_t>(s.begin(), s.end()));
+  }
+
+  /// Vocabulary size.
+  size_t vocabSize() const noexcept { return t_->n_vocab; }
+
+  /// EOS token ID.
+  uint32_t eosTokenId() const noexcept { return t_->eos_token_id; }
+
+  /// Whether input to tokenize_bytes must be UTF-8.
+  bool requiresUtf8() const noexcept {
+    return t_->tokenize_bytes_requires_utf8;
   }
 };
 

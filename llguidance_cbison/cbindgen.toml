@@ -4,6 +4,7 @@ language = "C"
 cpp_compat = true
 usize_is_size_t = true
 include_guard = "LLGUIDANCE_CBISON_H"
+includes = ["llguidance.h", "cbison_api.h"]
 
 # header = "/* Text to put at the beginning of the generated file. Probably a license. */"
 # trailer = "/* Text to put at the end of the generated file */"
