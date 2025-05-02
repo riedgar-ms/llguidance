@@ -1,4 +1,3 @@
-// test_cbison.cpp
 #include <cassert>
 #include <iostream>
 #include <vector>

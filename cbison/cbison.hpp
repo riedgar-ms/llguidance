@@ -224,7 +224,7 @@ public:
   tokenizeBytes(const std::vector<uint8_t> &bytes) const noexcept {
     if (!t_->tokenize_bytes)
       return {};
-    size_t est_tokens = bytes.size(); // worst case
+    size_t est_tokens = bytes.size() + 1; // worst case
     std::vector<uint32_t> out(est_tokens);
     size_t n = t_->tokenize_bytes(t_, bytes.data(), bytes.size(), out.data(),
                                   out.size());
