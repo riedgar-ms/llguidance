@@ -57,7 +57,7 @@ pub struct cbison_tokenizer {
     pub is_special_token: ::std::option::Option<
         unsafe extern "C" fn(api: cbison_tokenizer_t, token_id: u32) -> ::std::os::raw::c_int,
     >,
-    #[doc = " Tokenize the given bytes and return the tokens.\n Always returns the number of tokens that would be written to output_tokens\n if output_tokens_len was large enough.\n\n This can be omitted, resulting in compute_ff_tokens() always returning an\n empty vector."]
+    #[doc = " Tokenize the given bytes and return the tokens.\n Always returns the number of tokens that would be written to output_tokens\n if output_tokens_len was large enough.\n\n This can be omitted, resulting in compute_ff_tokens() always returning an\n empty vector.\n\n If provided, this function must be thread-safe and reentrant."]
     pub tokenize_bytes: ::std::option::Option<
         unsafe extern "C" fn(
             api: cbison_tokenizer_t,
@@ -67,13 +67,15 @@ pub struct cbison_tokenizer {
             output_tokens_len: usize,
         ) -> usize,
     >,
-    #[doc = " Free the tokenizer."]
-    pub free_tokenizer: ::std::option::Option<unsafe extern "C" fn(api: cbison_tokenizer_ptr_t)>,
+    #[doc = " Increment the reference count of the tokenizer.\n All functions allocating tokenizers set the reference count to 1.\n This can be no-op if the tokenizer is never freed."]
+    pub incr_ref_count: ::std::option::Option<unsafe extern "C" fn(api: cbison_tokenizer_ptr_t)>,
+    #[doc = " Decrement the reference count of the tokenizer.\n If the reference count reaches 0, the tokenizer is freed.\n This can be no-op if the tokenizer is never freed."]
+    pub decr_ref_count: ::std::option::Option<unsafe extern "C" fn(api: cbison_tokenizer_ptr_t)>,
     pub reserved_ptr: [*mut ::std::os::raw::c_void; 16usize],
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of cbison_tokenizer"][::std::mem::size_of::<cbison_tokenizer>() - 216usize];
+    ["Size of cbison_tokenizer"][::std::mem::size_of::<cbison_tokenizer>() - 224usize];
     ["Alignment of cbison_tokenizer"][::std::mem::align_of::<cbison_tokenizer>() - 8usize];
     ["Offset of field: cbison_tokenizer::magic"]
         [::std::mem::offset_of!(cbison_tokenizer, magic) - 0usize];
@@ -97,10 +99,12 @@ const _: () = {
         [::std::mem::offset_of!(cbison_tokenizer, is_special_token) - 64usize];
     ["Offset of field: cbison_tokenizer::tokenize_bytes"]
         [::std::mem::offset_of!(cbison_tokenizer, tokenize_bytes) - 72usize];
-    ["Offset of field: cbison_tokenizer::free_tokenizer"]
-        [::std::mem::offset_of!(cbison_tokenizer, free_tokenizer) - 80usize];
+    ["Offset of field: cbison_tokenizer::incr_ref_count"]
+        [::std::mem::offset_of!(cbison_tokenizer, incr_ref_count) - 80usize];
+    ["Offset of field: cbison_tokenizer::decr_ref_count"]
+        [::std::mem::offset_of!(cbison_tokenizer, decr_ref_count) - 88usize];
     ["Offset of field: cbison_tokenizer::reserved_ptr"]
-        [::std::mem::offset_of!(cbison_tokenizer, reserved_ptr) - 88usize];
+        [::std::mem::offset_of!(cbison_tokenizer, reserved_ptr) - 96usize];
 };
 #[doc = " C Binary Interface for Structured Output Negotiation (CBISON)\n\n This represents a factory for matchers, that is specialized\n for a given tokenizer.\n\n We currently do not cover creation APIs for these here."]
 #[repr(C)]

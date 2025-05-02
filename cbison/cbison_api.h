@@ -100,7 +100,7 @@ struct cbison_tokenizer {
    *
    * This can be omitted, resulting in compute_ff_tokens() always returning an
    * empty vector.
-   * 
+   *
    * If provided, this function must be thread-safe and reentrant.
    */
   size_t (*tokenize_bytes)(cbison_tokenizer_t api, const uint8_t *bytes,
@@ -108,9 +108,18 @@ struct cbison_tokenizer {
                            size_t output_tokens_len);
 
   /**
-   * Free the tokenizer.
+   * Increment the reference count of the tokenizer.
+   * All functions allocating tokenizers set the reference count to 1.
+   * This can be no-op if the tokenizer is never freed.
    */
-  void (*free_tokenizer)(cbison_tokenizer_ptr_t api);
+  void (*incr_ref_count)(cbison_tokenizer_ptr_t api);
+
+  /**
+   * Decrement the reference count of the tokenizer.
+   * If the reference count reaches 0, the tokenizer is freed.
+   * This can be no-op if the tokenizer is never freed.
+   */
+  void (*decr_ref_count)(cbison_tokenizer_ptr_t api);
 
   void *reserved_ptr[16];
 };

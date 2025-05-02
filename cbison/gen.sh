@@ -2,7 +2,7 @@
 
 set -e
 
-sed '/\/\/ ---START OF GENERATED CODE---/q' ../parser/src/cbison.rs > tmp.rs
+sed '/\/\/ ---START OF GENERATED CODE---/q' ../llguidance_cbison/src/cbison.rs > tmp.rs
 
 bindgen \
     --allowlist-type 'cbison_factory' \

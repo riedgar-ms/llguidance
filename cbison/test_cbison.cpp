@@ -7,8 +7,10 @@
 #include "llguidance_cbison.h"
 
 int main() {
-  cbison::Tokenizer t(llg_new_cbison_byte_tokenizer());
-  cbison::Factory f(llg_new_cbison_factory_json(t.get(), "{}", nullptr, 0));
+  cbison_tokenizer_t t0 = llg_new_cbison_byte_tokenizer();
+  cbison::Tokenizer t(t0);
+  cbison::Factory f(llg_new_cbison_factory_json(t0, "{}", nullptr, 0));
+  t0->decr_ref_count(t0);
 
   // validate grammar
   {

@@ -252,6 +252,7 @@ pub unsafe extern "C" fn llg_new_cbison_factory_json(
 #[repr(C)]
 pub struct LlgCbisonTokenizer {
     common: CbisonTokenizer, // has to come first!
+    ref_count: usize,
     tok_env: TokEnv,
 }
 
@@ -321,11 +322,21 @@ unsafe extern "C" fn cbison_tokenize_bytes(
     n_toks
 }
 
-unsafe extern "C" fn cbison_free_tokenizer(api: cbison_tokenizer_ptr_t) {
+unsafe extern "C" fn cbison_decr(api: cbison_tokenizer_ptr_t) {
     assert!(!api.is_null());
     let api = &mut *(api as *mut LlgCbisonTokenizer);
     api.check_magic();
-    drop(Box::from_raw(api));
+    api.ref_count -= 1;
+    if api.ref_count == 0 {
+        drop(Box::from_raw(api));
+    }
+}
+
+unsafe extern "C" fn cbison_incr(api: cbison_tokenizer_ptr_t) {
+    assert!(!api.is_null());
+    let api = &mut *(api as *mut LlgCbisonTokenizer);
+    api.check_magic();
+    api.ref_count += 1;
 }
 
 impl LlgCbisonTokenizer {
@@ -346,9 +357,11 @@ impl LlgCbisonTokenizer {
                 get_token: Some(cbison_get_token),
                 is_special_token: Some(cbison_is_special_token),
                 tokenize_bytes: Some(cbison_tokenize_bytes),
-                free_tokenizer: Some(cbison_free_tokenizer),
+                decr_ref_count: Some(cbison_decr),
+                incr_ref_count: Some(cbison_incr),
                 reserved_ptr: [std::ptr::null_mut(); 16],
             },
+            ref_count: 1,
             tok_env,
         }
     }
@@ -361,10 +374,9 @@ impl LlgCbisonTokenizer {
     }
 
     fn check_magic(&self) {
-        assert!(
-            self.common.magic == CBISON_TOKENIZER_MAGIC
-                && self.common.impl_magic == CBISON_IMPL_MAGIC
-        );
+        assert!(self.common.magic == CBISON_TOKENIZER_MAGIC);
+        assert!(self.common.impl_magic == CBISON_IMPL_MAGIC);
+        assert!(self.ref_count > 0);
     }
 }
 
@@ -386,15 +398,21 @@ unsafe impl Sync for CbisonTokEnv {}
 impl Drop for CbisonTokEnv {
     fn drop(&mut self) {
         assert!(!self.cbison_tokenizer.is_null());
-        let free =
-            unsafe { (*self.cbison_tokenizer).free_tokenizer }.expect("free_tokenizer is null");
-        unsafe { free(self.cbison_tokenizer as *mut _) }
+        let decr =
+            unsafe { (*self.cbison_tokenizer).decr_ref_count }.expect("decr_ref_count is null");
+        unsafe { decr(self.cbison_tokenizer as *mut _) }
     }
 }
 
 impl CbisonTokEnv {
     fn new(cbison_tokenizer: *mut CbisonTokenizer) -> Result<Self> {
         let tok = unsafe { &*cbison_tokenizer };
+
+        let incr = tok
+            .incr_ref_count
+            .ok_or_else(|| anyhow!("cbison_tokenizer does not have incr_ref_count function"))?;
+        unsafe { incr(cbison_tokenizer) };
+
         let get_token = tok
             .get_token
             .ok_or_else(|| anyhow!("cbison_tokenizer does not have get_token function"))?;

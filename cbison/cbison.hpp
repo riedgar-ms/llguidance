@@ -180,12 +180,15 @@ class Tokenizer {
 
 public:
   /// Wrap existing tokenizer.
-  Tokenizer(cbison_tokenizer_t t) noexcept : t_(t) {}
+  Tokenizer(cbison_tokenizer_t t) noexcept : t_(t) {
+    if (t_)
+      t_->incr_ref_count(t_);
+  }
 
   /// Frees the tokenizer.
   ~Tokenizer() noexcept {
     if (t_)
-      t_->free_tokenizer(t_);
+      t_->decr_ref_count(t_);
   }
 
   Tokenizer(const Tokenizer &) = delete;
@@ -194,7 +197,7 @@ public:
   Tokenizer(Tokenizer &&o) noexcept : t_(o.t_) { o.t_ = nullptr; }
   Tokenizer &operator=(Tokenizer &&o) noexcept {
     if (t_)
-      t_->free_tokenizer(t_);
+      t_->decr_ref_count(t_);
     t_ = o.t_;
     o.t_ = nullptr;
     return *this;
