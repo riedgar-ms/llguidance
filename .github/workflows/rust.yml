@@ -52,3 +52,20 @@ jobs:
       with:
         name: wheels
         path: target/wheels/*
+
+  msrv:
+    name: MSRV Check
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@1.80.0
+      with:
+        components: clippy
+
+    - name: Build parser
+      run: cargo build --verbose --locked
+      working-directory: parser
