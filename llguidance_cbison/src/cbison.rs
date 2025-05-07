@@ -44,6 +44,8 @@ pub struct cbison_tokenizer {
     #[doc = " Indicates of the tokenize_bytes() function requires the input bytes\n to be valid UTF-8 (often the case)."]
     pub tokenize_bytes_requires_utf8: bool,
     pub reserved_hd: [u32; 6usize],
+    #[doc = " The value is implementation-specific."]
+    pub impl_data: *mut ::std::os::raw::c_void,
     #[doc = " Get bytes for the given token.\n Returns -1 on error (token_id >= n_vocab), and number of bytes in the token\n on success (which can be larger than bytes_len). Writes at most bytes_len\n bytes to bytes; they are *not* NUL-terminated."]
     pub get_token: ::std::option::Option<
         unsafe extern "C" fn(
@@ -75,7 +77,7 @@ pub struct cbison_tokenizer {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of cbison_tokenizer"][::std::mem::size_of::<cbison_tokenizer>() - 224usize];
+    ["Size of cbison_tokenizer"][::std::mem::size_of::<cbison_tokenizer>() - 232usize];
     ["Alignment of cbison_tokenizer"][::std::mem::align_of::<cbison_tokenizer>() - 8usize];
     ["Offset of field: cbison_tokenizer::magic"]
         [::std::mem::offset_of!(cbison_tokenizer, magic) - 0usize];
@@ -93,18 +95,20 @@ const _: () = {
         [::std::mem::offset_of!(cbison_tokenizer, tokenize_bytes_requires_utf8) - 28usize];
     ["Offset of field: cbison_tokenizer::reserved_hd"]
         [::std::mem::offset_of!(cbison_tokenizer, reserved_hd) - 32usize];
+    ["Offset of field: cbison_tokenizer::impl_data"]
+        [::std::mem::offset_of!(cbison_tokenizer, impl_data) - 56usize];
     ["Offset of field: cbison_tokenizer::get_token"]
-        [::std::mem::offset_of!(cbison_tokenizer, get_token) - 56usize];
+        [::std::mem::offset_of!(cbison_tokenizer, get_token) - 64usize];
     ["Offset of field: cbison_tokenizer::is_special_token"]
-        [::std::mem::offset_of!(cbison_tokenizer, is_special_token) - 64usize];
+        [::std::mem::offset_of!(cbison_tokenizer, is_special_token) - 72usize];
     ["Offset of field: cbison_tokenizer::tokenize_bytes"]
-        [::std::mem::offset_of!(cbison_tokenizer, tokenize_bytes) - 72usize];
+        [::std::mem::offset_of!(cbison_tokenizer, tokenize_bytes) - 80usize];
     ["Offset of field: cbison_tokenizer::incr_ref_count"]
-        [::std::mem::offset_of!(cbison_tokenizer, incr_ref_count) - 80usize];
+        [::std::mem::offset_of!(cbison_tokenizer, incr_ref_count) - 88usize];
     ["Offset of field: cbison_tokenizer::decr_ref_count"]
-        [::std::mem::offset_of!(cbison_tokenizer, decr_ref_count) - 88usize];
+        [::std::mem::offset_of!(cbison_tokenizer, decr_ref_count) - 96usize];
     ["Offset of field: cbison_tokenizer::reserved_ptr"]
-        [::std::mem::offset_of!(cbison_tokenizer, reserved_ptr) - 96usize];
+        [::std::mem::offset_of!(cbison_tokenizer, reserved_ptr) - 104usize];
 };
 #[doc = " C Binary Interface for Structured Output Negotiation (CBISON)\n\n This represents a factory for matchers, that is specialized\n for a given tokenizer.\n\n We currently do not cover creation APIs for these here."]
 #[repr(C)]
@@ -125,6 +129,8 @@ pub struct cbison_factory {
     #[doc = " The id for end-of-sequence token."]
     pub eos_token_id: u32,
     pub reserved_hd: [u32; 7usize],
+    #[doc = " The value is implementation-specific."]
+    pub impl_data: *mut ::std::os::raw::c_void,
     #[doc = " Free the factory."]
     pub free_factory: ::std::option::Option<unsafe extern "C" fn(api: cbison_factory_t)>,
     #[doc = " Check if given grammar is valid.\n This is about twice as fast as creating a matcher (which also validates).\n See matcher_new() for the grammar format.\n Returns 0 on success and -1 on error and 1 on warning.\n The error message or warning is written to message, which is message_len\n bytes long. It's always NUL-terminated."]
@@ -198,7 +204,7 @@ pub struct cbison_factory {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of cbison_factory"][::std::mem::size_of::<cbison_factory>() - 312usize];
+    ["Size of cbison_factory"][::std::mem::size_of::<cbison_factory>() - 320usize];
     ["Alignment of cbison_factory"][::std::mem::align_of::<cbison_factory>() - 8usize];
     ["Offset of field: cbison_factory::magic"]
         [::std::mem::offset_of!(cbison_factory, magic) - 0usize];
@@ -216,38 +222,40 @@ const _: () = {
         [::std::mem::offset_of!(cbison_factory, eos_token_id) - 32usize];
     ["Offset of field: cbison_factory::reserved_hd"]
         [::std::mem::offset_of!(cbison_factory, reserved_hd) - 36usize];
+    ["Offset of field: cbison_factory::impl_data"]
+        [::std::mem::offset_of!(cbison_factory, impl_data) - 64usize];
     ["Offset of field: cbison_factory::free_factory"]
-        [::std::mem::offset_of!(cbison_factory, free_factory) - 64usize];
+        [::std::mem::offset_of!(cbison_factory, free_factory) - 72usize];
     ["Offset of field: cbison_factory::validate_grammar"]
-        [::std::mem::offset_of!(cbison_factory, validate_grammar) - 72usize];
+        [::std::mem::offset_of!(cbison_factory, validate_grammar) - 80usize];
     ["Offset of field: cbison_factory::new_matcher"]
-        [::std::mem::offset_of!(cbison_factory, new_matcher) - 80usize];
+        [::std::mem::offset_of!(cbison_factory, new_matcher) - 88usize];
     ["Offset of field: cbison_factory::get_error"]
-        [::std::mem::offset_of!(cbison_factory, get_error) - 88usize];
+        [::std::mem::offset_of!(cbison_factory, get_error) - 96usize];
     ["Offset of field: cbison_factory::compute_mask"]
-        [::std::mem::offset_of!(cbison_factory, compute_mask) - 96usize];
+        [::std::mem::offset_of!(cbison_factory, compute_mask) - 104usize];
     ["Offset of field: cbison_factory::consume_tokens"]
-        [::std::mem::offset_of!(cbison_factory, consume_tokens) - 104usize];
+        [::std::mem::offset_of!(cbison_factory, consume_tokens) - 112usize];
     ["Offset of field: cbison_factory::is_accepting"]
-        [::std::mem::offset_of!(cbison_factory, is_accepting) - 112usize];
+        [::std::mem::offset_of!(cbison_factory, is_accepting) - 120usize];
     ["Offset of field: cbison_factory::is_stopped"]
-        [::std::mem::offset_of!(cbison_factory, is_stopped) - 120usize];
+        [::std::mem::offset_of!(cbison_factory, is_stopped) - 128usize];
     ["Offset of field: cbison_factory::validate_tokens"]
-        [::std::mem::offset_of!(cbison_factory, validate_tokens) - 128usize];
+        [::std::mem::offset_of!(cbison_factory, validate_tokens) - 136usize];
     ["Offset of field: cbison_factory::compute_ff_tokens"]
-        [::std::mem::offset_of!(cbison_factory, compute_ff_tokens) - 136usize];
+        [::std::mem::offset_of!(cbison_factory, compute_ff_tokens) - 144usize];
     ["Offset of field: cbison_factory::free_matcher"]
-        [::std::mem::offset_of!(cbison_factory, free_matcher) - 144usize];
+        [::std::mem::offset_of!(cbison_factory, free_matcher) - 152usize];
     ["Offset of field: cbison_factory::rollback"]
-        [::std::mem::offset_of!(cbison_factory, rollback) - 152usize];
+        [::std::mem::offset_of!(cbison_factory, rollback) - 160usize];
     ["Offset of field: cbison_factory::reset"]
-        [::std::mem::offset_of!(cbison_factory, reset) - 160usize];
+        [::std::mem::offset_of!(cbison_factory, reset) - 168usize];
     ["Offset of field: cbison_factory::clone_matcher"]
-        [::std::mem::offset_of!(cbison_factory, clone_matcher) - 168usize];
+        [::std::mem::offset_of!(cbison_factory, clone_matcher) - 176usize];
     ["Offset of field: cbison_factory::compute_masks"]
-        [::std::mem::offset_of!(cbison_factory, compute_masks) - 176usize];
+        [::std::mem::offset_of!(cbison_factory, compute_masks) - 184usize];
     ["Offset of field: cbison_factory::reserved_ptr"]
-        [::std::mem::offset_of!(cbison_factory, reserved_ptr) - 184usize];
+        [::std::mem::offset_of!(cbison_factory, reserved_ptr) - 192usize];
 };
 #[doc = " Represents a single request for a mask."]
 #[repr(C)]

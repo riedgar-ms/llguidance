@@ -156,6 +156,7 @@ fn fill_cbison_factory(tok_env: &TokEnv) -> CbisonFactory {
         n_vocab: trie.vocab_size(),
         eos_token_id: trie.eos_token(),
         reserved_hd: [0; 7],
+        impl_data: std::ptr::null_mut(),
         mask_byte_len: trie.vocab_size().div_ceil(32) * 4,
         free_factory: Some(cbison_free_factory),
         validate_grammar: Some(cbison_validate_grammar),
@@ -354,6 +355,7 @@ impl LlgCbisonTokenizer {
             common: CbisonTokenizer {
                 magic: CBISON_TOKENIZER_MAGIC,
                 impl_magic: CBISON_IMPL_MAGIC,
+                impl_data: std::ptr::null_mut(),
                 version_major: CBISON_TOKENIZER_VERSION_MAJOR,
                 version_minor: CBISON_TOKENIZER_VERSION_MINOR,
                 n_vocab,
