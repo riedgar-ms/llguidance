@@ -4,6 +4,8 @@ set -e
 
 sed '/\/\/ ---START OF GENERATED CODE---/q' ../llguidance_cbison/src/cbison.rs > tmp.rs
 
+#    --allowlist-type 'cbison_.*_fn_t' 
+
 bindgen \
     --allowlist-type 'cbison_factory' \
     --allowlist-type 'cbison_tokenizer' \

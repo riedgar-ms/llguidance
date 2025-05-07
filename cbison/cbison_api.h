@@ -320,4 +320,45 @@ struct cbison_mask_req {
   uint32_t *mask_dest;
 };
 
+//
+// DLL interface
+//
+
+// Following functions are meant to be exposed by a DLL of the grammar engine.
+// They are to be named <prefix>_cbison_new_factory() etc (with fn_t suffix
+// removed), where <prefix> is short name of the engine (e.g. "llg", "xgr",
+// etc.).
+//
+// All except for cbison_new_factory() one are optional.
+
+/**
+ * Construct a new CBISON factory for a given tokenizer and options.
+ * The reference count of the tokenizer is incremented
+ * (until the factory is freed).
+ * `options_json` is an optional JSON string with engine-specific options.
+ * The error message or warning is written to error_string, which is
+ * error_string_len bytes long. It's always NUL-terminated.
+ */
+typedef cbison_factory_t (*cbison_new_factory_fn_t)(
+    cbison_tokenizer_t tokenizer, const char *options_json, char *error_string,
+    size_t error_string_len);
+
+/**
+ * This returns a single-byte "tokenizer", mostly for testing purposes.
+ */
+typedef cbison_tokenizer_t (*cbison_new_byte_tokenizer_fn_t)(void);
+
+/**
+ * Construct a new cbison tokenizer from a JSON string representing a
+ * HuggingFace fast tokenizer (tokenizer.json file). `options` is a an optional
+ * JSON string with the following (optional) fields:
+ * - `n_vocab`: the vocabulary size (if not provided, it will be inferred from
+ * the tokenizer).
+ * - `eos_token_id`: the end of sequence token id (if not provided, it will be
+ * inferred from the tokenizer).
+ */
+typedef cbison_tokenizer_t (*cbison_new_hf_tokenizer_fn_t)(
+    const char *tokenizer_json, const char *options_json, char *error_string,
+    size_t error_string_len);
+
 #endif // CBISON_API_H

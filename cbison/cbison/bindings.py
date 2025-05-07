@@ -116,14 +116,6 @@ class Union(ctypes.Union, AsDictMixin):
 
 
 
-c_int128 = ctypes.c_ubyte*16
-c_uint128 = c_int128
-void = None
-if ctypes.sizeof(ctypes.c_longdouble) == 8:
-    c_long_double_t = ctypes.c_longdouble
-else:
-    c_long_double_t = ctypes.c_ubyte*8
-
 def string_cast(char_pointer, encoding='utf-8', errors='strict'):
     value = ctypes.cast(char_pointer, ctypes.c_char_p).value
     if value is not None and encoding is not None:
@@ -142,6 +134,14 @@ def char_pointer_cast(string, encoding='utf-8'):
     return ctypes.cast(string, ctypes.c_char_p)
 
 
+
+c_int128 = ctypes.c_ubyte*16
+c_uint128 = c_int128
+void = None
+if ctypes.sizeof(ctypes.c_longdouble) == 8:
+    c_long_double_t = ctypes.c_longdouble
+else:
+    c_long_double_t = ctypes.c_ubyte*8
 
 
 
@@ -169,6 +169,9 @@ struct_cbison_mask_req._fields_ = [
 ]
 
 cbison_mask_req_t = struct_cbison_mask_req
+cbison_new_factory_fn_t = ctypes.CFUNCTYPE(ctypes.POINTER(struct_cbison_factory), ctypes.POINTER(struct_cbison_tokenizer), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_size_t)
+cbison_new_byte_tokenizer_fn_t = ctypes.CFUNCTYPE(ctypes.POINTER(struct_cbison_tokenizer))
+cbison_new_hf_tokenizer_fn_t = ctypes.CFUNCTYPE(ctypes.POINTER(struct_cbison_tokenizer), ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_size_t)
 struct_cbison_factory._pack_ = 1 # source:False
 struct_cbison_factory._fields_ = [
     ('magic', ctypes.c_uint32),
@@ -218,7 +221,8 @@ struct_cbison_tokenizer._fields_ = [
 
 __all__ = \
     ['cbison_factory_t', 'cbison_mask_req_t', 'cbison_matcher_ptr_t',
-    'cbison_matcher_t', 'cbison_tokenizer_ptr_t',
-    'cbison_tokenizer_t', 'struct_cbison_factory',
-    'struct_cbison_mask_req', 'struct_cbison_matcher',
-    'struct_cbison_tokenizer']
+    'cbison_matcher_t', 'cbison_new_byte_tokenizer_fn_t',
+    'cbison_new_factory_fn_t', 'cbison_new_hf_tokenizer_fn_t',
+    'cbison_tokenizer_ptr_t', 'cbison_tokenizer_t',
+    'struct_cbison_factory', 'struct_cbison_mask_req',
+    'struct_cbison_matcher', 'struct_cbison_tokenizer']
