@@ -229,7 +229,7 @@ public:
       return {};
     size_t est_tokens = bytes.size() + 1; // worst case
     std::vector<uint32_t> out(est_tokens);
-    size_t n = t_->tokenize_bytes(t_, bytes.data(), bytes.size(), out.data(),
+    size_t n = t_->tokenize_bytes(t_, (const char*)bytes.data(), bytes.size(), out.data(),
                                   out.size());
     out.resize(n);
     return out;

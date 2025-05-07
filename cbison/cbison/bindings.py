@@ -210,7 +210,7 @@ struct_cbison_tokenizer._fields_ = [
     ('reserved_hd', ctypes.c_uint32 * 6),
     ('get_token', ctypes.CFUNCTYPE(ctypes.c_int32, ctypes.POINTER(struct_cbison_tokenizer), ctypes.c_uint32, ctypes.POINTER(ctypes.c_ubyte), ctypes.c_size_t)),
     ('is_special_token', ctypes.CFUNCTYPE(ctypes.c_int32, ctypes.POINTER(struct_cbison_tokenizer), ctypes.c_uint32)),
-    ('tokenize_bytes', ctypes.CFUNCTYPE(ctypes.c_size_t, ctypes.POINTER(struct_cbison_tokenizer), ctypes.POINTER(ctypes.c_ubyte), ctypes.c_uint64, ctypes.POINTER(ctypes.c_uint32), ctypes.c_uint64)),
+    ('tokenize_bytes', ctypes.CFUNCTYPE(ctypes.c_size_t, ctypes.POINTER(struct_cbison_tokenizer), ctypes.c_char_p, ctypes.c_uint64, ctypes.POINTER(ctypes.c_uint32), ctypes.c_uint64)),
     ('incr_ref_count', ctypes.CFUNCTYPE(None, ctypes.POINTER(struct_cbison_tokenizer))),
     ('decr_ref_count', ctypes.CFUNCTYPE(None, ctypes.POINTER(struct_cbison_tokenizer))),
     ('reserved_ptr', ctypes.POINTER(None) * 16),

@@ -61,7 +61,7 @@ pub struct cbison_tokenizer {
     pub tokenize_bytes: ::std::option::Option<
         unsafe extern "C" fn(
             api: cbison_tokenizer_t,
-            bytes: *const u8,
+            bytes: *const ::std::os::raw::c_char,
             bytes_len: usize,
             output_tokens: *mut u32,
             output_tokens_len: usize,
@@ -145,7 +145,7 @@ pub struct cbison_factory {
             grammar: *const ::std::os::raw::c_char,
         ) -> cbison_matcher_ptr_t,
     >,
-    #[doc = " Get the error message from the matcher.\n The error message is always NUL-terminated.\n Returns NULL if there is no error."]
+    #[doc = " Get the error message from the matcher.\n The error message is always NUL-terminated.\n Returns NULL if there is no error.\n The error remains valid until the matcher is freed; multiple calls to\n get_error() likely return the same pointer."]
     pub get_error: ::std::option::Option<
         unsafe extern "C" fn(matcher: cbison_matcher_t) -> *const ::std::os::raw::c_char,
     >,

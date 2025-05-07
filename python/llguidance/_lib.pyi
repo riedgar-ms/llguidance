@@ -45,6 +45,11 @@ class LLTokenizer:
         or 80% of the available CPUs up to 32 when set to None.
         """
 
+    def copy_as_cbison_tokenizer(self) -> int:
+        """
+        Create a new cbison_tokenizer_t, that can be used in native code.
+        """
+
     @staticmethod
     def general_slices() -> List[str]:
         """

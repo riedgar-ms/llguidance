@@ -103,7 +103,7 @@ struct cbison_tokenizer {
    *
    * If provided, this function must be thread-safe and reentrant.
    */
-  size_t (*tokenize_bytes)(cbison_tokenizer_t api, const uint8_t *bytes,
+  size_t (*tokenize_bytes)(cbison_tokenizer_t api, const char *bytes,
                            size_t bytes_len, uint32_t *output_tokens,
                            size_t output_tokens_len);
 
@@ -213,6 +213,8 @@ struct cbison_factory {
    * Get the error message from the matcher.
    * The error message is always NUL-terminated.
    * Returns NULL if there is no error.
+   * The error remains valid until the matcher is freed; multiple calls to
+   * get_error() likely return the same pointer.
    */
   const char *(*get_error)(cbison_matcher_t matcher);
 

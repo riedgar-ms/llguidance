@@ -302,7 +302,7 @@ extern "C" fn cbison_is_special_token(api: cbison_tokenizer_t, token_id: u32) ->
 
 unsafe extern "C" fn cbison_tokenize_bytes(
     api: cbison_tokenizer_t,
-    bytes: *const u8,
+    bytes: *const c_char,
     bytes_len: usize,
     output_tokens: *mut u32,
     output_tokens_len: usize,
@@ -310,7 +310,7 @@ unsafe extern "C" fn cbison_tokenize_bytes(
     let api = LlgCbisonTokenizer::from_ptr(api);
     let tokens = api
         .tok_env
-        .tokenize_bytes(unsafe { slice_from_ptr_or_empty(bytes, bytes_len) });
+        .tokenize_bytes(unsafe { slice_from_ptr_or_empty(bytes as *const u8, bytes_len) });
     let n_toks = tokens.len();
     if output_tokens.is_null() {
         return n_toks;
@@ -467,7 +467,7 @@ impl CbisonTokEnv {
             let n_toks = unsafe {
                 tokenize_fn(
                     self.cbison_tokenizer,
-                    s.as_ptr(),
+                    s.as_ptr() as *const c_char,
                     s.len(),
                     res_toks.as_mut_ptr(),
                     res_toks.len(),
@@ -479,7 +479,7 @@ impl CbisonTokEnv {
                 unsafe {
                     tokenize_fn(
                         self.cbison_tokenizer,
-                        s.as_ptr(),
+                        s.as_ptr() as *const c_char,
                         s.len(),
                         res_toks.as_mut_ptr(),
                         res_toks.len(),

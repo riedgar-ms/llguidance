@@ -10,7 +10,7 @@ use llguidance::toktrie::{
 };
 use llguidance::{api::TopLevelGrammar, output::ParserOutput};
 use llguidance::{JsonCompileOptions, ParserFactory};
-use llguidance_cbison::LlgCbisonFactory;
+use llguidance_cbison::{LlgCbisonFactory, LlgCbisonTokenizer};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -96,6 +96,11 @@ impl LLTokenizer {
 
     fn tokenize_bytes(&self, utf8bytes: &[u8]) -> Vec<TokenId> {
         self.tok_env().tokenize_bytes(utf8bytes)
+    }
+
+    fn copy_as_cbison_tokenizer(&self) -> PyResult<usize> {
+        let tok = LlgCbisonTokenizer::new(self.factory.tok_env().clone());
+        Ok(Box::into_raw(Box::new(tok)) as usize)
     }
 
     #[pyo3(signature = (*, num_threads = None, executor = None))]

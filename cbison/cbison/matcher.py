@@ -372,7 +372,9 @@ class CbisonTokenizer:
         if handle.version_major != 1 or handle.version_minor < 0:
             raise ValueError("Unsupported tokenizer version")
         self.handle = handle
-        self.handle.incr_ref_count(self.handle)
+        # We assume we'll own the tokenizer, so we don't need to
+        # increment the ref count here.
+        # self.handle.incr_ref_count(self.handle)
 
     def __del__(self):
         """

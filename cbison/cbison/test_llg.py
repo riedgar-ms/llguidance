@@ -1,16 +1,19 @@
 import llguidance
-from .matcher import CbisonMatcher, CbisonFactory
+from .matcher import CbisonMatcher, CbisonFactory, CbisonTokenizer
 from typing import TYPE_CHECKING
 import numpy as np
 
 
-def main():
+def test_factory():
     t = llguidance.LLTokenizer("byte")
     f_addr = t.copy_as_cbison_factory()
 
     f = CbisonFactory(f_addr)
 
     ok, msg = f.validate_grammar("json", '{}')
+    assert ok and not msg
+
+    ok, msg = f.validate_grammar("json", b'{}')
     assert ok and not msg
 
     ok, msg = f.validate_grammar("json", 'foobar')
@@ -58,7 +61,7 @@ def main():
 
     m2.rollback(1)
     mask2 = m2.compute_mask()
-    print(mask2)
+    #print(mask2)
 
     l = m2.compute_ff_tokens()
     assert len(l) == 0
@@ -67,7 +70,7 @@ def main():
 
     mask = f.alloc_bitmasks_numpy(3)
     f.compute_masks_numpy([(m, 0), (m2, 2)], mask)
-    print(mask)
+    #print(mask)
 
     mask2_np = np.frombuffer(mask2, dtype=np.int32)
     assert (mask2_np == mask[0, :]).all()
@@ -75,5 +78,22 @@ def main():
     assert mask[1, :].all() == 0
 
 
+def test_tokenizer():
+    ll_t = llguidance.LLTokenizer("byte")
+    addr = ll_t.copy_as_cbison_tokenizer()
+    t = CbisonTokenizer(addr)
+    assert 200 < t.n_vocab < 300
+    assert t.is_special_token(t.eos_token_id)
+    assert t.get_token(t.eos_token_id) == b"<|end|>"
+    tokens = t.tokenize_bytes(b"abc")
+    assert len(tokens) == 3
 
-main()
+
+def main():
+    test_factory()
+    test_tokenizer()
+    print("All tests passed!")
+
+
+if __name__ == "__main__":
+    main()
