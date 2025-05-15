@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+
+#### [0.7.20](https://github.com/guidance-ai/llguidance/compare/v0.7.19...0.7.20) 2025-05-15
+
+- use fancy-regex instead of onig as tokenizers regex library [`#172`](https://github.com/guidance-ai/llguidance/pull/172)
+  - fixes compilation on GCC 15, thanks [@Slowki](https://github.com/Slowki)
+- msrv 1.80 support (incl. derivre bump) [`c89e386`](https://github.com/guidance-ai/llguidance/commit/c89e386685cd911a89fd47df225de88f88c10883), thank you [@nteodosio](https://github.com/nteodosio) for initial [PR](https://github.com/guidance-ai/llguidance/pull/170)!
+
 #### [0.7.19](https://github.com/guidance-ai/llguidance/compare/v0.7.18...0.7.19) 2025-04-24
 
 - fix a numeric token bug [`1f59edf`](https://github.com/guidance-ai/llguidance/commit/1f59edfc49b44cfba74b2380f34874a0778d9441)
