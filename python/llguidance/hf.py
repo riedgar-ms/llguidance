@@ -13,11 +13,11 @@ def from_tokenizer(
     """
     Create a new tokenizer from a fast Hugging Face tokenizer.
     This is an expensive operation (~1s), so the result should be cached.
-    It also currently creates a non-canonical tokenizer, which means it cannot
-    produce fast-forward tokens (though it can produce fast-forward bytes).
+    It currently only supports fast tokenizers, which are then handled
+    by the Rust tokenizers library.
 
     Args:
-        hf_tokenizer: transformers.PreTrainedTokenizerBase - the tokenizer to wrap
+        hf_tokenizer: transformers.PreTrainedTokenizerFast - the tokenizer to wrap
         n_vocab: int - override the size of the vocabulary
         eos_token: int - override the EOS token
         slices: List[str] - configuration for slicer optimization; pass [] to disable,
