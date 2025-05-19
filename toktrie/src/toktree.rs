@@ -1037,9 +1037,12 @@ impl TrieHash {
         self.children.sort_by_key(|e| e.byte);
         for entry in &mut self.children {
             num_ch -= 1;
+            assert!(num_parents < 0xff);
             entry.serialize(data, if num_ch == 0 { num_parents + 1 } else { 1 });
         }
-        data[idx].bits2 |= ((data.len() - idx) as u32) << 8;
+        let subtree_size = data.len() - idx;
+        assert!(subtree_size < 0x100_0000);
+        data[idx].bits2 |= (subtree_size as u32) << 8;
     }
 }
 
