@@ -8,6 +8,7 @@
 
 --- 
 
+* 2025-05-20 LLGuidance [shipped](https://x.com/OpenAIDevs/status/1924915341052019166) in [OpenAI](https://x.com/OpenAIDevs/status/1924915343677653014) for JSON Schema
 * 2025-04-11 integration [merged](https://github.com/chromium/chromium/commit/07ca6337c2f714ba0477202414bd2b1692e70594) into Chromium
 * 2025-03-25 integration [merged](https://github.com/vllm-project/vllm/pull/14779) into vLLM (v0.8.2)
 * 2025-02-26 integration [merged](https://github.com/sgl-project/sglang/pull/3298) into SGLang (v0.4.4)
@@ -47,6 +48,7 @@ The library can be used from:
 
 The library is currently integrated in:
 - [Guidance](https://github.com/guidance-ai/guidance) - library for interacting with LLMs
+- [OpenAI models](https://x.com/OpenAIDevs/status/1924915343677653014) - LLGuidance powers [Structured Output](https://platform.openai.com/docs/guides/structured-outputs) (JSON Schema only)
 - [llama.cpp](https://github.com/ggerganov/llama.cpp/pull/10224) - 
   available via `-DLLAMA_LLGUIDANCE=ON` option for `cmake`;
   llama.cpp can be also used Guidance Python package
