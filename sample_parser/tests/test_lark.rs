@@ -1306,3 +1306,37 @@ fn test_json_min_max_properties() {
         ],
     );
 }
+
+#[test]
+fn test_json_format_email() {
+    json_test_many(
+        &json!({
+            "type": "string",
+            "format": "email",
+        }),
+        &[
+            json!("test@example.com"),
+            json!("foo.bar@example.com"),
+            json!("foo.bar@example-123.com"),
+            json!("foo+bar@example-123.com"),
+            json!("f$o#o`b-a!r@example-123.com"),
+            json!("fo%o#bar@example-123.com"),
+            json!("test@[192.168.1.1]"),
+        ],
+        &[
+            json!(""),
+            json!(" @example.com"),
+            json!("test@"),
+            json!("@example.com"),
+            json!("test@.com"),
+            json!("test@com"),
+            json!("test@com."),
+            json!("test@example..com"),
+            json!("test@example.c"),
+            json!("test@example.c."),
+            json!("test@.example.com"),
+            json!("test:2@example.com"),
+            json!("test[2]@example.com"),
+        ],
+    );
+}
