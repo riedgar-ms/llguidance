@@ -17,7 +17,7 @@ from llguidance import LLMatcher, LLTokenizer, LLExecutor
 
 import llguidance.hf
 
-from transformers import AutoTokenizer  # type: ignore[attr-defined]
+from transformers import AutoTokenizer
 
 
 def _build_tokenizer() -> LLTokenizer:

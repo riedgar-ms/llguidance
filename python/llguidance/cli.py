@@ -1,7 +1,7 @@
 import argparse
 import json
 import huggingface_hub
-from transformers import AutoTokenizer  # type: ignore[attr-defined]
+from transformers import AutoTokenizer
 import llguidance
 
 
