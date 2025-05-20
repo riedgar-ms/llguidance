@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file. Dates are d
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
 
+#### [0.7.21](https://github.com/guidance-ai/llguidance/compare/v0.7.20...0.7.21) 2025-05-20
+
+- include parser state in errors [`82e34da`](https://github.com/guidance-ai/llguidance/commit/82e34da704d22f04979d8cbc54a0ac00885a277d)
+- tighten email format in JSON schema [`7454ea9`](https://github.com/guidance-ai/llguidance/commit/7454ea9df958f8bcc42e6bb986d6de397de65b3e)
+
 #### [0.7.20](https://github.com/guidance-ai/llguidance/compare/v0.7.19...0.7.20) 2025-05-15
 
 - use fancy-regex instead of onig as tokenizers regex library [`#172`](https://github.com/guidance-ai/llguidance/pull/172)
