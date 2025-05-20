@@ -295,26 +295,25 @@ impl TokTrie {
     }
 
     fn tokens_dbg_ext(&self, toks: &[u32], quote: bool) -> String {
+        // if the token list is too long, we are typically interested in the most recent ones
         let (limited, toks) = if toks.len() > Self::MAX_DBG_TOKENS {
-            (true, &toks[0..Self::MAX_DBG_TOKENS])
+            ("…", &toks[toks.len() - Self::MAX_DBG_TOKENS..])
         } else {
-            (false, toks)
+            ("", toks)
         };
 
-        let mut joined = toks
+        let joined = toks
             .iter()
             .map(|t| self.token_dbg_ext(*t, false))
             .collect::<Vec<_>>()
             .join("‧");
 
-        if limited {
-            joined.push('…');
-        }
-
         if quote {
-            format!("⟦{}⟧", joined)
-        } else {
+            format!("⟦{}{}⟧", limited, joined)
+        } else if limited.is_empty() {
             joined
+        } else {
+            format!("{}{}", limited, joined)
         }
     }
 

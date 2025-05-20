@@ -3,7 +3,7 @@ use llguidance::{
     api::TopLevelGrammar,
     earley::SlicedBiasComputer,
     toktrie::{InferenceCapabilities, TokEnv},
-    ParserFactory, TokenParser,
+    Matcher, ParserFactory, TokenParser,
 };
 use serde_json::{json, Value};
 
@@ -206,4 +206,32 @@ fn test_ff_early() {
     for tok in tokens.iter() {
         parser.consume_token(*tok).unwrap();
     }
+}
+
+#[test]
+fn test_err_state() {
+    let lark = r#"
+        start: /[a-z]*/
+    "#;
+
+    let tokens = get_tok_env().tokenize("fobarbazqu123");
+    let mut t2 = vec![];
+    for _ in 0..100 {
+        t2.push(tokens[0]);
+        t2.push(tokens[1]);
+        t2.push(tokens[2]);
+    }
+    t2.extend_from_slice(&tokens);
+    let mut matcher = Matcher::new(Ok(make_parser(lark)));
+
+    for tok in t2.iter() {
+        if let Err(e) = matcher.consume_token(*tok) {
+            let e = e.to_string();
+            println!("Error: {}", e);
+            assert!(e.contains("<state>"));
+            assert!(e.contains("Tokens:"));
+            return;
+        }
+    }
+    unreachable!();
 }
