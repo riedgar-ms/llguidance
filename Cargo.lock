@@ -1174,7 +1174,7 @@ checksum = "23fb14cb19457329c82206317a5663005a4d404783dc74f4252769b0d5f42856"
 
 [[package]]
 name = "llguidance"
-version = "0.7.21"
+version = "0.7.22"
 dependencies = [
  "anyhow",
  "derivre",
@@ -1193,7 +1193,7 @@ dependencies = [
 
 [[package]]
 name = "llguidance_py"
-version = "0.7.21"
+version = "0.7.22"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -2336,7 +2336,7 @@ dependencies = [
 
 [[package]]
 name = "toktrie"
-version = "0.7.21"
+version = "0.7.22"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -2347,7 +2347,7 @@ dependencies = [
 
 [[package]]
 name = "toktrie_hf_downloader"
-version = "0.7.21"
+version = "0.7.22"
 dependencies = [
  "anyhow",
  "hf-hub",
@@ -2358,7 +2358,7 @@ dependencies = [
 
 [[package]]
 name = "toktrie_hf_tokenizers"
-version = "0.7.21"
+version = "0.7.22"
 dependencies = [
  "anyhow",
  "log",

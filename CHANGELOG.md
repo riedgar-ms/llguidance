@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [0.7.22](https://github.com/guidance-ai/llguidance/compare/v0.7.21...0.7.22) 2025-05-21
+
+- Keep EOS token bytes in `TokenizerWrapper` [`#178`](https://github.com/guidance-ai/llguidance/pull/178)
+- Stop using prefix/sentinel strings for `TokenizerWrapper` [`#175`](https://github.com/guidance-ai/llguidance/pull/175)
+- avoid taking poisoned locks, see [`#174`](https://github.com/guidance-ai/llguidance/issues/174) [`d41aa9a`](https://github.com/guidance-ai/llguidance/commit/d41aa9a4427967708a951506b2bc0e395871b6c8); thanks [@g-eoj](https://github.com/g-eoj)
 
 #### [0.7.21](https://github.com/guidance-ai/llguidance/compare/v0.7.20...0.7.21) 2025-05-20
 
