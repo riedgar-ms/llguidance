@@ -2827,4 +2827,10 @@ impl Parser {
         copy.shared = Arc::new(Mutex::new(shared.clone()));
         copy
     }
+
+    pub fn test_trigger_lexer_error(&mut self) -> Result<()> {
+        self.with_shared(|_state| {
+            panic!("synthetic error");
+        })
+    }
 }

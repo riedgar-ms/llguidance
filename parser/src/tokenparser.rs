@@ -278,8 +278,11 @@ impl TokenParser {
     }
 
     pub fn dump_state(&self) -> String {
+        // make sure not take self.parser.shared lock
+        // for example, self.parser.lexer_stats() takes it
+        // if we take it after panic, it will be poisoned
         format!(
-            "Tokens: {}\n{} tokens, {} bytes; grm_prefix: {:?}\nFlags:{}{}\nLexer: {}\nParser: {}\nStop: {}\nError: {}",
+            "Tokens: {}\n{} tokens, {} bytes; grm_prefix: {:?}\nFlags:{}{}\nParser: {}\nStop: {}\nError: {}",
             self.tok_trie().tokens_dbg(&self.llm_tokens),
             self.llm_tokens.len(),
             self.llm_bytes.len(),
@@ -294,7 +297,6 @@ impl TokenParser {
             } else {
                 ""
             },
-            self.parser.lexer_stats(),
             self.parser.stats(),
             self.stop_reason,
             self.error_message.as_deref().unwrap_or("None"),
