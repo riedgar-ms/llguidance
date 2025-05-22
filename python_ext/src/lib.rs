@@ -1,5 +1,6 @@
 use pyo3::prelude::*;
 
+mod llamatokenizer;
 mod llinterpreter;
 mod llmatcher;
 mod parserlimits;
