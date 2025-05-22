@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [0.7.23](https://github.com/guidance-ai/llguidance/compare/v0.7.22...0.7.23) 2025-05-22
+
+- native llama.cpp tokenizer support [`#179`](https://github.com/guidance-ai/llguidance/pull/179)
+- improve special token detection in HF tokenizers [`6cae393`](https://github.com/guidance-ai/llguidance/commit/6cae393b9c04fe67621615ff22b46beab512d069)
+
 #### [0.7.22](https://github.com/guidance-ai/llguidance/compare/v0.7.21...0.7.22) 2025-05-21
 
 - Keep EOS token bytes in `TokenizerWrapper` [`#178`](https://github.com/guidance-ai/llguidance/pull/178)
