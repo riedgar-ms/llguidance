@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{ensure, Result};
-use llguidance::toktrie::{self, TokEnv, TokRxInfo, TokTrie, TokenizerEnv};
+use llguidance::toktrie::{self, TokEnv, TokRxInfo, TokTrie, TokenId, TokenizerEnv};
 
 type LlamaTokenizeFn = unsafe extern "C" fn(
     vocab: *const std::os::raw::c_void,
@@ -13,16 +13,43 @@ type LlamaTokenizeFn = unsafe extern "C" fn(
     parse_special: bool,
 ) -> i32;
 
-struct LlamaTokenizerInner {
+struct LlamaTokenizer {
     trie: TokTrie,
     tokenize_fn: LlamaTokenizeFn,
     vocab: *const std::os::raw::c_void,
+    sentinel: Option<u8>,
+    sentinel_tokens: Vec<TokenId>,
 }
 // SAFETY: tokenize_fn is required to be thread-safe
-unsafe impl Send for LlamaTokenizerInner {}
-unsafe impl Sync for LlamaTokenizerInner {}
+unsafe impl Send for LlamaTokenizer {}
+unsafe impl Sync for LlamaTokenizer {}
 
-impl LlamaTokenizerInner {
+impl LlamaTokenizer {
+    fn tokenize_with_sentinel(&self, s: &[u8]) -> Result<Vec<toktrie::TokenId>> {
+        if s.is_empty() {
+            return Ok(vec![]);
+        }
+
+        if let Some(sentinel) = self.sentinel {
+            let mut b = Vec::with_capacity(s.len() + 1);
+            b.push(sentinel);
+            b.extend_from_slice(s);
+            let mut res = self.raw_tokenize(&b);
+            ensure!(
+                res.len() > self.sentinel_tokens.len(),
+                "tokenize_with_sentinel: res.len() <= sentinel_tokens.len()"
+            );
+            ensure!(
+                res[0..self.sentinel_tokens.len()] == self.sentinel_tokens,
+                "tokenize_with_sentinel: res[0..sentinel_tokens.len()] != sentinel_tokens"
+            );
+            res.splice(0..self.sentinel_tokens.len(), []);
+            Ok(res)
+        } else {
+            Ok(self.raw_tokenize(s))
+        }
+    }
+
     fn raw_tokenize(&self, s: &[u8]) -> Vec<toktrie::TokenId> {
         let mut res_toks = vec![0u32; s.len() / 4 + 5];
         let res = unsafe {
@@ -62,7 +89,7 @@ impl LlamaTokenizerInner {
     }
 }
 
-impl TokenizerEnv for LlamaTokenizerInner {
+impl TokenizerEnv for LlamaTokenizer {
     fn tok_trie(&self) -> &TokTrie {
         &self.trie
     }
@@ -70,8 +97,10 @@ impl TokenizerEnv for LlamaTokenizerInner {
     fn tokenize_bytes(&self, s: &[u8]) -> Vec<toktrie::TokenId> {
         // llama.cpp tokenizer encodes invalid UTF8 as Unicode replacement character U+FFFD,
         // so we need the greedy fallback
-        self.trie
-            .tokenize_with_greedy_fallback(s, |s| self.raw_tokenize(s.as_bytes()))
+        self.trie.tokenize_with_greedy_fallback(s, |s| {
+            self.tokenize_with_sentinel(s.as_bytes())
+                .expect("tokenize_with_sentinel failed")
+        })
     }
 }
 
@@ -87,10 +116,54 @@ pub fn tokenv_from_llamacpp(
     let info = TokRxInfo::new(tokens.len() as u32, eos_token);
     let trie = TokTrie::from(&info, &tokens);
 
-    let llama_tok = LlamaTokenizerInner {
+    let mut llama_tok = LlamaTokenizer {
         trie,
         tokenize_fn: unsafe { std::mem::transmute::<usize, LlamaTokenizeFn>(tokenize_fptr) },
         vocab: vocab_ptr as *const std::os::raw::c_void,
+        sentinel: None,
+        sentinel_tokens: vec![],
     };
+
+    let trie = &llama_tok.trie;
+    let t0 = llama_tok.raw_tokenize(b"a");
+    if trie.decode(&t0) != b"a" {
+        // Now, this likely means that the tokenizer is adding a space in front of the token
+        // (or possibly <BOS> token)
+        // We fill "fix" this by tokenizing [sentinel] + s instead of just s
+        // and then removing tokens corresponding to the sentinel
+
+        // find a good sentinel token - one that doesn't start any other token
+        let sentinel = (1u8..32)
+            .find(|&b| {
+                trie.token_id(&[b]).is_some()
+                    && !trie.has_extensions(&[b])
+                    && !trie.has_extensions(&[b' ', b])
+            })
+            .ok_or_else(|| {
+                anyhow::anyhow!("could not find a good sentinel token in the range 1..32")
+            })?;
+
+        llama_tok.sentinel_tokens = llama_tok.raw_tokenize(&[sentinel]);
+        llama_tok.sentinel = Some(sentinel);
+
+        // now, check if it works
+        let t1 = llama_tok.tokenize_with_sentinel(b"a")?;
+        ensure!(
+            trie.decode(&t1) == b"a",
+            "tokenizer is not working with the sentinel {} {:?}",
+            sentinel,
+            trie.decode(&t1)
+        );
+
+        // make sure we can tokenize double-sentinel
+        let t3 = llama_tok.tokenize_with_sentinel(&[sentinel])?;
+        ensure!(
+            trie.decode(&t3) == [sentinel],
+            "tokenizer is not working with the sentinel (rec) {} {:?}",
+            sentinel,
+            trie.decode(&t3)
+        );
+    }
+
     Ok(Arc::new(llama_tok))
 }
