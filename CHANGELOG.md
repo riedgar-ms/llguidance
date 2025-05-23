@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [0.7.24](https://github.com/guidance-ai/llguidance/compare/v0.7.23...0.7.24) 2025-05-23
+
+- add the sentinel token hack, fixes #180 [`#180`](https://github.com/guidance-ai/llguidance/issues/180)
+
 #### [0.7.23](https://github.com/guidance-ai/llguidance/compare/v0.7.22...0.7.23) 2025-05-22
 
 - native llama.cpp tokenizer support [`#179`](https://github.com/guidance-ai/llguidance/pull/179)
