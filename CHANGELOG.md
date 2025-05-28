@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [0.7.25](https://github.com/guidance-ai/llguidance/compare/v0.7.24...0.7.25) 2025-05-28
+
+- add parse_special=False to tokenize_str/bytes() in python [`#181`](https://github.com/guidance-ai/llguidance/pull/181)
+
 #### [0.7.24](https://github.com/guidance-ai/llguidance/compare/v0.7.23...0.7.24) 2025-05-23
 
 - add the sentinel token hack, fixes #180 [`#180`](https://github.com/guidance-ai/llguidance/issues/180)
