@@ -131,8 +131,10 @@ pub struct cbison_factory {
     pub reserved_hd: [u32; 7usize],
     #[doc = " The value is implementation-specific."]
     pub impl_data: *mut ::std::os::raw::c_void,
-    #[doc = " Free the factory."]
-    pub free_factory: ::std::option::Option<unsafe extern "C" fn(api: cbison_factory_t)>,
+    #[doc = " Increment the reference count of the factory.\n All functions allocating factories set the reference count to 1.\n This can be no-op if the factory is never freed."]
+    pub incr_ref_count: ::std::option::Option<unsafe extern "C" fn(api: cbison_factory_t)>,
+    #[doc = " Decrement the reference count of the factory.\n If the reference count reaches 0, the factory is freed.\n This can be no-op if the factory is never freed."]
+    pub decr_ref_count: ::std::option::Option<unsafe extern "C" fn(api: cbison_factory_t)>,
     #[doc = " Check if given grammar is valid.\n This is about twice as fast as creating a matcher (which also validates).\n See matcher_new() for the grammar format.\n Returns 0 on success and -1 on error and 1 on warning.\n The error message or warning is written to message, which is message_len\n bytes long. It's always NUL-terminated."]
     pub validate_grammar: ::std::option::Option<
         unsafe extern "C" fn(
@@ -143,7 +145,7 @@ pub struct cbison_factory {
             message_len: usize,
         ) -> i32,
     >,
-    #[doc = " Create a new matcher from the given grammar.\n Always returns a non-null value. Call get_error() on the result\n to check for errors.\n The grammar is of different format, depending on grammar_type:\n - \"regex\" - grammar is regular expression\n - \"json\" or \"json_schema\" - grammar is (stringifed) JSON schema\n - \"json_object\" - equivalent to JSON schema: {\"type\":\"object\"}; grammar is\n ignored\n - \"lark\" - grammar in (a variant of) Lark syntax\n - \"llguidance\" or \"guidance\" - grammar is a list of Lark or JSON schemas in\n JSON format"]
+    #[doc = " Create a new matcher from the given grammar.\n Always returns a non-null value. Call get_error() on the result\n to check for errors.\n The grammar is of different format, depending on grammar_type:\n - \"regex\" - grammar is regular expression\n - \"json\" or \"json_schema\" - grammar is (stringifed) JSON schema\n - \"json_object\" - equivalent to JSON schema: {\"type\":\"object\"}; grammar is\n ignored\n - \"lark\" - grammar in (a variant of) Lark syntax\n - \"llguidance\" or \"guidance\" - grammar is a list of Lark or JSON schemas in\n JSON format\n\n Matcher that stays alive prevents the factory from being freed (by incrementing\n the reference count)."]
     pub new_matcher: ::std::option::Option<
         unsafe extern "C" fn(
             api: cbison_factory_t,
@@ -204,7 +206,7 @@ pub struct cbison_factory {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of cbison_factory"][::std::mem::size_of::<cbison_factory>() - 320usize];
+    ["Size of cbison_factory"][::std::mem::size_of::<cbison_factory>() - 328usize];
     ["Alignment of cbison_factory"][::std::mem::align_of::<cbison_factory>() - 8usize];
     ["Offset of field: cbison_factory::magic"]
         [::std::mem::offset_of!(cbison_factory, magic) - 0usize];
@@ -224,38 +226,40 @@ const _: () = {
         [::std::mem::offset_of!(cbison_factory, reserved_hd) - 36usize];
     ["Offset of field: cbison_factory::impl_data"]
         [::std::mem::offset_of!(cbison_factory, impl_data) - 64usize];
-    ["Offset of field: cbison_factory::free_factory"]
-        [::std::mem::offset_of!(cbison_factory, free_factory) - 72usize];
+    ["Offset of field: cbison_factory::incr_ref_count"]
+        [::std::mem::offset_of!(cbison_factory, incr_ref_count) - 72usize];
+    ["Offset of field: cbison_factory::decr_ref_count"]
+        [::std::mem::offset_of!(cbison_factory, decr_ref_count) - 80usize];
     ["Offset of field: cbison_factory::validate_grammar"]
-        [::std::mem::offset_of!(cbison_factory, validate_grammar) - 80usize];
+        [::std::mem::offset_of!(cbison_factory, validate_grammar) - 88usize];
     ["Offset of field: cbison_factory::new_matcher"]
-        [::std::mem::offset_of!(cbison_factory, new_matcher) - 88usize];
+        [::std::mem::offset_of!(cbison_factory, new_matcher) - 96usize];
     ["Offset of field: cbison_factory::get_error"]
-        [::std::mem::offset_of!(cbison_factory, get_error) - 96usize];
+        [::std::mem::offset_of!(cbison_factory, get_error) - 104usize];
     ["Offset of field: cbison_factory::compute_mask"]
-        [::std::mem::offset_of!(cbison_factory, compute_mask) - 104usize];
+        [::std::mem::offset_of!(cbison_factory, compute_mask) - 112usize];
     ["Offset of field: cbison_factory::consume_tokens"]
-        [::std::mem::offset_of!(cbison_factory, consume_tokens) - 112usize];
+        [::std::mem::offset_of!(cbison_factory, consume_tokens) - 120usize];
     ["Offset of field: cbison_factory::is_accepting"]
-        [::std::mem::offset_of!(cbison_factory, is_accepting) - 120usize];
+        [::std::mem::offset_of!(cbison_factory, is_accepting) - 128usize];
     ["Offset of field: cbison_factory::is_stopped"]
-        [::std::mem::offset_of!(cbison_factory, is_stopped) - 128usize];
+        [::std::mem::offset_of!(cbison_factory, is_stopped) - 136usize];
     ["Offset of field: cbison_factory::validate_tokens"]
-        [::std::mem::offset_of!(cbison_factory, validate_tokens) - 136usize];
+        [::std::mem::offset_of!(cbison_factory, validate_tokens) - 144usize];
     ["Offset of field: cbison_factory::compute_ff_tokens"]
-        [::std::mem::offset_of!(cbison_factory, compute_ff_tokens) - 144usize];
+        [::std::mem::offset_of!(cbison_factory, compute_ff_tokens) - 152usize];
     ["Offset of field: cbison_factory::free_matcher"]
-        [::std::mem::offset_of!(cbison_factory, free_matcher) - 152usize];
+        [::std::mem::offset_of!(cbison_factory, free_matcher) - 160usize];
     ["Offset of field: cbison_factory::rollback"]
-        [::std::mem::offset_of!(cbison_factory, rollback) - 160usize];
+        [::std::mem::offset_of!(cbison_factory, rollback) - 168usize];
     ["Offset of field: cbison_factory::reset"]
-        [::std::mem::offset_of!(cbison_factory, reset) - 168usize];
+        [::std::mem::offset_of!(cbison_factory, reset) - 176usize];
     ["Offset of field: cbison_factory::clone_matcher"]
-        [::std::mem::offset_of!(cbison_factory, clone_matcher) - 176usize];
+        [::std::mem::offset_of!(cbison_factory, clone_matcher) - 184usize];
     ["Offset of field: cbison_factory::compute_masks"]
-        [::std::mem::offset_of!(cbison_factory, compute_masks) - 184usize];
+        [::std::mem::offset_of!(cbison_factory, compute_masks) - 192usize];
     ["Offset of field: cbison_factory::reserved_ptr"]
-        [::std::mem::offset_of!(cbison_factory, reserved_ptr) - 192usize];
+        [::std::mem::offset_of!(cbison_factory, reserved_ptr) - 200usize];
 };
 #[doc = " Represents a single request for a mask."]
 #[repr(C)]

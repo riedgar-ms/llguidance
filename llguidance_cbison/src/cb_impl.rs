@@ -1,4 +1,7 @@
-use std::{ffi::c_char, sync::Arc};
+use std::{
+    ffi::c_char,
+    sync::{atomic::AtomicUsize, Arc},
+};
 
 use anyhow::{anyhow, bail, Result};
 use serde::{Deserialize, Serialize};
@@ -19,10 +22,10 @@ use llguidance::{
     ParserFactory,
 };
 
-#[derive(Clone)]
 #[repr(C)]
 pub struct LlgCbisonFactory {
     common: CbisonFactory, // has to come first!
+    ref_count: AtomicUsize,
     tokenizer: LlgTokenizer,
     executor: LlgExecutor,
 }
@@ -43,6 +46,7 @@ impl LlgCbisonFactory {
         let tok = LlgTokenizer::from_factory_init(init)?;
         let factory = LlgCbisonFactory {
             common: fill_cbison_factory(tok.tok_env()),
+            ref_count: AtomicUsize::new(1),
             tokenizer: tok,
             executor: LlgExecutor::new(&init.executor)?,
         };
@@ -80,6 +84,7 @@ impl LlgCbisonFactory {
     ) -> Result<LlgCbisonFactory> {
         Ok(LlgCbisonFactory {
             common: fill_cbison_factory(parser_factory.tok_env()),
+            ref_count: AtomicUsize::new(1),
             tokenizer: LlgTokenizer::from_factory(parser_factory),
             executor,
         })
@@ -140,10 +145,22 @@ unsafe extern "C" fn cbison_clone_matcher(matcher: &mut LlgMatcher) -> *mut LlgM
     llg_clone_matcher(matcher)
 }
 
-unsafe extern "C" fn cbison_free_factory(factory: &LlgCbisonFactory) {
-    let factory =
-        unsafe { Box::from_raw(factory as *const LlgCbisonFactory as *mut LlgCbisonFactory) };
-    drop(factory);
+unsafe extern "C" fn cbison_factory_incr_ref_count(factory: &LlgCbisonFactory) {
+    factory.check_magic();
+    factory.ref_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+unsafe extern "C" fn cbison_factory_decr_ref_count(factory: &LlgCbisonFactory) {
+    factory.check_magic();
+    let count = factory
+        .ref_count
+        .fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    if count == 1 {
+        // Last reference, we can drop the factory
+        let factory =
+            unsafe { Box::from_raw(factory as *const LlgCbisonFactory as *mut LlgCbisonFactory) };
+        drop(factory);
+    }
 }
 
 fn fill_cbison_factory(tok_env: &TokEnv) -> CbisonFactory {
@@ -158,7 +175,8 @@ fn fill_cbison_factory(tok_env: &TokEnv) -> CbisonFactory {
         reserved_hd: [0; 7],
         impl_data: std::ptr::null_mut(),
         mask_byte_len: trie.vocab_size().div_ceil(32) * 4,
-        free_factory: Some(cbison_free_factory),
+        incr_ref_count: Some(cbison_factory_incr_ref_count),
+        decr_ref_count: Some(cbison_factory_decr_ref_count),
         validate_grammar: Some(cbison_validate_grammar),
         new_matcher: Some(cbison_new_matcher),
         get_error: Some(llg_matcher_get_error),
