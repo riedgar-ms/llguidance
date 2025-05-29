@@ -1662,7 +1662,9 @@ impl ParserState {
 
     pub fn scan_eos(&mut self) -> bool {
         self.assert_definitive(); // ???
-        self.check_lexer_bytes_invariant();
+        if self.lexer_spec().can_rollback() {
+            self.check_lexer_bytes_invariant();
+        }
 
         let lexer_eos = self.lexer_allows_eos();
 
@@ -1691,7 +1693,9 @@ impl ParserState {
             self.lexer_stack_top_eos = true;
         }
 
-        self.check_lexer_bytes_invariant();
+        if self.lexer_spec().can_rollback() {
+            self.check_lexer_bytes_invariant();
+        }
 
         false
     }
