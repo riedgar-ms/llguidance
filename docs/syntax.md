@@ -217,6 +217,28 @@ like `<|python_tag|>`, not a string like `<function`.
 
 The `llguidance.StructTag` API, [inspired](https://github.com/mlc-ai/xgrammar/blob/fd9ee31/python/xgrammar/grammar.py#L211) by XGrammar, just compiles down to the above.
 
+### And/Not operators in regexes
+
+The regular expressions in LLGuidance can use additional operators: `&` (and) and `~` (not).
+They can only be used outside of the `/.../` syntax, i.e., in the Lark terminal (token) definitions.
+The `&` operator binds tighter than `|` (alternation), so `A & B | C` means `(A & B) | C`.
+The `~` operator binds tighter than even `+` or `*`, so `~A+` means `(~A)+`.
+
+The negation operator `~` is particularly tricky to use right.
+For example, this is a terminal definition that matches any list of ASCII lines,
+but they cannot have two newlines in a row:
+
+```lark
+ASCII_LINES: /[a-zA-Z \n]*/ & ~/(?s:.*)\n\n(?s:.*)/
+```
+
+Note that `/[a-zA-Z \n]*/ & ~/\n\n/` would mean any list of lines, also with two newlines in a row,
+except for the exact string `\n\n`.
+Also, `/[a-zA-Z \n]*/ & ~/(.*)\n\n(.*)/` would allow double newlines, but if there is at least two of them
+(`/./` doesn't match newline).
+
+These operators are sometimes expensive to use, so you should generally avoid them if alternatives exist.
+
 ### Structured %regex
 
 LLGuidance supports [extended regex syntax](https://docs.rs/regex/latest/regex/#syntax) in `/.../`.
@@ -271,12 +293,6 @@ MULT_NUM: %regex {
   "exclusiveMinimum": 0,
   "multipleOf": 10
 }
-```
-
-We also plan to add `&` and `~` operators:
-
-```lark
-ASCII_LINES: /[a-zA-Z \n]*/ & ~/.*\n\n.*/
 ```
 
 ### Grammar options

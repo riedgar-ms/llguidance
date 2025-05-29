@@ -1340,3 +1340,137 @@ fn test_json_format_email() {
         ],
     );
 }
+
+#[test]
+fn test_regex_and() {
+    lark_str_test_many(
+        r#"
+            start: ST
+            ST: LOWER & ABC
+            LOWER: /[a-z]+/
+            ABC: /[abcABC]+/
+        "#,
+        &["abc", "a", "bbb"],
+        &["A", "d", "1"],
+    );
+
+    lark_err_test(
+        r#"
+            start: LOWER & ABC
+            LOWER: /[a-z]+/
+            ABC: /[abcABC]+/
+        "#,
+        "& is only supported for tokens, not rules",
+    );
+
+    lark_str_test_many(
+        r#"
+            start: ST
+            ST: /[a-z]+/ & /[abcABC]+/
+        "#,
+        &["abc", "a", "bbb"],
+        &["A", "d", "1"],
+    );
+
+    lark_str_test_many(
+        r#"
+            start: ST
+            ST: /[ab]+/ | /[cd]+/ & /[def]+/
+        "#,
+        &["ab", "dd"],
+        &["c", "e", "f"],
+    );
+
+    lark_str_test_many(
+        r#"
+            start: ST
+            ST: /[ab]+/ | ( /[cd]+/ & /[def]+/ )
+        "#,
+        &["ab", "dd"],
+        &["c", "e", "f"],
+    );
+
+    lark_str_test_many(
+        r#"
+            start: ST
+            ST: ( /[abf]+/ | /[cd]+/ ) & /[def]+/
+        "#,
+        &["d", "f"],
+        &["a", "b"],
+    );
+
+    lark_str_test_many(
+        r#"
+            start: ST
+            ST: /[ab]/+ | /[cd]/+ & /[def]/+
+        "#,
+        &["ab", "dd"],
+        &["c", "e", "f"],
+    );
+
+    lark_str_test_many(
+        r#"
+            start: ST
+            ST: /[abc]/ & /[bcd]/ & /[cde]/
+        "#,
+        &["c"],
+        &["a", "b", "d", "e"],
+    );
+
+    lark_str_test_many(
+        r#"
+            start: ST
+            ST: /a*/ & /a+/
+        "#,
+        &["a", "aa"],
+        &["FINAL_REJECT:", "b"],
+    );
+
+    lark_str_test_many(
+        r#"
+            start: "foo" | ST
+            ST: /a/? & /a{2}/
+        "#,
+        &["foo"],
+        &["FINAL_REJECT:", "a", "aa"],
+    );
+
+    lark_str_test_many(
+        r#"
+            start: "foo" | ST
+            ST: /a/ /b/ & /b/
+        "#,
+        &["foo"],
+        &["b", "a", "abb", "ab"],
+    );
+
+    lark_str_test_many(
+        r#"
+            start: "foo" | ST
+            ST: /ab/ & /b/
+        "#,
+        &["foo"],
+        &["ab", "b", "a"],
+    );
+}
+
+#[test]
+fn test_regex_not() {
+    lark_str_test_many(
+        r#"
+            start: ST
+            ST: /[abcd]+/ & ~/(.*)[ab](.*)/
+        "#,
+        &["cd", "c"],
+        &["x", "aa", "ca", "b"],
+    );
+
+    lark_str_test_many(
+        r#"
+            start: ASCII_LINES
+            ASCII_LINES: /[a-zA-Z \n]*/ & ~/(?s:.*)\n\n(?s:.*)/
+        "#,
+        &["foo", "bar\nbaz", "hello world\n", "aaa\nbbb\nccc"],
+        &[".", "a\n\na"],
+    );
+}
