@@ -60,9 +60,7 @@ The library is currently integrated in:
 - **vLLM** - [V0 PR](https://github.com/vllm-project/vllm/pull/14589) and [V1 PR](https://github.com/vllm-project/vllm/pull/14779)
 - [LLGTRT](https://github.com/guidance-ai/llgtrt) - OpenAI-compatible REST server using NVIDIA's [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM)
 - [mistral.rs](https://github.com/EricLBuehler/mistral.rs/pull/899)
-
-The integration is ongoing in:
-- **onnxruntime-genai** - [draft PR](https://github.com/microsoft/onnxruntime-genai/pull/1038)
+- [onnxruntime-genai](https://github.com/microsoft/onnxruntime-genai/pull/1381)
 
 ## Technical details
 
