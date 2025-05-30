@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [0.7.26](https://github.com/guidance-ai/llguidance/compare/v0.7.25...0.7.26) 2025-05-30
+
+- add support for & and ~ in lark regexes [`96fcee3`](https://github.com/guidance-ai/llguidance/commit/96fcee373697b57bead94d1bc06c17cf1c6134e4)
+- dump grammar in errors in LLInterpreter [`#183`](https://github.com/guidance-ai/llguidance/pull/183)
+- don't check lexer bytes invariant when we cannot rollback [`ec22083`](https://github.com/guidance-ai/llguidance/commit/ec220837051513a70177974ca389b7bf387455f1)
+
+
 #### [0.7.25](https://github.com/guidance-ai/llguidance/compare/v0.7.24...0.7.25) 2025-05-28
 
 - add parse_special=False to tokenize_str/bytes() in python [`#181`](https://github.com/guidance-ai/llguidance/pull/181)
