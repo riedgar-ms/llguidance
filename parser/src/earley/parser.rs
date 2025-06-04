@@ -935,7 +935,7 @@ impl ParserState {
         self.stats = ParserStats::default();
     }
 
-    fn assert_definitive(&self) {
+    fn assert_definitive_inner(&self) {
         assert!(self.scratch.definitive);
         assert!(self.backtrack_byte_count == 0);
         if self.num_rows() != self.row_infos.len() {
@@ -944,6 +944,14 @@ impl ParserState {
                 self.num_rows(),
                 self.row_infos.len()
             );
+        }
+    }
+
+    fn assert_definitive(&self) {
+        self.assert_definitive_inner();
+
+        if self.lexer_spec().can_rollback() {
+            self.check_lexer_bytes_invariant();
         }
     }
 
@@ -995,7 +1003,6 @@ impl ParserState {
             n_bytes,
             self.byte_to_token_idx.len()
         );
-        self.check_lexer_bytes_invariant();
 
         let new_len = self.byte_to_token_idx.len() - n_bytes;
 
@@ -1010,7 +1017,6 @@ impl ParserState {
         self.rows_valid_end = self.num_rows();
 
         self.assert_definitive();
-        self.check_lexer_bytes_invariant();
 
         Ok(())
     }
@@ -1474,10 +1480,6 @@ impl ParserState {
         // debug!("trie_started: rows={} lexer={}", self.num_rows(), self.lexer_stack.len());
         self.assert_definitive();
 
-        if self.lexer_spec().can_rollback() {
-            self.check_lexer_bytes_invariant();
-        }
-
         self.trie_lexer_stack = self.lexer_stack.len();
         self.trie_grammar_stack = self.scratch.grammar_stack.len();
         self.scratch.definitive = false;
@@ -1679,9 +1681,6 @@ impl ParserState {
 
     pub fn scan_eos(&mut self) -> bool {
         self.assert_definitive(); // ???
-        if self.lexer_spec().can_rollback() {
-            self.check_lexer_bytes_invariant();
-        }
 
         let lexer_eos = self.lexer_allows_eos();
 
@@ -1710,9 +1709,7 @@ impl ParserState {
             self.lexer_stack_top_eos = true;
         }
 
-        if self.lexer_spec().can_rollback() {
-            self.check_lexer_bytes_invariant();
-        }
+        self.assert_definitive(); // ???
 
         false
     }
@@ -2361,7 +2358,7 @@ impl ParserState {
                 });
             }
             if self.scratch.definitive {
-                self.assert_definitive();
+                self.assert_definitive_inner();
             }
         } else {
             if trace_here {
@@ -2374,7 +2371,7 @@ impl ParserState {
                     byte: None,
                     ..no_hidden
                 });
-                self.assert_definitive();
+                self.assert_definitive_inner();
                 self.backtrack_byte_count = hidden_bytes.len();
             } else {
                 // prevent any further matches in this branch
@@ -2502,7 +2499,7 @@ impl ParserState {
                 self.lexer_stack.push(no_hidden);
             }
             if self.scratch.definitive {
-                self.assert_definitive();
+                self.assert_definitive_inner();
             }
             true
         } else {
