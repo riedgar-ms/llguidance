@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [0.7.27](https://github.com/guidance-ai/llguidance/compare/v0.7.26...0.7.27) 2025-06-04
+
+- add toktrie_tiktoken and llguidance.tiktoken.lltokenizer_from_encoding [`#154`](https://github.com/guidance-ai/llguidance/issues/154)
+- implement clone on StopController [`#185`](https://github.com/guidance-ai/llguidance/issues/185)
+
 #### [0.7.26](https://github.com/guidance-ai/llguidance/compare/v0.7.25...0.7.26) 2025-05-30
 
 - add support for & and ~ in lark regexes [`96fcee3`](https://github.com/guidance-ai/llguidance/commit/96fcee373697b57bead94d1bc06c17cf1c6134e4)
