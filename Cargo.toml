@@ -7,6 +7,7 @@ members = [
     "toktrie",
     "toktrie_hf_tokenizers",
     "toktrie_hf_downloader",
+    "toktrie_tiktoken",
 ]
 # just exclude python_ext since it doesn't build without maturin
 default-members = [
@@ -16,6 +17,7 @@ default-members = [
     "toktrie",
     "toktrie_hf_tokenizers",
     "toktrie_hf_downloader",
+    "toktrie_tiktoken",
 ]
 resolver = "2"
 
@@ -37,3 +39,4 @@ toktrie = { path = "toktrie" }
 llguidance = { path = "parser" }
 toktrie_hf_tokenizers = { path = "toktrie_hf_tokenizers" }
 toktrie_hf_downloader = { path = "toktrie_hf_downloader" }
+toktrie_tiktoken = { path = "toktrie_tiktoken" }

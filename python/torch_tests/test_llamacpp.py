@@ -47,3 +47,7 @@ def test_llama_cpp(pytestconfig: Any) -> None:
     assert len(toks0) > 1
     toks2 = llt.tokenize_str("<|eot_id|>", parse_special=True)
     assert len(toks2) == 1
+
+    toks3 = llt.tokenize_str("a<|eot_id|>b", parse_special=True)
+    print(llt.dbg_tokens(toks3))
+    assert len(toks3) == 3

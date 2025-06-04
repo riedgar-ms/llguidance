@@ -8,11 +8,12 @@ use llguidance::toktrie::{
     TokenId, TokenizerEnv,
 };
 use llguidance::{api::TopLevelGrammar, output::ParserOutput};
-use llguidance::{JsonCompileOptions, ParserFactory};
+use llguidance::{HashMap, JsonCompileOptions, ParserFactory};
 use pyo3::{exceptions::PyValueError, prelude::*};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use toktrie_hf_tokenizers::ByteTokenizer;
+use toktrie_tiktoken::TikTokenBPE;
 
 use crate::llamatokenizer::tokenv_from_llamacpp;
 
@@ -70,6 +71,40 @@ impl LLTokenizer {
         )
         .map_err(val_error)?;
 
+        Ok(LLTokenizer {
+            factory: Arc::new(factory),
+        })
+    }
+
+    #[staticmethod]
+    #[pyo3(signature = (
+        *, encoder, special_tokens, pattern,
+        eos_token, n_vocab = None, slices = None
+    ))]
+    fn from_tiktoken(
+        encoder: HashMap<Vec<u8>, u32>,
+        special_tokens: HashMap<String, u32>,
+        pattern: &str,
+        eos_token: u32,
+        n_vocab: Option<usize>,
+        slices: Option<Vec<String>>,
+    ) -> PyResult<Self> {
+        let bpe = TikTokenBPE::new(
+            encoder.into_iter().collect(),
+            special_tokens.into_iter().collect(),
+            pattern,
+            n_vocab,
+            eos_token,
+        )
+        .map_err(val_error)?;
+        let tok_env = bpe.to_env();
+
+        let factory = ParserFactory::new(
+            &tok_env,
+            InferenceCapabilities::default(),
+            &slices.unwrap_or_else(SlicedBiasComputer::general_slices),
+        )
+        .map_err(val_error)?;
         Ok(LLTokenizer {
             factory: Arc::new(factory),
         })
