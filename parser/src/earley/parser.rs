@@ -1478,7 +1478,7 @@ impl ParserState {
         }
     }
 
-fn check_lexer_bytes_invariant(&self) {
+    fn check_lexer_bytes_invariant(&self) {
         let off = if self.lexer_stack_top_eos { 2 } else { 1 };
         if self.lexer_stack.len() != self.bytes.len() + off {
             panic!(
