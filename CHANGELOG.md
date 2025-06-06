@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [0.7.29](https://github.com/guidance-ai/llguidance/compare/v0.7.28...0.7.29) 2025-06-06
+
+- cargo fmt
+
 #### [0.7.28](https://github.com/guidance-ai/llguidance/compare/v0.7.27...0.7.28) 2025-06-06
 
 - fix lexer_stack=... panic with numeric tokens [`4e91b0f`](https://github.com/guidance-ai/llguidance/commit/4e91b0fa0c03572a5fc221ac0e0b05035af9dcfa)
