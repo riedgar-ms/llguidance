@@ -268,3 +268,19 @@ fn test_trigger_lexer_error() {
         unreachable!();
     }
 }
+
+#[test]
+fn test_lexer_inv_crash() {
+    let tokenv = get_tok_env();
+    let t1 = tokenv.tokenize("#");
+    let t2 = tokenv.tokenize("?");
+    let tokens = tokenv.tokenize("a#");
+    assert!(t1.len() == 1);
+    assert!(t2.len() == 1);
+    let grm = format!("start: /[a-z]+/ ( <[{}]> | <[{}]> )", t1[0], t2[0]);
+    let parser = make_parser(&grm);
+    let mut matcher = Matcher::new(Ok(parser));
+    for t in tokens {
+        matcher.consume_token(t).unwrap();
+    }
+}

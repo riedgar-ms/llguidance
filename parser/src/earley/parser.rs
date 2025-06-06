@@ -435,6 +435,7 @@ struct ParserState {
     // history - items are not popped in definitive mode.
     lexer_stack: Vec<LexerState>,
     lexer_stack_top_eos: bool,
+    lexer_stack_flush_position: usize,
     rows: Vec<Row>,
     rows_valid_end: usize,
 
@@ -665,6 +666,7 @@ impl ParserState {
             limits,
             backtrack_byte_count: 0,
             lexer_stack_top_eos: false,
+            lexer_stack_flush_position: 0,
             lexer_stack: vec![LexerState {
                 row_idx: 0,
                 lexer_state,
@@ -791,12 +793,6 @@ impl ParserState {
                     }
                 }
             });
-        }
-
-        if set.is_zero() {
-            // nothing allowed
-            // we're going to be stopped outside - we better flush the lexer
-            let _ = self.flush_lexer();
         }
 
         let eos = computer.trie().eos_token();
@@ -1103,6 +1099,12 @@ impl ParserState {
                     .push(self.token_idx.try_into().unwrap());
             }
         }
+        debug_def!(
+            self,
+            "add_numeric_token: idx={:?} bytes={:?}",
+            idx,
+            tok_bytes
+        );
         let ok = self.advance_parser(PreLexeme::just_idx(MatchingLexemesIdx::Single(idx)));
         ensure!(
             ok,
@@ -1162,8 +1164,19 @@ impl ParserState {
                 let row_idx = self.num_rows() - 1;
                 self.row_infos[row_idx].apply_token_idx(self.token_idx);
 
+                self.lexer_stack_flush_position = 0;
                 let idx = self.flush_and_check_numeric(tok_id).unwrap();
                 self.add_numeric_token(idx, tok_bytes)?;
+
+                // if flush_lexer() added a stack entry
+                if self.lexer_stack_flush_position > 0 {
+                    // we make sure it's not on the top
+                    assert!(self.lexer_stack_flush_position + 1 < self.lexer_stack.len());
+                    // and remove it
+                    self.lexer_stack.remove(self.lexer_stack_flush_position);
+                }
+
+                self.assert_definitive();
 
                 return Ok(0);
             }
@@ -1320,6 +1333,8 @@ impl ParserState {
             self.print_row(self.num_rows() - 1);
         }
 
+        self.assert_definitive();
+
         Ok(0)
     }
 
@@ -1463,7 +1478,7 @@ impl ParserState {
         }
     }
 
-    fn check_lexer_bytes_invariant(&self) {
+fn check_lexer_bytes_invariant(&self) {
         let off = if self.lexer_stack_top_eos { 2 } else { 1 };
         if self.lexer_stack.len() != self.bytes.len() + off {
             panic!(
@@ -1516,6 +1531,7 @@ impl ParserState {
         self.assert_definitive();
         self.rows_valid_end = self.num_rows();
         self.scratch.log_override = false; // reset
+        self.lexer_stack_flush_position = 0;
     }
 
     fn run_speculative<T>(&mut self, lbl: &str, f: impl FnOnce(&mut Self) -> T) -> T {
@@ -1674,7 +1690,13 @@ impl ParserState {
         }
         let curr = self.lexer_state();
         let lex_result = self.lexer_mut().try_lexeme_end(curr.lexer_state);
+        let prev_len = self.lexer_stack.len();
         let r = self.advance_lexer_or_parser(lex_result, curr);
+        if self.lexer_stack.len() != prev_len {
+            assert!(self.lexer_stack.len() == prev_len + 1);
+            assert!(prev_len > 0);
+            self.lexer_stack_flush_position = prev_len;
+        }
         assert!(self.backtrack_byte_count == 0);
         r
     }
@@ -2496,6 +2518,7 @@ impl ParserState {
                         }
                     }
                 }
+                debug_def!(self, "  push normal: {no_hidden:?}");
                 self.lexer_stack.push(no_hidden);
             }
             if self.scratch.definitive {
