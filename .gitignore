@@ -19,3 +19,4 @@ perf.data
 perf.data.old
 sample_parser/data/from-llama.cpp/*.lark
 .aider*
+node_modules
