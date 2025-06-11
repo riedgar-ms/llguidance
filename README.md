@@ -8,6 +8,7 @@
 
 --- 
 
+* 2025-06-11 [Making Structured Outputs Go Brrr](https://guidance-ai.github.io/llguidance/llg-go-brrr) blog post released
 * 2025-05-20 LLGuidance [shipped](https://x.com/OpenAIDevs/status/1924915341052019166) in [OpenAI](https://x.com/OpenAIDevs/status/1924915343677653014) for JSON Schema
 * 2025-04-11 integration [merged](https://github.com/chromium/chromium/commit/07ca6337c2f714ba0477202414bd2b1692e70594) into Chromium
 * 2025-03-25 integration [merged](https://github.com/vllm-project/vllm/pull/14779) into vLLM (v0.8.2)
@@ -63,6 +64,9 @@ The library is currently integrated in:
 - [onnxruntime-genai](https://github.com/microsoft/onnxruntime-genai/pull/1381)
 
 ## Technical details
+
+See [Making Structured Outputs Go Brrr](https://guidance-ai.github.io/llguidance/llg-go-brrr) for an overview of the library,
+including the design decisions, performance, and how it compares to other approaches.
 
 Given a context-free grammar, a tokenizer, and a prefix of tokens, llguidance computes a token mask - a set of tokens from the tokenizer - that, when added to the current token prefix, can lead to a valid string in the language defined by the grammar. Mask computation takes approximately 50μs of single-core CPU time for a tokenizer with 128k tokens. While this timing depends on the exact grammar, it holds, for example, for grammars derived from JSON schemas. There is no significant startup cost.
 
