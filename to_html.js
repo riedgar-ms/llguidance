@@ -14,7 +14,6 @@ const hljs = require('highlight.js');
 
 const outDir = 'tmp';
 const inputPath = process.argv[2];
-const outputPath = 'blog.html';
 
 if (!inputPath) {
     console.error('Usage: node to_html.js <input_file.md>');
@@ -136,11 +135,11 @@ const bodyHtml = marked.parse(processed);
 const titleMatch = input.match(/^#\s*(.*)$/m);
 const title = titleMatch ? titleMatch[1] : 'Rendered Markdown';
 
-const fullHtml = `<!DOCTYPE html>
+const fullHtmlTemplate = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>${title}</title>
+  <title>@title@</title>
 
 <!-- https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.css -->
 <style>
@@ -233,9 +232,38 @@ pre code.hljs{display:block;overflow-x:auto;padding:1em}code.hljs{padding:3px 5p
 </style>
 </head>
 <body>
-${bodyHtml}
+@bodyHtml@
 </body>
 </html>`;
 
-fs.writeFileSync(outputPath, fullHtml, 'utf8');
-console.log(`Processed ${count} Mermaid block(s). Output: ${outputPath}`);
+console.log(`Processed ${count} Mermaid block(s)`);
+
+function saveHTML(path, template, replacements) {
+    const data = template.replace(/@(\w+)@/g, (_, key) => {
+        return replacements[key] || '';
+    });
+
+    fs.writeFileSync(path, data, 'utf8');
+    const kb = Math.round(Buffer.byteLength(data, 'utf8') / 1024);
+    console.log(`HTML saved to ${path}; ${kb} KB`);
+}
+
+saveHTML('llg-brr.html', fullHtmlTemplate, {
+    title,
+    bodyHtml
+});
+
+
+const indexTitle = "LLGuidance"
+const indexBody = `
+<h1>${indexTitle}</h1>
+<p>
+Please checkout the <a href="https://github.com/guidance-ai/llguidance">GitHub repository</a> for more information,
+or read the blog entry <a href="llg-brr.html">${title}</a>.
+</p>
+`
+
+saveHTML('index.html', fullHtmlTemplate, {
+    title,
+    bodyHtml: indexBody
+});
