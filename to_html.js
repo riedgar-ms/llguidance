@@ -139,6 +139,7 @@ const fullHtmlTemplate = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>@title@</title>
 
 <!-- https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.css -->
@@ -152,33 +153,32 @@ pre code.hljs{display:block;overflow-x:auto;padding:1em}code.hljs{padding:3px 5p
 </style>
 
 <style>
-
   body {
     max-width: 800px;
-    margin: auto;
+    margin: 0 auto;
     font-family: 'Georgia', serif;
-    font-size: 18px;
+    font-size: 1rem;
     line-height: 1.7;
     color: #1c1c1c;
     background: #fff;
-    padding: 0em 1em;
+    padding: 1rem;
   }
 
   @media print {
     body {
-        font-size: 14px;
+      font-size: 0.875rem;
     }
     @page {
-        margin: 2cm;
+      margin: 2cm;
     }
-   }
+  }
 
   h1, h2, h3, h4, h5 {
     font-family: 'Helvetica Neue', sans-serif;
     font-weight: 600;
     line-height: 1.3;
-    margin-top: 2em;
-    margin-bottom: 1em;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
   }
 
   p {
@@ -188,9 +188,10 @@ pre code.hljs{display:block;overflow-x:auto;padding:1em}code.hljs{padding:3px 5p
   pre {
     background: #f4f4f4;
     border-left: 4px solid #ccc;
-    padding: 0em;
+    padding: 0.5rem;
     overflow-x: auto;
     line-height: 1.5;
+    -webkit-overflow-scrolling: touch;
   }
 
   code {
@@ -199,18 +200,19 @@ pre code.hljs{display:block;overflow-x:auto;padding:1em}code.hljs{padding:3px 5p
     border-radius: 4px;
     font-family: 'Consolas', 'SF Mono', 'Menlo', monospace;
     font-weight: 400;
-    font-size: 80%;
+    font-size: 0.875em;
   }
 
   pre code.hljs {
-    padding: 0em 1em;
+    display: block;
+    padding: 0;
   }
 
   img, svg {
     max-width: 100%;
     height: auto;
     display: block;
-    margin: 2em auto;
+    margin: 2rem auto;
   }
 
   blockquote {
@@ -230,6 +232,7 @@ pre code.hljs{display:block;overflow-x:auto;padding:1em}code.hljs{padding:3px 5p
     text-decoration: underline;
   }
 </style>
+
 </head>
 <body>
 @bodyHtml@
