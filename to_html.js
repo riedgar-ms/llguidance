@@ -231,6 +231,19 @@ pre code.hljs{display:block;overflow-x:auto;padding:1em}code.hljs{padding:3px 5p
   a:hover {
     text-decoration: underline;
   }
+
+  h1, div.authors {
+    text-align: center;
+  }
+
+  div.authors * {
+    margin: 0;
+  }
+
+  div.authors li {
+    display: inline-block;
+    margin: 0.2em 0.6rem;
+  }
 </style>
 
 </head>

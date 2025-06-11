@@ -1,5 +1,16 @@
 # LLGuidance: Making Structured Outputs Go Brrr
 
+<div class="authors">
+
+* [Michał Moskal](https://moskal.me/)
+* [Harsha Nori](https://www.microsoft.com/en-us/research/people/hanori/)
+* [Hudson Cooper](https://github.com/hudson-ai)
+* [Loc Huynh](https://github.com/JC1DA)
+
+Microsoft
+
+</div>
+
 ## Introduction
 
 Large Language Models (LLMs) excel at understanding and generating natural
@@ -40,7 +51,9 @@ representing JSON schemas, programming language syntax, etc. In
 a challenging JSON schema benchmark, it computes a token mask in about 50μs on
 average, with other libraries being 10-1000x slower (though in some cases this
 is due to difficult outliers). Additionally, LLGuidance starts very quickly (2ms
-on average), with most other libraries being 1000x slower.
+on average), with most other libraries being 1000x slower. LLGuidance was
+developed at [Microsoft Research](https://www.microsoft.com/en-us/research/),
+between 2023 and 2025.
 
 ![Timing plot](./img/hero.svg)
 
