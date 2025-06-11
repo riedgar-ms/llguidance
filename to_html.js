@@ -264,7 +264,7 @@ function saveHTML(path, template, replacements) {
     console.log(`HTML saved to ${path}; ${kb} KB`);
 }
 
-saveHTML('llg-brr.html', fullHtmlTemplate, {
+saveHTML('llg-go-brrr.html', fullHtmlTemplate, {
     title,
     bodyHtml
 });
@@ -275,7 +275,7 @@ const indexBody = `
 <h1>${indexTitle}</h1>
 <p>
 Please checkout the <a href="https://github.com/guidance-ai/llguidance">GitHub repository</a> for more information,
-or read the blog entry <a href="llg-brr.html">${title}</a>.
+or read the blog entry <a href="llg-go-brrr.html">${title}</a>.
 </p>
 `
 
