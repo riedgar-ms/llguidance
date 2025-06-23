@@ -100,7 +100,10 @@ def main():
     #subprocess.run(["python3", "./scripts/update-git.py"], check=True)
 
     current_version = get_current_version(pyproject_path)
-    suggested_version = bump_patch_version(current_version)
+    if len(sys.argv) > 1:
+        suggested_version = sys.argv[1]
+    else:
+        suggested_version = bump_patch_version(current_version)
 
     changelog = generate_changelog(suggested_version)
     print("\n\n" + changelog + "\n\n")
