@@ -8,6 +8,7 @@
 
 --- 
 
+* 2025-06-23 llguidance is now deemed v1.0.0
 * 2025-06-11 [Making Structured Outputs Go Brrr](https://guidance-ai.github.io/llguidance/llg-go-brrr) blog post released
 * 2025-05-20 LLGuidance [shipped](https://x.com/OpenAIDevs/status/1924915341052019166) in [OpenAI](https://x.com/OpenAIDevs/status/1924915343677653014) for JSON Schema
 * 2025-04-11 integration [merged](https://github.com/chromium/chromium/commit/07ca6337c2f714ba0477202414bd2b1692e70594) into Chromium

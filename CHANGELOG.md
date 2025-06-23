@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [1.0.0](https://github.com/guidance-ai/llguidance/compare/v0.7.30...1.0.0) 2025-06-23
+
+This is identical to `0.7.30`, but indicates intended stability and from now on we'll try to follow semver.
+
 #### [0.7.30](https://github.com/guidance-ai/llguidance/compare/v0.7.29...0.7.30) 2025-06-23
 
 - parametric grammars [`#192`](https://github.com/guidance-ai/llguidance/pull/192)
