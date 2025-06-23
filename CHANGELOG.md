@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [0.7.30](https://github.com/guidance-ai/llguidance/compare/v0.7.29...0.7.30) 2025-06-23
+
+- parametric grammars [`#192`](https://github.com/guidance-ai/llguidance/pull/192)
+- allow for tokens up to ~2k bytes; fixes #188 [`#188`](https://github.com/guidance-ai/llguidance/issues/188)
+
 #### [0.7.29](https://github.com/guidance-ai/llguidance/compare/v0.7.28...0.7.29) 2025-06-06
 
 - cargo fmt
