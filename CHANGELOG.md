@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [1.0.1](https://github.com/guidance-ai/llguidance/compare/v1.0.0...1.0.1) 2025-07-03
+
+- fix: tokenizers normalizers sequence api changed [`#195`](https://github.com/guidance-ai/llguidance/pull/195)
+- Strip debug info from the wheels [`#194`](https://github.com/guidance-ai/llguidance/pull/194)
+
+Thank you @ammar-elsabe and @Ahajha!
+
 #### [1.0.0](https://github.com/guidance-ai/llguidance/compare/v0.7.30...1.0.0) 2025-06-23
 
 This is identical to `0.7.30`, but indicates intended stability and from now on we'll try to follow semver.
