@@ -246,9 +246,8 @@ fn test_ll_subgrammar_max_tokens() {
         let c = check_lark_grammar_nested(
             &format!(
                 r#"start: " x x x" (" q")* " x" ab " y"
-                   ab[capture,max_tokens={}]: @sub
+                   ab[capture,max_tokens={max_tokens}]: @sub
                 "#,
-                max_tokens,
             ),
             r#"start: (" a")* " b""#,
             &[" x‧ x‧ x", " q‧ q‧ q‧ q‧ x‧ a‧ a‧ b", " y"],
@@ -259,9 +258,8 @@ fn test_ll_subgrammar_max_tokens() {
         let c = check_lark_grammar_nested(
             &format!(
                 r#"start: " x x x" (" q")* ab " y"
-                   ab[capture,max_tokens={}]: @sub
+                   ab[capture,max_tokens={max_tokens}]: @sub
                 "#,
-                max_tokens,
             ),
             r#"start: (" a")* " b""#,
             &[" x‧ x‧ x", " q‧ q‧ q‧ q‧ a‧ a‧ b", " y"],

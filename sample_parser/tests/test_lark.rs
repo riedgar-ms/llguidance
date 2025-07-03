@@ -27,22 +27,19 @@ fn consume(parser: &mut TokenParser, tok: u32) {
 
 fn lark_ok(lark: &str) {
     if let Err(e) = make_parser(lark, false) {
-        panic!("unexpected error: {}, grm:\n{}", e, lark)
+        panic!("unexpected error: {e}, grm:\n{lark}")
     }
 }
 
 fn lark_err_test(lark: &str, err: &str) {
     match make_parser(lark, false) {
         Err(e) => {
-            let e = format!("{}", e);
+            let e = format!("{e}");
             if !e.contains(err) {
-                panic!(
-                    "unexpected error: {}, expecting {:?}; grm:\n{}",
-                    e, err, lark
-                );
+                panic!("unexpected error: {e}, expecting {err:?}; grm:\n{lark}");
             }
         }
-        Ok(_) => panic!("expected error: {}; grm:\n{}", err, lark),
+        Ok(_) => panic!("expected error: {err}; grm:\n{lark}"),
     }
 }
 
@@ -606,11 +603,11 @@ fn test_large_select() {
             .map(|i| gen_words(i, num_words))
             .collect::<Vec<_>>();
         for (i, opt) in options.iter().enumerate() {
-            grm_head.push_str(&format!("OPT{} | ", i));
+            grm_head.push_str(&format!("OPT{i} | "));
             grm_tail.push_str(&format!("OPT{}: {}\n", i, quote_str(opt)));
         }
         grm_head.push_str(" \"\"\n");
-        let grm = format!("{}{}", grm_head, grm_tail);
+        let grm = format!("{grm_head}{grm_tail}");
         grm_sz = grm.len();
 
         lark_str_test_many_quiet(
@@ -705,13 +702,13 @@ FILE_0: %regex {
         grm,
         &[
             &repl,
-            &format!("{}\n", repl),
-            &format!("{}\n\n", repl),
-            &format!("Some text\n{}", repl),
-            &format!("Some text\nMore\n{}", repl),
-            &format!("Some text\nMore\n{}\n", repl),
-            &format!("Some text\nMore\n{}\nAnd then some", repl),
-            &format!("Some text\nMore\n{}\nAnd then some\n", repl),
+            &format!("{repl}\n"),
+            &format!("{repl}\n\n"),
+            &format!("Some text\n{repl}"),
+            &format!("Some text\nMore\n{repl}"),
+            &format!("Some text\nMore\n{repl}\n"),
+            &format!("Some text\nMore\n{repl}\nAnd then some"),
+            &format!("Some text\nMore\n{repl}\nAnd then some\n"),
         ],
         &[
             "FINAL_REJECT:Some text\nSome more\n",

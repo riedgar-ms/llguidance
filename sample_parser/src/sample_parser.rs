@@ -10,10 +10,10 @@ fn dump_tokenizer(name: &str) {
     for v in vecs.iter() {
         let v: String = v
             .iter()
-            .map(|b| format!("{:02x}", b))
+            .map(|b| format!("{b:02x}"))
             .collect::<Vec<_>>()
             .join("");
-        println!("{}", v);
+        println!("{v}");
     }
 }
 
@@ -171,10 +171,10 @@ fn main() {
                 }
             }
             if opts.repeat == 1 {
-                eprintln!("Lens: {:?}", lens);
+                eprintln!("Lens: {lens:?}");
                 eprintln!("Tokens:\n{}\n", trie.decode_str(&tokens));
             }
-            eprintln!("Mask times: {:?}", times);
+            eprintln!("Mask times: {times:?}");
             if rep + 1 == opts.repeat {
                 break;
             }

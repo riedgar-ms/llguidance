@@ -227,7 +227,7 @@ fn test_err_state() {
     for tok in t2.iter() {
         if let Err(e) = matcher.consume_token(*tok) {
             let e = e.to_string();
-            println!("Error: {}", e);
+            println!("Error: {e}");
             assert!(e.contains("<state>"));
             assert!(e.contains("Tokens:"));
             return;
@@ -251,7 +251,7 @@ fn test_trigger_lexer_error() {
 
     if let Err(e) = matcher.test_trigger_lexer_error() {
         let e = e.to_string();
-        println!("Error: {}", e);
+        println!("Error: {e}");
         assert!(e.contains("<state>"));
         assert!(e.contains("synthetic error"));
     } else {
@@ -261,7 +261,7 @@ fn test_trigger_lexer_error() {
     // now all calls should return the same error
     if let Err(e) = matcher.consume_token(123) {
         let e = e.to_string();
-        println!("Error: {}", e);
+        println!("Error: {e}");
         assert!(e.contains("<state>"));
         assert!(e.contains("synthetic error"));
     } else {

@@ -795,7 +795,7 @@ impl TestEnv {
         let file_name = &self.file_name;
         let schema_file = read_file_to_string(file_name);
         let mut test_file: JsonTest = serde_json::from_str(&schema_file)
-            .unwrap_or_else(|_| panic!("Invalid JSON in schema file {}", file_name));
+            .unwrap_or_else(|_| panic!("Invalid JSON in schema file {file_name}"));
 
         let mut stats = SchemaRes {
             file_name: file_name.clone(),
@@ -847,13 +847,13 @@ impl TestEnv {
                             t.rust_error = Some(format!("{e}"));
                         }
                         Ok(_) => {
-                            eprintln!("{} {idx} Error: Expected invalid, got valid", file_name);
+                            eprintln!("{file_name} {idx} Error: Expected invalid, got valid");
                             t.rust_error = Some("Expected invalid, got valid".to_string());
                             stats.test_invalid_error =
                                 Some("Expected invalid, got valid".to_string());
                         }
                         Err(e) => {
-                            eprintln!("{} {idx} Error Validating: {}", file_name, e);
+                            eprintln!("{file_name} {idx} Error Validating: {e}");
                             t.broken = true;
                             stats.test_valid_error = Some(format!("{e}"));
                         }
@@ -864,7 +864,7 @@ impl TestEnv {
                 }
             }
             Err(e) => {
-                eprintln!("{} Error Creating Validator: {}", file_name, e);
+                eprintln!("{file_name} Error Creating Validator: {e}");
                 stats.schema_error = Some(format!("{e}"));
             }
         }
@@ -1176,7 +1176,7 @@ fn main() {
 
     if let Ok(jsb_data) = std::env::var("JSB_DATA") {
         save_json_to_file(
-            format!("{}/metainfo/all_stats.json", jsb_data).as_str(),
+            format!("{jsb_data}/metainfo/all_stats.json").as_str(),
             &all_stats,
         );
     }
@@ -1201,7 +1201,7 @@ fn main() {
                 .unwrap_or_else(|| id.to_string())
         };
 
-        eprintln!("Expected from {}...", expected_file_name);
+        eprintln!("Expected from {expected_file_name}...");
         let mut expected_map: HashMap<String, LlgSemanticResult> =
             serde_json::from_str(&read_file_to_string(expected_file_name)).unwrap();
         let mut num_err = 0;
@@ -1247,14 +1247,13 @@ fn main() {
 
         if num_err + num_improvements > 0 {
             eprintln!(
-                "FAILED: {} errors, {} improvements, {} warnings",
-                num_err, num_improvements, num_warn
+                "FAILED: {num_err} errors, {num_improvements} improvements, {num_warn} warnings"
             );
-            eprintln!("MISMATCH: tmp/llg_sem_results.json {}", expected_file_name);
+            eprintln!("MISMATCH: tmp/llg_sem_results.json {expected_file_name}");
             std::process::exit(1);
         } else if num_warn > 0 {
-            eprintln!("SOFT FAIL: {} warnings", num_warn);
-            eprintln!("TRY: cp tmp/llg_sem_results.json {}", expected_file_name);
+            eprintln!("SOFT FAIL: {num_warn} warnings");
+            eprintln!("TRY: cp tmp/llg_sem_results.json {expected_file_name}");
             std::process::exit(1);
         } else {
             eprintln!("PASSED");
@@ -1330,17 +1329,17 @@ fn mask_cache_stats(results: &[SchemaRes]) -> Value {
 
 fn save_json_to_file<T: Serialize>(filename: &str, data: &T) {
     let mut file =
-        File::create(filename).unwrap_or_else(|_| panic!("Unable to create file {}", filename));
+        File::create(filename).unwrap_or_else(|_| panic!("Unable to create file {filename}"));
     file.write_all(serde_json::to_string_pretty(data).unwrap().as_bytes())
-        .unwrap_or_else(|_| panic!("Unable to write file {}", filename));
+        .unwrap_or_else(|_| panic!("Unable to write file {filename}"));
     // eprintln!("Saved to {}", filename);
 }
 
 fn save_text_to_file(filename: &str, data: &str) {
     let mut file =
-        File::create(filename).unwrap_or_else(|_| panic!("Unable to create file {}", filename));
+        File::create(filename).unwrap_or_else(|_| panic!("Unable to create file {filename}"));
     file.write_all(data.as_bytes())
-        .unwrap_or_else(|_| panic!("Unable to write file {}", filename));
+        .unwrap_or_else(|_| panic!("Unable to write file {filename}"));
     // eprintln!("Saved to {}", filename);
 }
 
@@ -1394,7 +1393,7 @@ struct TotalStats {
 
 fn read_file_to_string(filename: &str) -> String {
     let mut file = File::open(filename)
-        .map_err(|e| format!("Unable to open file {}: {}", filename, e))
+        .map_err(|e| format!("Unable to open file {filename}: {e}"))
         .unwrap();
     let mut content = String::new();
     file.read_to_string(&mut content)

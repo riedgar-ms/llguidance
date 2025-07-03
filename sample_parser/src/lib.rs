@@ -54,7 +54,7 @@ fn check_grammar(
                 if step_idx == 0 && had_token_healing {
                     break;
                 }
-                eprintln!("\nRollback #{}", n_tok);
+                eprintln!("\nRollback #{n_tok}");
                 if parser2.check_stop().unwrap() {
                     break;
                 }
@@ -79,7 +79,7 @@ fn check_grammar(
                 let _ = parser2.compute_ff_tokens();
             }
             if n_tok > 0 {
-                eprintln!("\nRun Rollback n_tok={}", n_tok);
+                eprintln!("\nRun Rollback n_tok={n_tok}");
                 parser2.rollback(n_tok).unwrap();
             }
             if let Some(m) = &res.sample_mask {
@@ -100,19 +100,14 @@ fn check_grammar(
         }
 
         if let Some(t) = res.temperature {
-            assert!(
-                t == temp || t == 0.0,
-                "Expected temperature {} got {}",
-                temp,
-                t
-            );
+            assert!(t == temp || t == 0.0, "Expected temperature {temp} got {t}");
             if t == temp {
                 seen_temp = true;
             }
         }
 
         if res.is_stop() {
-            assert!(idx >= output.len() - 1, "Expected more output at {}", idx);
+            assert!(idx >= output.len() - 1, "Expected more output at {idx}");
             assert!(
                 gen_tokens.is_empty(),
                 "Expected more tokens to generate; got stop"
@@ -173,7 +168,7 @@ fn check_grammar(
                     );
                     let mask = constraint.parser.compute_mask();
                     if mask.is_err() {
-                        eprint!("Error computing mask: {:?}", mask);
+                        eprint!("Error computing mask: {mask:?}");
                         break;
                     }
                     let mask = mask.unwrap();
@@ -186,7 +181,7 @@ fn check_grammar(
                     }
                     let r = constraint.parser.consume_token(*tok);
                     if r.is_err() {
-                        eprint!("Error consuming token: {:?}", r);
+                        eprint!("Error consuming token: {r:?}");
                         break;
                     }
                     let r = r.unwrap();
@@ -227,7 +222,7 @@ fn check_grammar(
                     bt = 1;
                     // go to forced byte checking
                 } else if toks.is_empty() {
-                    panic!("Expected {}; got nothing", tok);
+                    panic!("Expected {tok}; got nothing");
                 } else {
                     panic!("Expected token {} got {}", tok, toks[0]);
                 }
@@ -273,14 +268,14 @@ fn check_grammar(
                 bt
             );
         }
-        check_eq(tok_env, &format!("step {}", idx), &toks, expected);
+        check_eq(tok_env, &format!("step {idx}"), &toks, expected);
         idx += 1;
         if idx < output.len() {
             gen_tokens = tokenize_trace(tok_env, output[idx]);
         }
     }
 
-    assert!(seen_temp, "Expected temperature {} not seen", temp);
+    assert!(seen_temp, "Expected temperature {temp} not seen");
 
     constraint
 }
@@ -289,20 +284,13 @@ fn check_eq(tok_env: &TokEnv, label: &str, tokens: &[TokenId], expected_tokens: 
     let trie = tok_env.tok_trie();
     let actual_tokens = trie.test_trace_tokens(tokens);
     let expected_tokens = expected_tokens.replace("\n", "\\n");
-    println!(
-        "Checking {}: exp:{:?} got:{:?}",
-        label, expected_tokens, actual_tokens
-    );
-    assert_eq!(
-        actual_tokens, expected_tokens,
-        "Tokens mismatch in {}",
-        label
-    );
+    println!("Checking {label}: exp:{expected_tokens:?} got:{actual_tokens:?}");
+    assert_eq!(actual_tokens, expected_tokens, "Tokens mismatch in {label}");
 }
 
 fn tokenize_trace(tok_env: &TokEnv, s: &str) -> Vec<(bool, TokenId)> {
     let trie = tok_env.tok_trie();
-    println!("Tokenizing {:?}", s);
+    println!("Tokenizing {s:?}");
     let mut result = Vec::new();
     if s.is_empty() {
         return result;
@@ -381,7 +369,7 @@ pub fn get_parser_factory() -> &'static ParserFactory {
 
 pub fn check_lark_grammar_prompt(lark: &str, prompt_str: &str, output: &[&str]) -> Constraint {
     let grm = TopLevelGrammar::from_lark(lark.to_string());
-    println!("\nChecking grammar:\n{}\nagainst: {:?}", lark, output);
+    println!("\nChecking grammar:\n{lark}\nagainst: {output:?}");
     let temp = find_temperature(lark);
     check_grammar(&PARSER_FACTORY, prompt_str, grm, output, temp)
 }
@@ -411,15 +399,12 @@ pub fn check_lark_grammar_nested(lark: &str, sub_lark: &str, output: &[&str]) ->
     let mut sub_grm = GrammarWithLexer::from_lark(sub_lark.to_string());
     sub_grm.name = Some("sub".to_string());
     top_grm.grammars.push(sub_grm);
-    println!(
-        "\nChecking nested grammars:\n{}\nNested:\n{}\nagainst: {:?}",
-        lark, sub_lark, output
-    );
+    println!("\nChecking nested grammars:\n{lark}\nNested:\n{sub_lark}\nagainst: {output:?}");
     let r = check_grammar(&PARSER_FACTORY, "", top_grm, output, temp);
 
     if true {
         // also test the new syntax
-        let lark2 = lark.replace("@sub", &format!("%lark {{\n{}\n}}", sub_lark));
+        let lark2 = lark.replace("@sub", &format!("%lark {{\n{sub_lark}\n}}"));
         check_grammar(
             &PARSER_FACTORY,
             "",
@@ -439,19 +424,16 @@ pub fn check_lark_json(lark: &str, json_schema: serde_json::Value, output: &[&st
     let mut sub_grm = GrammarWithLexer::from_json_schema(json_schema);
     sub_grm.name = Some("sub".to_string());
     top_grm.grammars.push(sub_grm);
-    println!(
-        "\nChecking lark+json:\n{}\nNested:\n{}\nagainst: {:?}",
-        lark, schema_str, output
-    );
+    println!("\nChecking lark+json:\n{lark}\nNested:\n{schema_str}\nagainst: {output:?}");
     check_grammar(&PARSER_FACTORY, "", top_grm, output, temp)
 }
 
 pub fn check_capture(c: &Constraint, name: &str, expected: &str) {
     if let Some(bytes) = c.parser.get_capture(name) {
         let actual = String::from_utf8_lossy(bytes);
-        assert_eq!(actual, expected, "Capture {} mismatch", name);
+        assert_eq!(actual, expected, "Capture {name} mismatch");
     } else {
-        panic!("Capture {} not found", name);
+        panic!("Capture {name} not found");
     }
 }
 

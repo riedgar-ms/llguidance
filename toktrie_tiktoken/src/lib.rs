@@ -48,7 +48,7 @@ impl TikTokenBPE {
 
         for (i, token) in tokens.iter_mut().enumerate() {
             if token.is_empty() {
-                let mut name = format!(".<[{}]>", i).into_bytes();
+                let mut name = format!(".<[{i}]>").into_bytes();
                 name[0] = TokTrie::SPECIAL_TOKEN_MARKER;
                 *token = name;
             }

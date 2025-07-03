@@ -164,7 +164,7 @@ impl SchemaStats {
         match kw {
             "additionalItems" | "additionalProperties" => {
                 if val.is_object() {
-                    self.incr(&format!("{}:object", kw));
+                    self.incr(&format!("{kw}:object"));
                 }
             }
             "type" => {
@@ -172,26 +172,26 @@ impl SchemaStats {
                     self.incr("type:[]");
                     for t in types {
                         if let Some(t) = t.as_str() {
-                            self.incr(&format!("type:{}", t));
+                            self.incr(&format!("type:{t}"));
                         }
                     }
                 } else if let Some(type_id) = val.as_str() {
-                    self.incr(&format!("type:{}", type_id));
+                    self.incr(&format!("type:{type_id}"));
                 }
             }
             "multipleOf" => {
-                self.incr(&format!("multipleOf:{}", val));
+                self.incr(&format!("multipleOf:{val}"));
             }
             "format" => {
                 if let Some(format) = val.as_str() {
-                    self.incr(&format!("format:{}", format));
+                    self.incr(&format!("format:{format}"));
                 }
             }
             "allOf" | "anyOf" | "oneOf" => {
                 if let Some(arr) = val.as_array() {
                     if arr.len() <= 1 {
                         // any of these with a single item is not interesting
-                        self.incr(&format!("{}:trivial", kw));
+                        self.incr(&format!("{kw}:trivial"));
                         return;
                     }
                 }
@@ -387,7 +387,7 @@ impl SchemaStats {
                 stats.stripped_size = serde_json::to_string(&val).unwrap().len();
             }
             Err(e) => {
-                eprintln!("{} Error Stats: {}", file_name, e);
+                eprintln!("{file_name} Error Stats: {e}");
                 stats.strip_error = Some(format!("{e}"));
             }
         }
