@@ -30,12 +30,12 @@ sep_list : item (SEP item)*
 ```lark
 postfix_expression: primary_expression
     | postfix_expression "[" expression "]"
-	| postfix_expression "(" ")"
-	| postfix_expression "(" argument_expression_list ")"
-	| postfix_expression "." IDENTIFIER
-	| postfix_expression PTR_OP IDENTIFIER
-	| "(" type_name ")" "{" initializer_list "}"
-	| "(" type_name ")" "{" initializer_list "," "}"
+    | postfix_expression "(" ")"
+    | postfix_expression "(" argument_expression_list ")"
+    | postfix_expression "." IDENTIFIER
+    | postfix_expression PTR_OP IDENTIFIER
+    | "(" type_name ")" "{" initializer_list "}"
+    | "(" type_name ")" "{" initializer_list "," "}"
 ```
 becomes (note the additional rule):
 ```lark
