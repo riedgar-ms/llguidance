@@ -40,12 +40,12 @@ postfix_expression: primary_expression
 becomes (note the additional rule):
 ```lark
 postfix_expression: primary_expression postfix_suffix*
-	| "(" type_name ")" "{" initializer_list "}"
-	| "(" type_name ")" "{" initializer_list "," "}"
+    | "(" type_name ")" "{" initializer_list "}"
+    | "(" type_name ")" "{" initializer_list "," "}"
 
 postfix_suffix: "[" expression "]"
     | "(" ")"
-	| "(" argument_expression_list ")"
-	| "." IDENTIFIER
-	| PTR_OP IDENTIFIER
+    | "(" argument_expression_list ")"
+    | "." IDENTIFIER
+    | PTR_OP IDENTIFIER
 ```
