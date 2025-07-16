@@ -354,6 +354,31 @@ impl GrammarWithLexer {
 
 #[cfg(test)]
 mod test {
+    use toktrie::{TokTrie, TokenId, TokenizerEnv};
+
+    pub struct ByteTokenizer {
+        token_bytes: Vec<Vec<u8>>,
+    }
+
+    impl ByteTokenizer {
+        pub fn new() -> Self {
+            let mut token_list: Vec<Vec<u8>> = Vec::new();
+
+            for i in 0..=255 {
+                token_list.push(vec![i]);
+            }
+
+            let eos_str = "<EOS>";
+            token_list.push(eos_str.as_bytes().to_vec());
+
+            Self { token_bytes: token_list }
+        }
+    }
+
+    pub struct ByteTokenizerEnv {
+        pub tokenizer: ByteTokenizer,
+        pub tok_trie: TokTrie,
+    }
 
     #[test]
     fn test_simple_parse() {
