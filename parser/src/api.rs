@@ -357,11 +357,12 @@ mod test {
     use toktrie::{TokTrie, TokenId, TokenizerEnv};
 
     pub struct ByteTokenizer {
+        trie: TokTrie,
         token_bytes: Vec<Vec<u8>>,
     }
 
     impl ByteTokenizer {
-        pub fn new() -> Self {
+        pub fn init(mut self) {
             let mut token_list: Vec<Vec<u8>> = Vec::new();
 
             for i in 0..=255 {
@@ -371,13 +372,19 @@ mod test {
             let eos_str = "<EOS>";
             token_list.push(eos_str.as_bytes().to_vec());
 
-            Self { token_bytes: token_list }
+            self.token_bytes = token_list;
         }
     }
 
-    pub struct ByteTokenizerEnv {
-        pub tokenizer: ByteTokenizer,
-        pub tok_trie: TokTrie,
+    impl TokenizerEnv for ByteTokenizer {
+        fn tok_trie(&self) -> &TokTrie {
+            &self.trie
+        }
+
+        fn tokenize_bytes(&self, s: &[u8]) -> Vec<toktrie::TokenId> {
+            // We just return the byte ids
+            s.iter().map(|&b| b as TokenId).collect()
+        }
     }
 
     #[test]
