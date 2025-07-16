@@ -351,3 +351,21 @@ impl GrammarWithLexer {
         r
     }
 }
+
+#[cfg(test)]
+mod test {
+
+    #[test]
+    fn test_simple_parse() {
+        let target_grammar = r#"%llguidance {}
+
+start: START
+START: "A" "B"
+        "#;
+        let test_string = "AC";
+
+        let grammar = super::TopLevelGrammar::from_lark_or_grammar_list(target_grammar).unwrap();
+        
+        assert_eq!(1, 2);
+    }
+}
