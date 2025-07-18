@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 default-run = "sample_parser"
 
+[lib]
+name = "sample_parser"
+path = "src/lib.rs"
+
 [dependencies]
 llguidance = { workspace = true }
 toktrie_hf_tokenizers = { workspace = true }
