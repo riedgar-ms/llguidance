@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [1.1.0](https://github.com/guidance-ai/llguidance/compare/v1.0.1...1.1.0) 2025-07-18
+
+- disable hf tokenizer truncation and padding [`#205`](https://github.com//hudson-ai/llguidance.git/pull/205); fixes [`#1322`](https://github.com/guidance-ai/guidance/issues/1322)
+- llama_cpp tokenizers: infer added tokens starting/ending with &lt; and &gt; to be special tokens [`#202`](https://github.com//hudson-ai/llguidance.git/pull/202)
+- add lark syntax for "any token" and negation of token ranges [`#201`](https://github.com//hudson-ai/llguidance.git/pull/201)
+- add de-recursion cook book to docs [`#199`](https://github.com//hudson-ai/llguidance.git/pull/199)
+
 #### [1.0.1](https://github.com/guidance-ai/llguidance/compare/v1.0.0...1.0.1) 2025-07-03
 
 - fix: tokenizers normalizers sequence api changed [`#195`](https://github.com/guidance-ai/llguidance/pull/195)
