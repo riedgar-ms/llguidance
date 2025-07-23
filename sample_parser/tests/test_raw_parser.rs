@@ -308,3 +308,24 @@ fn test_stop_when_try_consume_fails() {
     matcher.try_consume_tokens(&tokens[..consumed]).unwrap();
     assert!(matcher.is_stopped());
 }
+
+#[test]
+fn test_try_consume_after_stop() {
+    let lark = r#"
+        start: "blah"* "stop"
+    "#;
+
+    let parser = make_parser(lark);
+    let tokens = get_tok_env().tokenize("blahblahblahblahstopblah");
+    let mut matcher = Matcher::new(Ok(parser));
+
+    for tok in tokens.iter() {
+        let is_stopped = matcher.is_stopped();
+        matcher.try_consume_tokens(&[*tok]).unwrap();
+        if is_stopped {
+            assert!(!matcher.is_error());
+            return;
+        }
+    }
+    unreachable!();
+}
