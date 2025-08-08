@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [v1.1.2](https://github.com/guidance-ai/llguidance/compare/v1.1.1...v1.1.2) 2025-08-08
+
+- add flag in ParserLimits to disable verbose errors [`#227`](https://github.com/guidance-ai/llguidance/pull/227)
+- new tests and cleanups
+
 #### [v1.1.1](https://github.com/guidance-ai/llguidance/compare/v1.1.0...v1.1.1) 2025-07-23
 
 - prevent error state when calling `try_consume_tokens` after parser is stopped [`#213`](https://github.com/guidance-ai/llguidance/pull/213); fixes [`#211`](https://github.com/guidance-ai/llguidance/issues/211)
