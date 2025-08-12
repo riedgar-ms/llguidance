@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
-#### [v1.1.3](https://github.com/guidance-ai/llguidance/compare/v1.1.2...v1.1.3) 2025-08-12
+#### [v1.2.0](https://github.com/guidance-ai/llguidance/compare/v1.1.2...v1.2.0) 2025-08-12
 
 - support multithreaded compute bitmask for speculative decoding [`#225`](https://github.com/guidance-ai/llguidance/pull/225)
   - thank you [@ZonePG](https://github.com/ZonePG)!
