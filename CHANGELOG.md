@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [v1.1.3](https://github.com/guidance-ai/llguidance/compare/v1.1.2...v1.1.3) 2025-08-12
+
+- support multithreaded compute bitmask for speculative decoding [`#225`](https://github.com/guidance-ai/llguidance/pull/225)
+  - thank you [@ZonePG](https://github.com/ZonePG)!
+- `force_lexeme_end` -> `try_lexeme_end` in lark lexer when out of input [`#229`](https://github.com/guidance-ai/llguidance/pull/229); fixes [`#228`](https://github.com/guidance-ai/llguidance/issues/228)
+- more JSON test coverage
+
 #### [v1.1.2](https://github.com/guidance-ai/llguidance/compare/v1.1.1...v1.1.2) 2025-08-08
 
 - add flag in ParserLimits to disable verbose errors [`#227`](https://github.com/guidance-ai/llguidance/pull/227)
