@@ -334,7 +334,7 @@ fn test_try_consume_after_stop() {
 fn test_eos_token_matching() {
     // From issue 239
     let lark = r#"
-        start: "a"*
+        start: "a"
     "#;
 
     let parser = make_parser(lark);
@@ -345,5 +345,6 @@ fn test_eos_token_matching() {
     assert_eq!(matcher.try_consume_tokens(&tokens).unwrap(), 2);
     let _ = matcher.reset().unwrap();
     assert_eq!(matcher.try_consume_tokens(&get_tok_env().tokenize("a")).unwrap(), 1);
+    assert_eq!(matcher.try_consume_tokens(&get_tok_env().tokenize("b")).unwrap(), 0);
     assert_eq!(matcher.try_consume_tokens(&vec![get_tok_env().eos_token()]).unwrap(), 1);
 }
