@@ -329,3 +329,21 @@ fn test_try_consume_after_stop() {
     }
     unreachable!();
 }
+
+#[test]
+fn test_eos_token_matching() {
+    // From issue 239
+    let lark = r#"
+        start: "a"*
+    "#;
+
+    let parser = make_parser(lark);
+    let tokens = vec![get_tok_env().tokenize("a")[0], get_tok_env().eos_token()];
+    assert_eq!(tokens.len(), 2);
+
+    let mut matcher = Matcher::new(Ok(parser));
+    assert_eq!(matcher.try_consume_tokens(&tokens).unwrap(), 2);
+    let _ = matcher.reset().unwrap();
+    assert_eq!(matcher.try_consume_tokens(&get_tok_env().tokenize("a")).unwrap(), 1);
+    assert_eq!(matcher.try_consume_tokens(&vec![get_tok_env().eos_token()]).unwrap(), 1);
+}
