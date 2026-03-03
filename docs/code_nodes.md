@@ -46,10 +46,16 @@ LlamaCpp models require a more vigorous approach.
 _I am a little more hazy on this_. Slicers are an optimisation for when the generation is relatively unconstrained.
 Consider a JSON string: once we know we're inside the string, any token which doesn't contain `"` (which would terminate the string), or `\` or a special character (which can require special handling) is acceptable - and we know that before we start.
 This means we can pre-compute _slices_ of tokens which will always be acceptable in that situation.
-We can then focus computation time on the remaining tokens _which may still be acceptable_ - for example if there is a token `",` we can add it to the string, but it will terminate the string and take us to the next part of the object.
-That is, assuming there is more of the object to be generated - if the string is the last property in said object then `",` would not be valid but `"}` would be.
+We can then focus computation time on the remaining tokens _which may still be acceptable_ - for example if there is a token `",` we can add it to the string, but it will terminate the string and take us to the next part of the JSON object.
+That is, assuming there is more of the object to be generated - if the string is the last property in said object then `",` would not be valid but `"}` would be (and `"` to terminate the string would always be valid.... I'm neglecting possibilities like minimum lengths).
 Hence the need to expend more computational resources on these tokens.
 
 As a further optimisation, slicers can be nested as being of various lengths.
 There may be a length constraint on the string, so we can make slices of lengths 2, 4 and 6.
 If there are only three characters left in the length constraint, then we don't need to bother with the slices of length 4 and 6.
+
+### Constructing Regexes
+
+_I'm even hazier on this_. Regular expressions can be parsed _much_ faster than a context free grammar; not surprising given that they are simpler.
+I understand that subtrees of a Lark grammar can be compilable to regular expressions, presumably with some 'escape' lexeme(s) to indicate that the subtree is done and that it's time to return to the full parser.
+This is probably related to slices - for a JSON string, the `"` character is effectively that 'escape' lexeme.
