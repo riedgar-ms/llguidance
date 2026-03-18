@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
+#### [v1.7.0](https://github.com/guidance-ai/llguidance/compare/v1.6.1...v1.7.0) 2026-03-18
+
+- Add support for multiple EOS tokens [`#305`](https://github.com/guidance-ai/llguidance/pull/305)
+- Improve high level docs [`#308`](https://github.com/guidance-ai/llguidance/pull/308)
+- Expose `get_capture` and `get_captures` API to Python [`#289`](https://github.com/guidance-ai/llguidance/pull/289)
+  - Thanks [@kmaehashi](https://github.com/kmaehashi)!
+
+
 #### [v1.6.0](https://github.com/guidance-ai/llguidance/compare/v1.5.1...v1.6.0) 2026-02-23
 
 - Add riscv64 Linux wheel build [`#288`](https://github.com/guidance-ai/llguidance/pull/288)
