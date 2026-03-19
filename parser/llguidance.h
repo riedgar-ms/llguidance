@@ -491,8 +491,6 @@ int32_t llg_commit_token(struct LlgConstraint *cc, LlgToken token, struct LlgCom
 /**
  * Compute masks for several constraints in parallel.
  *
- * # Safety
- * This function should only be called from C code.
  */
 void llg_par_compute_mask(const struct LlgConstraintStep *steps,
                           size_t n_steps,
@@ -507,8 +505,6 @@ struct LlgConstraint *llg_clone_constraint(const struct LlgConstraint *cc);
 /**
  * Construct a new tokenizer from a [`LlgTokenizerInit`].
  *
- * # Safety
- * This function should only be called from C code.
  */
 struct LlgTokenizer *llg_new_tokenizer(const struct LlgTokenizerInit *tok_init,
                                        char *error_string,
@@ -525,7 +521,6 @@ struct LlgTokenizer *llg_new_tokenizer(const struct LlgTokenizerInit *tok_init,
  * version of the struct will work with newer library versions — new fields
  * default to zero.
  *
- * # Safety
  * `tok_init` must point to at least `tok_init->struct_size` bytes of
  * initialized memory, and `struct_size` must be at least
  * `offset_of!(LlgTokenizerInitV2, token_lens)` (i.e., it must include
@@ -548,8 +543,6 @@ struct LlgTokenizer *llg_clone_tokenizer(const struct LlgTokenizer *tok);
  * Always returns the number of tokens that would be written to
  * `output_tokens` if `output_tokens_len` were large enough.
  *
- * # Safety
- * This function should only be called from C code.
  */
 size_t llg_tokenize_bytes(const struct LlgTokenizer *tok,
                           const uint8_t *bytes,
@@ -564,8 +557,6 @@ size_t llg_tokenize_bytes(const struct LlgTokenizer *tok,
  * Always returns the number of tokens that would be written to
  * `output_tokens` if `output_tokens_len` were large enough.
  *
- * # Safety
- * This function should only be called from C code.
  */
 size_t llg_tokenize_bytes_marker(const struct LlgTokenizer *tok,
                                  const uint8_t *bytes,
@@ -579,8 +570,6 @@ size_t llg_tokenize_bytes_marker(const struct LlgTokenizer *tok,
  * The output is NUL-terminated. Returns the number of bytes that would be
  * written to `output` if `output_len` were large enough.
  *
- * # Safety
- * This function should only be called from C code.
  */
 size_t llg_stringify_tokens(const struct LlgTokenizer *tok,
                             const uint32_t *tokens,
@@ -596,8 +585,6 @@ size_t llg_stringify_tokens(const struct LlgTokenizer *tok,
  * `flags` is a combination of [`LLG_DECODE_NONE`], [`LLG_DECODE_INCLUDE_SPECIAL`],
  * and [`LLG_DECODE_VALID_UTF8`].
  *
- * # Safety
- * This function should only be called from C code.
  */
 size_t llg_decode_tokens(const struct LlgTokenizer *tok,
                          const uint32_t *tokens,
@@ -611,16 +598,12 @@ size_t llg_decode_tokens(const struct LlgTokenizer *tok,
  *
  * Must **not** be called while there are still constraints using it.
  *
- * # Safety
- * This function should only be called from C code.
  */
 void llg_free_tokenizer(struct LlgTokenizer *tok);
 
 /**
  * Free the constraint.
  *
- * # Safety
- * This function should only be called from C code.
  */
 void llg_free_constraint(struct LlgConstraint *cc);
 
@@ -635,8 +618,6 @@ const char *llg_flush_logs(struct LlgConstraint *cc);
 /**
  * Create a new stop-sequence controller.
  *
- * # Safety
- * This function should only be called from C code.
  */
 struct LlgStopController *llg_new_stop_controller(const struct LlgTokenizer *tokenizer,
                                                   const uint32_t *stop_tokens,
@@ -669,8 +650,6 @@ struct LlgStopController *llg_clone_stop_controller(const struct LlgStopControll
 /**
  * Free the stop-sequence controller.
  *
- * # Safety
- * This function should only be called from C code.
  */
 void llg_free_stop_controller(struct LlgStopController *stop_ctrl);
 
@@ -696,8 +675,6 @@ void llg_free_stop_controller(struct LlgStopController *stop_ctrl);
  * - `"llguidance"` or `"guidance"` — data is a list of Lark or JSON schemas
  *   in JSON format
  *
- * # Safety
- * This function should only be called from C code.
  */
 struct LlgMatcher *llg_new_matcher(const struct LlgConstraintInit *init,
                                    const char *constraint_type,
@@ -711,8 +688,6 @@ struct LlgMatcher *llg_new_matcher(const struct LlgConstraintInit *init,
  * −1 on error, and 1 on warning. The error message or warning is written to
  * `message`, which is `message_len` bytes long. It is always NUL-terminated.
  *
- * # Safety
- * This function should only be called from C code.
  */
 int32_t llg_validate_grammar(const struct LlgConstraintInit *init,
                              const char *constraint_type,
@@ -727,8 +702,6 @@ int32_t llg_validate_grammar(const struct LlgConstraintInit *init,
  * `mask_byte_len` must equal the value returned by
  * [`llg_matcher_get_mask_byte_size()`]. Returns 0 on success and −1 on error.
  *
- * # Safety
- * This function should only be called from C code.
  */
 int32_t llg_matcher_compute_mask_into(struct LlgMatcher *matcher,
                                       uint32_t *mask_dest,
@@ -765,8 +738,6 @@ int32_t llg_matcher_consume_token(struct LlgMatcher *matcher, uint32_t token);
  *
  * Returns 0 on success and −1 on error.
  *
- * # Safety
- * This function should only be called from C code.
  */
 int32_t llg_matcher_consume_tokens(struct LlgMatcher *matcher,
                                    const uint32_t *tokens,
@@ -779,8 +750,6 @@ int32_t llg_matcher_consume_tokens(struct LlgMatcher *matcher,
  * until the matcher is freed with [`llg_free_matcher()`] (at which point the
  * pointer becomes invalid).
  *
- * # Safety
- * This function should only be called from C code.
  */
 const char *llg_matcher_get_error(struct LlgMatcher *matcher);
 
@@ -792,8 +761,6 @@ bool llg_matcher_is_error(struct LlgMatcher *matcher);
 /**
  * Free the matcher.
  *
- * # Safety
- * This function should only be called from C code.
  */
 void llg_free_matcher(struct LlgMatcher *matcher);
 
@@ -829,8 +796,6 @@ bool llg_matcher_is_stopped(const struct LlgMatcher *matcher);
  *
  * Returns the number of tokens that can be consumed, or −1 on error.
  *
- * # Safety
- * This function should only be called from C code.
  */
 int32_t llg_matcher_validate_tokens(struct LlgMatcher *matcher,
                                     const uint32_t *tokens,
@@ -842,8 +807,6 @@ int32_t llg_matcher_validate_tokens(struct LlgMatcher *matcher,
  * The result is written to `output`. Returns the number of tokens written
  * (which can be 0) or −1 on error.
  *
- * # Safety
- * This function should only be called from C code.
  */
 int32_t llg_matcher_compute_ff_tokens(struct LlgMatcher *matcher,
                                       uint32_t *output,
