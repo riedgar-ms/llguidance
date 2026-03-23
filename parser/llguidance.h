@@ -1,3 +1,5 @@
+/* See src/ffi.rs for full API documentation. */
+
 #ifndef LLGUIDANCE_H
 #define LLGUIDANCE_H
 
