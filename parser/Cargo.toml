@@ -46,7 +46,6 @@ generate-header = ["dep:cbindgen"]
 [dev-dependencies]
 criterion = "0.8.1"
 regex = "1.11.1"
-llg_test_utils = { workspace = true }
 toktrie_hf_downloader = { workspace = true }
 rstest = "0.25.0"
 serde-json-fmt = "0.1.0"

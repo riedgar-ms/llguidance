@@ -8,6 +8,9 @@ use llguidance::{
 use serde_json::{json, Value};
 use std::sync::Arc;
 
+#[allow(dead_code)]
+mod llg_test_utils;
+
 lazy_static! {
     static ref PARSER_FACTORY_PHI: ParserFactory = {
         let env = llg_test_utils::get_tok_env();

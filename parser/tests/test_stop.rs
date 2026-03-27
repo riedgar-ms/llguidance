@@ -1,4 +1,6 @@
 use llguidance::{toktrie::TokenId, StopController};
+#[allow(dead_code)]
+mod llg_test_utils;
 use llg_test_utils::*;
 
 fn check_stop(s: &str, exp_ss: &[&str], stop_rx: &str) {

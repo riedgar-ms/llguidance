@@ -1,6 +1,6 @@
 /// Test utilities for llguidance grammar testing.
 ///
-/// This crate provides shared test infrastructure used by integration tests
+/// This module provides shared test infrastructure used by integration tests
 /// in the `parser` crate. It is **not** intended as an example of how to use
 /// llguidance in production. For that, see the `sample_parser` crate.
 ///

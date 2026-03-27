@@ -1,6 +1,8 @@
 use llguidance::{earley::XorShift, substring::chunk_into_words};
 use serde_json::json;
 
+#[allow(dead_code)]
+mod llg_test_utils;
 use llg_test_utils::*;
 
 #[test]
