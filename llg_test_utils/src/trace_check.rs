@@ -16,7 +16,7 @@ use llguidance::{
 };
 use serde_json::Value;
 
-use super::PARSER_FACTORY;
+use crate::PARSER_FACTORY;
 
 // ── Core trace engine ────────────────────────────────────────────────────────
 

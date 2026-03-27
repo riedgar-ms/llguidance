@@ -4,8 +4,6 @@
 // backtrack: 1↶ (one token)
 // end of string: ≺EOS≻
 
-#[allow(dead_code)]
-mod llg_test_utils;
 use llg_test_utils::*;
 use serde_json::json;
 

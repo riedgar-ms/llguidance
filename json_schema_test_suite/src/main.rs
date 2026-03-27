@@ -22,7 +22,7 @@ use llguidance::{
     api::{GrammarInit, TopLevelGrammar},
     TokenParser,
 };
-use sample_parser::{get_parser_factory, get_tok_env};
+use llg_test_utils::{get_parser_factory, get_tok_env};
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::BTreeMap;

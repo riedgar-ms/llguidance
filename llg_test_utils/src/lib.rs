@@ -1,10 +1,11 @@
 /// Test utilities for llguidance grammar testing.
 ///
-/// This module provides shared test infrastructure used by integration tests
-/// in the `parser` crate. It is **not** intended as an example of how to use
-/// llguidance in production. For that, see the `sample_parser` crate.
+/// This crate provides shared test infrastructure used by integration tests
+/// in the `parser` crate and by the `json_schema_test_suite` binary. It is
+/// **not** intended as an example of how to use llguidance in production.
+/// For that, see the `sample_parser` crate.
 ///
-/// The module is split into two submodules by testing strategy:
+/// The crate is split into two submodules by testing strategy:
 ///
 /// - [`trace_check`]: **Trace-replay testing** – given a grammar and a recorded
 ///   sequence of forced / generated tokens, step the parser forward one cycle at
@@ -17,7 +18,7 @@
 ///   point.  Entry points: [`lark_str_test`], [`json_schema_check`],
 ///   [`json_test_many`], [`lark_ok`], [`lark_err_test`].
 ///
-/// Shared state lives here in `mod.rs`:
+/// Shared state lives here in `lib.rs`:
 /// - [`PARSER_FACTORY`]: A [`ParserFactory`] with the Phi-3.5-mini-instruct
 ///   tokenizer, configured for testing (ff_tokens + backtrack enabled, verbose
 ///   logging).

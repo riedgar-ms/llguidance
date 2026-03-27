@@ -13,8 +13,6 @@ use llguidance::{
     toktrie::{InferenceCapabilities, SimpleVob},
     Matcher, ParserFactory,
 };
-#[allow(dead_code)]
-mod llg_test_utils;
 use llg_test_utils::get_tok_env;
 
 lazy_static! {

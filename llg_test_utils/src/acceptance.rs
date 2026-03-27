@@ -15,7 +15,7 @@ use llguidance::{
 };
 use serde_json::Value;
 
-use super::{get_parser_factory, get_tok_env};
+use crate::{get_parser_factory, get_tok_env};
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

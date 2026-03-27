@@ -1,8 +1,6 @@
 use rstest::*;
 use serde_json::{json, Value};
 
-#[allow(dead_code)]
-mod llg_test_utils;
 use llg_test_utils::{json_err_test, json_schema_check, NumericBounds};
 
 #[test]
