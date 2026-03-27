@@ -718,7 +718,7 @@ fn test_nested_lark() {
 
 #[test]
 fn test_large_real_substring() {
-    let data = include_str!("../../sample_parser/data/ulysses.md");
+    let data = include_str!("data/ulysses.md");
     // 240k is the limit for 1M fuel
     let data = data[..200_000].to_string();
     let grm = format!(

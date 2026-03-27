@@ -141,7 +141,6 @@ Lark grammars allow arbitrary context-free grammars.
 | `rfc.lark` | A Lark grammar describing a subset of RFC/XML syntax |
 | `rfc.xml` | An XML document conforming to the Lark grammar |
 | `lark.lark` | A Lark grammar that parses the Lark grammar format itself |
-| `ulysses.md` | A Markdown text file (for `.txt` regex mode testing) |
 | `from-llama.cpp/` | Grammar files ported from llama.cpp's GBNF format |
 
 ## Key API types
@@ -156,14 +155,13 @@ Lark grammars allow arbitrary context-free grammars.
 
 ## Tests
 
-The `tests/` directory contains integration tests that verify llguidance's JSON
-Schema support, including arrays, objects, primitives, enums/const, string
-formats, schema combinations (`anyOf`, `oneOf`, `allOf`), and `x-guidance`
-extensions. These use the test utilities from `src/lib.rs` and serve as both a
-regression suite and a reference for expected grammar behavior. Run them with:
+Integration tests for llguidance's JSON Schema support, Lark grammars, and
+other parser features live in [`parser/tests/`](../parser/tests/), using shared
+test utilities from the [`llg_test_utils`](../llg_test_utils/) crate. Run them
+with:
 
 ```bash
-cargo test -p sample_parser
+cargo test -p llguidance
 ```
 
 ## Further reading
