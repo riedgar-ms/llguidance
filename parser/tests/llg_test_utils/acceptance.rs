@@ -147,6 +147,17 @@ pub fn lark_str_test_many_ext(quiet: bool, lark: &str, passing: &[&str], failing
 /// convention.  Instead it serialises `json_obj`, feeds the tokens, and
 /// compares the parser's final `is_accepting()` state to `expect_valid`.
 pub fn json_schema_check(schema: &Value, json_obj: &Value, expect_valid: bool) {
+    /*
+       This is a modification of the lark_str_test function, which makes the
+       assumption that the input Value completely satifies the schema.
+
+       The subtlety is that a string of tokens might not match a grammar _yet_
+       but could with the addition of more tokens. For example, if we're trying
+       to construct an integer which is greater than 2, then the string "1"
+       is not yet a match, but it could become one if we add more tokens.
+       lark_str_test uses the magic 'FINAL_REJECT:' rule to handle this,
+       but we can write something a little simpler here.
+    */
     let lark_grammar = format!(r#"start: %json {}"#, serde_json::to_string(schema).unwrap());
     let json_string = serde_json::to_string(json_obj).unwrap();
 
@@ -169,6 +180,12 @@ pub fn json_schema_check(schema: &Value, json_obj: &Value, expect_valid: bool) {
         }
     }
 
+    /*
+    Note that p.is_accepting() will be true if the parser has reached a valid end state.
+    It does not mean that we couldn't add more tokens and remain valid.
+    For example, if we have a schema for any integer, then we can always add more digits
+    to a valid integer string.
+     */
     assert_eq!(p.is_accepting(), expect_valid, "Final state mismatch");
 }
 
