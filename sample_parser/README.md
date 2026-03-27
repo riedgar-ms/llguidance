@@ -153,17 +153,6 @@ Lark grammars allow arbitrary context-free grammars.
 | `Constraint` | Higher-level API (used by the [Guidance](https://github.com/guidance-ai/guidance) Python library) |
 | `SimpleVob` | Token mask — bitset of allowed token IDs |
 
-## Tests
-
-Integration tests for llguidance's JSON Schema support, Lark grammars, and
-other parser features live in [`parser/tests/`](../parser/tests/), using shared
-test utilities from the [`llg_test_utils`](../llg_test_utils/) crate. Run them
-with:
-
-```bash
-cargo test -p llguidance
-```
-
 ## Further reading
 
 - [parser/README.md](../parser/README.md) — API overview and integration guide
