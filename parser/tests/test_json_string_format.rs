@@ -18,7 +18,7 @@
 
 use rstest::*;
 use serde_json::json;
-
+
 use llg_test_utils::json_schema_check;
 
 #[rstest]
