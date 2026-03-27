@@ -2,8 +2,7 @@
 ///
 /// This crate provides shared test infrastructure used by integration tests
 /// in the `parser` crate. It is **not** intended as an example of how to use
-/// llguidance in production. For that, see `sample_parser/src/minimal.rs`
-/// and `sample_parser/src/sample_parser.rs`.
+/// llguidance in production. For that, see the `sample_parser` crate.
 ///
 /// Key components:
 /// - [`PARSER_FACTORY`]: A shared [`ParserFactory`] with the Phi-3.5-mini-instruct
@@ -24,7 +23,7 @@ use llguidance::{
 };
 use serde_json::Value;
 
-// ── Trace-based grammar checking (from sample_parser/src/lib.rs) ─────────────
+// ── Trace-based grammar checking ─────────────────────────────────────────────
 
 /// Check that the grammar generates the expected output.
 ///
@@ -463,7 +462,7 @@ pub fn print_tokenized(s: &str) {
     println!("{:?}", trie.test_trace_tokens(&tokens));
 }
 
-// ── String / schema validation helpers (from common_lark_utils) ──────────────
+// ── String / schema validation helpers ───────────────────────────────────────
 
 #[derive(Debug)]
 pub enum NumericBounds {
