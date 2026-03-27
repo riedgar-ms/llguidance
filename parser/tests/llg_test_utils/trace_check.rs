@@ -12,7 +12,7 @@ use llguidance::{
     api::{GrammarWithLexer, StopReason, TopLevelGrammar},
     earley::XorShift,
     toktrie::{TokEnv, TokenId},
-    Constraint,
+    Constraint, ParserFactory,
 };
 use serde_json::Value;
 
@@ -32,7 +32,7 @@ use super::PARSER_FACTORY;
 /// These tests are "recorded" by passing "test_trace": true in the llguidance
 /// request and post-processing.
 fn check_grammar(
-    factory: &llguidance::ParserFactory,
+    factory: &ParserFactory,
     prompt_str: &str,
     grammar: TopLevelGrammar,
     output: &[&str],
