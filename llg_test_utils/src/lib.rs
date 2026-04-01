@@ -31,10 +31,12 @@ use llguidance::{
 };
 
 mod acceptance;
+pub mod rng_utils;
 mod trace_check;
 
 #[allow(unused_imports)]
 pub use acceptance::*;
+pub use rng_utils::*;
 #[allow(unused_imports)]
 pub use trace_check::*;
 
