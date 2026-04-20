@@ -4,7 +4,14 @@ All notable changes to this project will be documented in this file. Dates are d
 
 If a release doesn't introduce any interesting changes (build fixes etc.), it's skipped.
 
-#### [v1.7.0](https://github.com/guidance-ai/llguidance/compare/v1.6.1...v1.7.0) 2026-03-18
+#### [v1.7.3](https://github.com/guidance-ai/llguidance/compare/v1.7.0...v1.7.3) 2026-04-20
+
+- Fix big endianess issue [`#335`](https://github.com/guidance-ai/llguidance/pull/335)
+  - Thanks [@R3hankhan123](https://github.com/R3hankhan123)!
+  - Thanks [@nathanrchn](https://github.com/nathanrchn)!
+
+
+#### [v1.7.0](https://github.com/guidance-ai/llguidance/compare/v1.6.0...v1.7.0) 2026-03-18
 
 - Add support for multiple EOS tokens [`#305`](https://github.com/guidance-ai/llguidance/pull/305)
 - Improve high level docs [`#308`](https://github.com/guidance-ai/llguidance/pull/308)
