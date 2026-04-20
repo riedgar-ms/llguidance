@@ -8,6 +8,7 @@ If a release doesn't introduce any interesting changes (build fixes etc.), it's 
 
 - Fix big endianess issue [`#335`](https://github.com/guidance-ai/llguidance/pull/335)
   - Thanks [@R3hankhan123](https://github.com/R3hankhan123)!
+- Fix decoder type detection for Sequence containing ByteLevel [`#325`](https://github.com/guidance-ai/llguidance/pull/325)
   - Thanks [@nathanrchn](https://github.com/nathanrchn)!
 
 
