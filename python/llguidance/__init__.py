@@ -8,10 +8,15 @@ from ._lib import (
     LLMatcher,
     LLParserLimits,
     regex_to_lark,
+    get_version,
 )
 from ._tokenizer import TokenizerWrapper
 from ._grammar_from import GrammarFormat, grammar_from
 from ._struct_tag import StructTag
+
+from importlib.metadata import version as _pkg_version
+
+__version__ = _pkg_version("llguidance")
 
 __all__ = [
     "LLTokenizer",
@@ -27,4 +32,6 @@ __all__ = [
     "GrammarFormat",
     "StructTag",
     "regex_to_lark",
+    "get_version",
+    "__version__",
 ]
